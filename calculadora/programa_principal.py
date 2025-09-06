@@ -1,9 +1,9 @@
 
 
-from suma import add
-from resta import subtract
-from multiplicacion import multiply
-from division import divide
+from calculadora.suma import add
+from calculadora.resta import subtract
+from calculadora.multiplicacion import multiply
+from calculadora.division import divide
 
 def main():
     print("=== Calculadora en Python ===")
