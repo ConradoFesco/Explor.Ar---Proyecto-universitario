@@ -1,11 +1,12 @@
 from flask import Flask
+from flask import render_template
 
-# Crea una instancia de la aplicación Flask
+
 def create_app(env="development", static_folder=""):
-    app = Flask(__name__, static_folder=static_folder)
+    app = Flask(__name__)
 
-# Define la ruta (URL) y la función que se ejecutará
     @app.route("/")
     def home():
-        return "¡Hola mundo!"
+        return render_template('home.html')
+    
     return app
