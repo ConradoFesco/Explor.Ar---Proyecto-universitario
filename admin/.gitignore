@@ -29,6 +29,7 @@ pip-delete-this-directory.txt
 # Configuración de IDEs
 .vscode/
 .idea/
+.cursor/
 *.swp
 
 # Archivos de sistema
