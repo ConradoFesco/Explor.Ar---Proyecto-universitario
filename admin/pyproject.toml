@@ -8,6 +8,10 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 flask = "^3.1.2"
+flask-sqlalchemy = "^3.1.1"
+psycopg2-binary = "^2.9.10"
+flask-migrate = "^4.1.0"
+python-dotenv = "^1.1.1"
 
 
 [tool.poetry.group.test.dependencies]
