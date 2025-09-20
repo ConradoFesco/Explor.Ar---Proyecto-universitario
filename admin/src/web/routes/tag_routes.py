@@ -1,30 +1,34 @@
 # routes/tag_routes.py
 
 from flask import Blueprint, request, jsonify
-from app.services import tag_service
+from src.web.services.tag_service import tag_service
+from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 
-tag_bp = Blueprint('tag_bp', __name__, url_prefix='/api/tags')
+tag_api = Blueprint('tag_api', __name__, url_prefix='/api')
 
-@tag_bp.route('/', methods=['POST'])
-def create_new_tag(): //crear nuevo tag
+@tag_api.route('/tag_routes', methods=['POST'])
+def create_new_tag():
     """Endpoint para crear un nuevo tag."""
     data = request.json
-    tag, error = tag_service.create_tag(data)
-    if error:
-        return jsonify({'error': error}), 400
+    try:
+        tag = tag_service.create_tag(data)
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({'error': str(e)}), 409
     return jsonify(tag), 201
 
-@tag_bp.route('/', methods=['GET'])
-def get_all_tags_route(): //obtener todos los tags
+@tag_api.route('/tag_routes', methods=['GET'])
+def get_all_tags_route(): 
     """Endpoint para obtener todos los tags.
     Acepta un parámetro de query para incluir tags eliminados.
     Ej: /api/tags?include_deleted=true"""
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
-    tags = tag_service.get_all_tags(include_deleted)
+    tags = tag_service.get_all_tags(include_deleted=include_deleted)
     return jsonify(tags), 200
 
-@tag_bp.route('/<string:tag_id_or_slug>', methods=['GET'])
-def get_tag_by_id_or_slug_route(tag_id_or_slug): //obtener un tag por ID o slug
+@tag_api.route('/tag_routes/<string:tag_id_or_slug>', methods=['GET'])
+def get_tag_by_id_or_slug_route(tag_id_or_slug): 
     """Endpoint para obtener un tag por ID o slug."""
     try:
         # Intenta obtener el tag por ID
@@ -33,24 +37,29 @@ def get_tag_by_id_or_slug_route(tag_id_or_slug): //obtener un tag por ID o slug
     except ValueError:
         # Si no es un entero, intenta obtenerlo por slug
         tag = tag_service.get_tag_by_slug(tag_id_or_slug)
-
-    if not tag:
-        return jsonify({'error': 'Tag no encontrado.'}), 404
+    except NotFoundError as e:
+        return jsonify({'error': str(e)}), 404
     return jsonify(tag), 200
 
-@tag_bp.route('/<int:tag_id>', methods=['PUT'])
-def update_tag_route(tag_id): //actualizar un tag
+@tag_api.route('/tag_routes/<int:tag_id>', methods=['PUT'])
+def update_tag_route(tag_id): 
     """Endpoint para actualizar un tag."""
     data = request.json
-    updated_tag, error = tag_service.update_tag(tag_id, data)
-    if error:
-        return jsonify({'error': error}), 400
+    try:
+        updated_tag = tag_service.update_tag(tag_id, data)
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({'error': str(e)}), 409
     return jsonify(updated_tag), 200
 
-@tag_bp.route('/<int:tag_id>', methods=['DELETE'])
-def delete_tag_route(tag_id): //eliminar un tag
+@tag_api.route('/tag_routes/<int:tag_id>', methods=['DELETE'])
+def delete_tag_route(tag_id): 
     """Endpoint para "eliminar" (soft delete) un tag."""
-    success, error = tag_service.delete_tag(tag_id)
-    if error:
-        return jsonify({'error': error}), 404
+    try:
+        success = tag_service.delete_tag(tag_id)
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({'error': str(e)}), 409
     return jsonify({'message': 'Tag eliminado exitosamente.'}), 200

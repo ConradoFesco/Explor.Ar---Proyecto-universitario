@@ -36,7 +36,10 @@ def create_app(env="development", static_folder="../../static"):
 
     # Importar modelos para que estén disponibles para Flask-Migrate
     from . import models
-    app.register_blueprint(tag_bp)
+
+    # Importar rutas para que estén disponibles para Flask
+    from .routes.tag_routes import tag_api
+    app.register_blueprint(tag_api,url_prefix='/api')
     
     # --- FIN DE LA CONFIGURACIÓN ---
     return app
