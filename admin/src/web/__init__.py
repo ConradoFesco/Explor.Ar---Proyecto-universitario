@@ -29,6 +29,11 @@ def create_app(env="development", static_folder="../../static"):
     def home():
         return render_template('home.html')
     
+    # --- RUTA PARA LISTA DE SITIOS ---
+    @app.route("/sitios")
+    def lista_sitios():
+        return render_template('lista_sitios.html')
+    
     # --- REGISTRO DE MANEJADORES DE ERRORES ---
     app.register_error_handler(404, error.not_found)
     app.register_error_handler(401, error.unauthorized)
@@ -38,13 +43,11 @@ def create_app(env="development", static_folder="../../static"):
     from . import models
 
     # Importar rutas para que estén disponibles para Flask
-    admin/src/web/__init__.py
     from .routes.tag_routes import tag_api
     app.register_blueprint(tag_api,url_prefix='/api')
 
     from .routes.HistoricSite_Routes import site_api
     app.register_blueprint(site_api, url_prefix='/api')
     
-    admin/src/web/__init__.py
     # --- FIN DE LA CONFIGURACIÓN ---
     return app

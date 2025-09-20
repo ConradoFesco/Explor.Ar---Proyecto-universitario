@@ -1,0 +1,56 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Listado de Sitios Históricos</h2>
+        
+        <div id="loading-message" class="text-center text-gray-500">Cargando sitios...</div>
+        <ul id="sites-list" class="divide-y divide-gray-200 hidden"></ul>
+        <div id="no-sites-message" class="text-center text-gray-500 hidden">No hay sitios históricos para mostrar.</div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const sitesList = document.getElementById('sites-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const noSitesMessage = document.getElementById('no-sites-message');
+        // URL de tu endpoint de la API
+        const API_URL = '{{ url_for("site_api.get_all_historic_sites") }}';
+        fetch(API_URL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadingMessage.classList.add('hidden'); // Oculta el mensaje de carga
+                if (data.length === 0) {
+                    noSitesMessage.classList.remove('hidden'); // Muestra el mensaje de "no hay sitios"
+                    return;
+                }
+                sitesList.classList.remove('hidden'); // Muestra la lista de sitios
+                data.forEach(site => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'py-4 flex justify-between items-center';
+                    listItem.innerHTML = `
+                        <span class="text-lg font-medium text-gray-700">${site.name}</span>
+                        <span class="text-sm text-gray-500">${site.brief_description}</span>
+                    `;
+                    sitesList.appendChild(listItem);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                loadingMessage.textContent = 'Error al cargar los datos.';
+                loadingMessage.classList.remove('hidden');
+                sitesList.classList.add('hidden');
+            });
+    });
+</script>
+{% endblock %}
