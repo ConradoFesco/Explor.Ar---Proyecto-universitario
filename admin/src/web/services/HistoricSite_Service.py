@@ -51,12 +51,12 @@ class HistoricSite_Service:
         return site
     
     def get_all_historic_sites(self, include_deleted=False): 
-        """Obtiene todos los sitios históricos."""
-        query = HistoricSite.query
+        """Obtiene todos los sitios históricos con solo id, name y brief_description."""
+        query = HistoricSite.query.with_entities(HistoricSite.id, HistoricSite.name, HistoricSite.brief_description)
         if not include_deleted:
             query = query.filter_by(deleted=False)
         sites = query.all()
-        return [site.to_dict() for site in sites]
+        return [{'id': site.id, 'name': site.name, 'brief_description': site.brief_description} for site in sites]
 
     def update_historic_site(self, id, data):
         historic_site = HistoricSite.query.get(id)

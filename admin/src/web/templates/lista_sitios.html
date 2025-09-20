@@ -4,22 +4,19 @@
 <div class="max-w-6xl mx-auto">
     <div class="bg-white rounded-xl shadow-lg p-8">
         <h2 class="text-2xl font-bold text-gray-800 mb-4">Listado de Sitios Históricos</h2>
-        
         <div id="loading-message" class="text-center text-gray-500">Cargando sitios...</div>
         <ul id="sites-list" class="divide-y divide-gray-200 hidden"></ul>
         <div id="no-sites-message" class="text-center text-gray-500 hidden">No hay sitios históricos para mostrar.</div>
-
     </div>
 </div>
 {% endblock %}
 
-{% block head %}
-<script>
+{% block scripts %}
+{{ super() }} <script>
     document.addEventListener('DOMContentLoaded', () => {
         const sitesList = document.getElementById('sites-list');
         const loadingMessage = document.getElementById('loading-message');
         const noSitesMessage = document.getElementById('no-sites-message');
-        // URL de tu endpoint de la API
         const API_URL = '{{ url_for("site_api.get_all_historic_sites") }}';
         fetch(API_URL)
             .then(response => {
@@ -29,18 +26,24 @@
                 return response.json();
             })
             .then(data => {
-                loadingMessage.classList.add('hidden'); // Oculta el mensaje de carga
+                loadingMessage.classList.add('hidden');
                 if (data.length === 0) {
-                    noSitesMessage.classList.remove('hidden'); // Muestra el mensaje de "no hay sitios"
+                    noSitesMessage.classList.remove('hidden');
                     return;
                 }
-                sitesList.classList.remove('hidden'); // Muestra la lista de sitios
+                sitesList.classList.remove('hidden');
                 data.forEach(site => {
                     const listItem = document.createElement('li');
                     listItem.className = 'py-4 flex justify-between items-center';
                     listItem.innerHTML = `
-                        <span class="text-lg font-medium text-gray-700">${site.name}</span>
-                        <span class="text-sm text-gray-500">${site.brief_description}</span>
+                        <div class="flex-1">
+                            <span class="text-lg font-medium text-gray-700">${site.name}</span>
+                            <p class="text-sm text-gray-500 mt-1">${site.brief_description}</p>
+                        </div>
+                        <button onclick="viewSiteDetail(${site.id})" 
+                                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                            Ver Detalle
+                        </button>
                     `;
                     sitesList.appendChild(listItem);
                 });
@@ -52,5 +55,72 @@
                 sitesList.classList.add('hidden');
             });
     });
+
+    // Función específica para sitios históricos
+    function viewSiteDetail(siteId) {
+        const url = `{{ url_for("site_api.get_historic_site", id=0) }}`.replace('0', siteId);
+        const title = 'Detalle del Sitio Histórico';
+        // Usar la función genérica del layout
+        loadModalContent(url, title, renderSiteDetail);
+    }
+
+    // Función específica para renderizar detalles de sitios históricos
+    function renderSiteDetail(site) {
+        return `
+            <div class="space-y-6">
+                <!-- Información principal -->
+                <div class="border-b pb-4">
+                    <h4 class="text-xl font-bold text-gray-800 mb-2">${site.name}</h4>
+                    <p class="text-gray-600 leading-relaxed">${site.brief_description}</p>
+                </div>
+                
+                <!-- Descripción completa -->
+                ${site.complete_description ? `
+                    <div>
+                        <h5 class="font-semibold text-gray-700 mb-2">Descripción completa</h5>
+                        <p class="text-gray-600 leading-relaxed">${site.complete_description}</p>
+                    </div>
+                ` : ''}
+                
+                <!-- Información geográfica -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <h6 class="font-medium text-gray-700 mb-1">Coordenadas</h6>
+                        <p class="text-sm text-gray-600">Lat: ${site.latitude}</p>
+                        <p class="text-sm text-gray-600">Lng: ${site.longitude}</p>
+                    </div>
+                    
+                    ${site.year_inauguration ? `
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <h6 class="font-medium text-gray-700 mb-1">Año de inauguración</h6>
+                            <p class="text-sm text-gray-600">${site.year_inauguration}</p>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <!-- Información de relaciones -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    ${site.id_ciudad ? `
+                        <div class="text-center p-2 bg-blue-50 rounded">
+                            <span class="font-medium text-blue-700">Ciudad ID</span>
+                            <p class="text-blue-600">${site.id_ciudad}</p>
+                        </div>
+                    ` : ''}
+                    ${site.id_estado ? `
+                        <div class="text-center p-2 bg-green-50 rounded">
+                            <span class="font-medium text-green-700">Estado ID</span>
+                            <p class="text-green-600">${site.id_estado}</p>
+                        </div>
+                    ` : ''}
+                    ${site.id_category ? `
+                        <div class="text-center p-2 bg-purple-50 rounded">
+                            <span class="font-medium text-purple-700">Categoría ID</span>
+                            <p class="text-purple-600">${site.id_category}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
 </script>
 {% endblock %}
