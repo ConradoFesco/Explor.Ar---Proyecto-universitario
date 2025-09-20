@@ -37,5 +37,10 @@ def create_app(env="development", static_folder="../../static"):
     # Importar modelos para que estén disponibles para Flask-Migrate
     from . import models
 
+    # Importar rutas para que estén disponibles para Flask
+    from .routes.HistoricSite_Routes import site_api
+    app.register_blueprint(site_api, url_prefix='/api')
+    
+
     # --- FIN DE LA CONFIGURACIÓN ---
     return app
