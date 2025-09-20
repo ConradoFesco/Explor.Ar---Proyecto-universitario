@@ -36,6 +36,17 @@ def get_historic_site(id):
         # si el servicio lanzó un error de validación, lo captura y lo devuelve
         return jsonify({'error': str(e)}), 404 # 404 = Not Found
 
+@site_api.route('/HistoricSite_Routes', methods=['GET'])
+def get_all_historic_sites():
+    include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
+    try:
+        sites = historic_site_service.get_all_historic_sites(include_deleted=include_deleted)
+        # si todo sale bien, devuelve el objeto y un código 200
+        return jsonify(sites), 200
+    except exc.NotFoundError as e:
+        # si el servicio lanzó un error de validación, lo captura y lo devuelve
+        return jsonify({'error': str(e)}), 404 # 404 = Not Found
+
     
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['PUT'])
 def update_historic_site(id):

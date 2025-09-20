@@ -49,6 +49,14 @@ class HistoricSite_Service:
             raise exc.NotFoundError("Sitio histórico no encontrado")
         # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site
+    
+    def get_all_historic_sites(self, include_deleted=False): 
+        """Obtiene todos los sitios históricos."""
+        query = HistoricSite.query
+        if not include_deleted:
+            query = query.filter_by(deleted=False)
+        sites = query.all()
+        return [site.to_dict() for site in sites]
 
     def update_historic_site(self, id, data):
         historic_site = HistoricSite.query.get(id)
