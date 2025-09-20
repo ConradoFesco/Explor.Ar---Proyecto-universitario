@@ -38,9 +38,13 @@ def create_app(env="development", static_folder="../../static"):
     from . import models
 
     # Importar rutas para que estén disponibles para Flask
+    admin/src/web/__init__.py
+    from .routes.tag_routes import tag_api
+    app.register_blueprint(tag_api,url_prefix='/api')
+
     from .routes.HistoricSite_Routes import site_api
     app.register_blueprint(site_api, url_prefix='/api')
     
-
+    admin/src/web/__init__.py
     # --- FIN DE LA CONFIGURACIÓN ---
     return app
