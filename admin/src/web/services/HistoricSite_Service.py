@@ -50,13 +50,31 @@ class HistoricSite_Service:
         # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site
     
-    def get_all_historic_sites(self, include_deleted=False): 
-        """Obtiene todos los sitios históricos con solo id, name y brief_description."""
+    def get_all_historic_sites(self, include_deleted=False, page=1, per_page=25): 
+        """Obtiene todos los sitios históricos con paginación."""
         query = HistoricSite.query.with_entities(HistoricSite.id, HistoricSite.name, HistoricSite.brief_description)
         if not include_deleted:
             query = query.filter_by(deleted=False)
-        sites = query.all()
-        return [{'id': site.id, 'name': site.name, 'brief_description': site.brief_description} for site in sites]
+        # Aplicar paginación
+        pagination = query.paginate(
+            page=page, 
+            per_page=per_page, 
+            error_out=False
+        )
+        sites = pagination.items
+        return {
+            'sites': [{'id': site.id, 'name': site.name, 'brief_description': site.brief_description} for site in sites],
+            'pagination': {
+                'page': pagination.page,
+                'pages': pagination.pages,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev,
+                'next_num': pagination.next_num,
+                'prev_num': pagination.prev_num
+            }
+        }
 
     def update_historic_site(self, id, data):
         historic_site = HistoricSite.query.get(id)
