@@ -1,11 +1,11 @@
-from flask import Flask
+from flask import Flask, request, session, redirect, url_for
 from flask import render_template
 from src.web.handlers import error
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 import os
-
+from werkzeug.security import check_password_hash
 load_dotenv()
 
 # Inicializar extensiones fuera de la función para que estén disponibles globalmente
@@ -24,11 +24,45 @@ def create_app(env="development", static_folder="../../static"):
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # --- URL PRINCIPAL ---
+     # Importamos los modelos DESPUÉS de inicializar db
+    with app.app_context():
+        from src.web.models import User
+    # --- URL PRINCIPAL ->redirige a login---
     @app.route("/")
-    def home():
-        return render_template('home.html')
+    def index():
+        return render_template('login.html')
     
+    # --- LOGIN ---
+    @app.route("/login", methods=['GET', 'POST'])
+    def login():
+        if request.method == 'POST':
+            mail = request.form['mail']
+            password = request.form['password']
+
+            # Buscar usuario por mail
+            user = User.query.filter_by(mail=mail).first()
+
+            if user and user.check_password(password):
+                session['usuario'] = user.mail   # o podrías guardar el id
+                return redirect(url_for('home'))
+            else:
+                return render_template('login.html', error="Mail o contraseña incorrectos")
+
+        return render_template('login.html')
+
+    # --- HOME (solo si hay sesión) ---
+    @app.route("/home")
+    def home():
+        if 'usuario' not in session:
+            return redirect(url_for('login'))
+        return render_template('home.html', usuario=session['usuario'])
+    
+    # --- LOGOUT ---
+    @app.route("/logout")
+    def logout():
+        session.pop('usuario', None)
+        return redirect(url_for('login'))
+
     # --- RUTA PARA LISTA DE SITIOS ---
     @app.route("/sitios")
     def lista_sitios():

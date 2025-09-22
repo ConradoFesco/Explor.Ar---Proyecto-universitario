@@ -1,5 +1,8 @@
-from .. import db
+
 from datetime import datetime
+from argon2 import PasswordHasher, exceptions
+from .. import db
+ph = PasswordHasher()
 
 class User(db.Model):
     __tablename__ = 'User'
@@ -32,3 +35,15 @@ class User(db.Model):
             'blocked': self.blocked,
             'deleted': self.deleted
         }
+    def set_password(self, raw_password: str):
+        """Hashea la contraseña en crudo y la guarda."""
+        self.password = ph.hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        """Verifica si la contraseña ingresada coincide con el hash guardado."""
+        try:
+            return ph.verify(self.password, raw_password)
+        except exceptions.VerifyMismatchError:
+            return False
+        except exceptions.InvalidHash:
+            return False
