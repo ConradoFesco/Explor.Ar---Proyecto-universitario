@@ -8,14 +8,21 @@ site_api = Blueprint('site_api', __name__)
 @site_api.route('/HistoricSite_Routes', methods=['POST'])
 def create_historic_site():
     # 1. El controlador recibe el JSON y lo convierte a diccionario
-    data = request.get_json()
+    json_content = request.get_json()
     # si no se reciben datos, devuelve un error 400
-    if not data:
+    if not json_content:
         return jsonify({'error': 'No se recibieron datos'}), 400
+    
+    data_site = json_content.get('data_site')
+    data_user = json_content.get('data_user')
+
+    if not data_site or not data_user:
+        return jsonify({'error': 'Faltan datos de sitio histórico o usuario'}), 400
+    
     # si se reciben datos, llama al servicio para que haga el trabajo pesado
     try:
         # 2. Llama al servicio para que haga el trabajo pesado
-        new_site = historic_site_service.create_historic_site(data)
+        new_site = historic_site_service.create_historic_site(data_site, data_user)
         # 3. Si todo sale bien, devuelve el nuevo objeto y un código 201 (Created)
         return jsonify(new_site.to_dict()), 201
     except exc.ValidationError as e:
@@ -50,10 +57,19 @@ def get_all_historic_sites():
     
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['PUT'])
 def update_historic_site(id):
-    data = request.get_json()
+    json_content = request.get_json()
+    if not json_content:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+    
+    data_site = json_content.get('data_site')
+    data_user = json_content.get('data_user')
+
+    if not data_site or not data_user:
+        return jsonify({'error': 'Faltan datos de sitio histórico o usuario'}), 400
+    
     try:
         # si todo sale bien, actualiza el sitio histórico
-        site = historic_site_service.update_historic_site(id, data)
+        site = historic_site_service.update_historic_site(id, data_site, data_user)
         return jsonify(site.to_dict()), 200
     except exc.NotFoundError as e:
         # si el servicio lanzó un error de validación, lo captura y lo devuelve
@@ -65,11 +81,17 @@ def update_historic_site(id):
 
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['DELETE'])
 def delete_historic_site(id):
-    print("Métodos disponibles en el objeto 'historic_site_service':")
-    print(dir(historic_site_service))
+    json_content = request.get_json()
+    if not json_content:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+    
+    data_user = json_content.get('data_user')
+    if not data_user:
+        return jsonify({'error': 'Faltan datos de usuario'}), 400
+    
     try:
         # 1. Llama al servicio para que haga el trabajo
-        historic_site_service.soft_delete_historic_site(id)
+        historic_site_service.soft_delete_historic_site(id, data_user)
         # 2. Si todo sale bien, devuelve un mensaje de éxito y un código 200 (OK)
         return jsonify({'message': f'El sitio histórico con id {id} ha sido eliminado.'}), 200
     except exc.NotFoundError as e:
