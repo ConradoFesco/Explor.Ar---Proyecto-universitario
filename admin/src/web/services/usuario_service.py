@@ -26,7 +26,6 @@ class UserService:
         created_at = datetime.now()
 
         user = User(
-            username=username,
             email=email,
             first_name=data['first_name'],
             password=password,

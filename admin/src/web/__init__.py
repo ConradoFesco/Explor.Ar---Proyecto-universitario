@@ -42,6 +42,13 @@ def create_app(env="development", static_folder="../../static"):
     def lista_sitios():
         return render_template('lista_sitios.html')
     
+    # --- RUTA PARA USUARIOS ---
+    @app.route("/users")
+    def list_users():
+        from .models.user import User
+        users = User.query.all()
+        return render_template('users/list_users.html', users=users)
+
     # --- REGISTRO DE MANEJADORES DE ERRORES ---
     app.register_error_handler(404, error.not_found)
     app.register_error_handler(401, error.unauthorized)
