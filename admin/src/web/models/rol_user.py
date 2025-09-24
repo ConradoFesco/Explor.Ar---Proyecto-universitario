@@ -1,4 +1,4 @@
-from .. import db
+from ..extensions import db
 
 class RolUser(db.Model):
     __tablename__ = 'Rol_User'

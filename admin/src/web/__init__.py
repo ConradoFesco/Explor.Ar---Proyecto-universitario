@@ -7,81 +7,62 @@ from dotenv import load_dotenv
 import os
 from werkzeug.security import check_password_hash
 load_dotenv()
+from .routes.login_routes import login_bp
+from .extensions import db, migrate
 
-# Inicializar extensiones fuera de la función para que estén disponibles globalmente
-db = SQLAlchemy()
-migrate = Migrate()
 
 def create_app(env="development", static_folder="../../static"):
     app = Flask(__name__, static_folder=static_folder)
-    
-    # --- CONFIGURACIÓN DE LA BASE DE DATOS ---
+
+    # --- Configuración ---
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
-    
-    # --- INICIALIZACIÓN DE EXTENSIONES ---
+
+    # --- Inicialización de extensiones ---
     db.init_app(app)
     migrate.init_app(app, db)
 
-     # Importamos los modelos DESPUÉS de inicializar db
+    # --- Importar modelos después de inicializar db ---
     with app.app_context():
-        from src.web.models import User
-    # --- URL PRINCIPAL ->redirige a login---
+        from .models.user import User
+        from .models.category_site import CategorySite
+
+    # --- Rutas HTML ---
     @app.route("/")
     def index():
-        return render_template('login.html')
-    
-    # --- LOGIN ---
-    @app.route("/login", methods=['GET', 'POST'])
-    def login():
-        if request.method == 'POST':
-            mail = request.form['mail']
-            password = request.form['password']
+        return render_template("login.html")
 
-            # Buscar usuario por mail
-            user = User.query.filter_by(mail=mail).first()
-
-            if user and user.check_password(password):
-                session['usuario'] = user.mail   # o podrías guardar el id
-                return redirect(url_for('home'))
-            else:
-                return render_template('login.html', error="Mail o contraseña incorrectos")
-
-        return render_template('login.html')
-
-    # --- HOME (solo si hay sesión) ---
     @app.route("/home")
     def home():
-        if 'usuario' not in session:
-            return redirect(url_for('login'))
-        return render_template('home.html', usuario=session['usuario'])
-    
-    # --- LOGOUT ---
+        if "user_id" not in session:
+            return redirect(url_for("index"))
+        user = User.query.get(session["user_id"])
+        return render_template("home.html", usuario=user.mail)
+
     @app.route("/logout")
     def logout():
-        session.pop('usuario', None)
-        return redirect(url_for('login'))
+        session.pop("user_id", None)
+        return redirect(url_for("index"))
 
-    # --- RUTA PARA LISTA DE SITIOS ---
     @app.route("/sitios")
     def lista_sitios():
-        return render_template('lista_sitios.html')
-    
-    # --- REGISTRO DE MANEJADORES DE ERRORES ---
+        return render_template("lista_sitios.html")
+
+    # --- Blueprints (JSON API) ---
+    from .routes.login_routes import login_bp
+    app.register_blueprint(login_bp, url_prefix="/api")
+
+    from .routes.tag_routes import tag_api
+    app.register_blueprint(tag_api, url_prefix="/api")
+
+    from .routes.HistoricSite_Routes import site_api
+    app.register_blueprint(site_api, url_prefix="/api")
+
+    # --- Manejo de errores ---
+    from src.web.handlers import error
     app.register_error_handler(404, error.not_found)
     app.register_error_handler(401, error.unauthorized)
     app.register_error_handler(500, error.internal_server_error)
 
-    # Importar modelos para que estén disponibles para Flask-Migrate
-    from . import models
-
-    # Importar rutas para que estén disponibles para Flask
-    from .routes.tag_routes import tag_api
-    app.register_blueprint(tag_api,url_prefix='/api')
-
-    from .routes.HistoricSite_Routes import site_api
-    app.register_blueprint(site_api, url_prefix='/api')
-    
-    # --- FIN DE LA CONFIGURACIÓN ---
     return app

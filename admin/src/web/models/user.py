@@ -1,7 +1,7 @@
 
 from datetime import datetime
 from argon2 import PasswordHasher, exceptions
-from .. import db
+from ..extensions import db
 ph = PasswordHasher()
 
 class User(db.Model):

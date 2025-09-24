@@ -1,4 +1,4 @@
-from .. import db
+from ..extensions import db
 
 class Permission(db.Model):
     __tablename__ = 'Permission'
