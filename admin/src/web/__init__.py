@@ -47,7 +47,7 @@ def create_app(env="development", static_folder="../../static"):
     def list_users():
         from .models.user import User
         users = User.query.all()
-        return render_template('users/list_users.html', users=users)
+        return render_template('list_users.html', users=users)
 
     # --- REGISTRO DE MANEJADORES DE ERRORES ---
     app.register_error_handler(404, error.not_found)
