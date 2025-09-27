@@ -1,4 +1,4 @@
-from .. import db
+from src.web.extensions import db
 
 class Province(db.Model):
     __tablename__ = 'Province'

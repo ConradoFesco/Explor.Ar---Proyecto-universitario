@@ -1,5 +1,5 @@
 from src.web.models.user import User
-from .. import db
+from ..extensions import db
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError

@@ -7,6 +7,7 @@ Este script demuestra cómo crear, consultar y relacionar datos usando los model
 import os
 from datetime import datetime
 from src.web import create_app, db
+from werkzeug.security import generate_password_hash
 from src.web.models import (
     User, CategorySite, Province, City, StateSite, 
     HistoricSite, Tag, Event, Permission, RolUser,
@@ -27,7 +28,9 @@ def create_sample_data(app):
     """Crear datos de ejemplo de forma segura (verificando si ya existen)"""
     with app.app_context():
         print("\n📝 Creando datos de ejemplo...")
-        
+        User.query.delete()
+        db.session.commit()
+        print("✅ Usuarios antiguos borrados")
         # 1. Crear categorías de sitios
         category_names = ['Monumento Histórico', 'Museo', 'Iglesia', 'Plaza', 'Edificio Gubernamental']
         created_categories = []
@@ -75,19 +78,23 @@ def create_sample_data(app):
         
         # 4. Crear usuarios
         users_to_create = [
-            {'mail': 'admin@historicos.com', 'first_name': 'Admin', 'last_name': 'Sistema', 'password_hash': 'admin123', 'active': True},
-            {'mail': 'editor@historicos.com', 'first_name': 'Editor', 'last_name': 'Contenido', 'password_hash': 'editor123', 'active': True}
+            {'mail': 'admin@historicos.com', 'first_name': 'Admin', 'last_name': 'Sistema', 'password': 'admin123', 'active': True},
+            {'mail': 'editor@historicos.com', 'first_name': 'Editor', 'last_name': 'Contenido', 'password': 'editor123', 'active': True}
         ]
-        created_users_count = 0
+
         for user_data in users_to_create:
             if not User.query.filter_by(mail=user_data['mail']).first():
-                new_user = User(**user_data)
+                new_user = User(
+                    mail=user_data['mail'],
+                    first_name=user_data['first_name'],
+                    last_name=user_data['last_name'],
+                    active=user_data['active']
+                )
+                new_user.set_password(user_data['password'])
                 db.session.add(new_user)
-                created_users_count += 1
-        if created_users_count > 0:
-            db.session.commit()
-        print(f"✅ Creados {created_users_count} usuarios nuevos.")
-
+        db.session.commit()
+        print("✅ Usuarios recreados correctamente con contraseña hasheada")       
+   
         # 5. Crear sitios históricos
         # Obtenemos los objetos necesarios para las relaciones
         caba_city = City.query.filter_by(name='La Plata').first() # Asumiendo La Plata como CABA para el ejemplo
