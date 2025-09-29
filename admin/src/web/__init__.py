@@ -5,17 +5,21 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 from flask_jwt_extended import JWTManager
-import os
-from werkzeug.security import check_password_hash
-load_dotenv()
-from .routes.login_routes import login_bp
+from werkzeug.security import generate_password_hash, check_password_hash
+from .routes.auth_routes import login_bp
 from .extensions import db, migrate, session_ext
 from flask_session import Session
+from flask_jwt_extended import JWTManager
+import os
+
+load_dotenv()
+
+
 jwt = JWTManager() 
 def create_app(env="development", static_folder="../../static"):
     app = Flask(__name__, static_folder=static_folder)
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///example.db"
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')
@@ -63,7 +67,7 @@ def create_app(env="development", static_folder="../../static"):
     def lista_sitios():
         return render_template("lista_sitios.html")
 
-    from .routes.login_routes import login_bp
+    from .routes.auth_routes import login_bp
     app.register_blueprint(login_bp, url_prefix="/api")
 
     from .routes.tag_routes import tag_api
@@ -87,7 +91,7 @@ def create_app(env="development", static_folder="../../static"):
     from . import models
 
     
-    from .routes.usuario_routes import user_api
+    from .routes.user_routes import user_api
     app.register_blueprint(user_api, url_prefix='/api/users')
 
     return app

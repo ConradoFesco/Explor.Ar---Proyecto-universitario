@@ -1,5 +1,5 @@
 # Importar todos los modelos para que estén disponibles
-from src.web.routes.usuario_routes import user_api
+from src.web.routes.user_routes import user_api
 from .user import User
 from .category_site import CategorySite
 from .province import Province

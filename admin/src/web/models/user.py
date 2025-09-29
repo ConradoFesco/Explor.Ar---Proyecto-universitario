@@ -1,9 +1,7 @@
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from argon2 import PasswordHasher, exceptions
 from src.web.extensions import db
-ph = PasswordHasher()
 from sqlalchemy.orm import relationship
 
 class User(db.Model):
@@ -11,11 +9,10 @@ class User(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     mail = db.Column(db.String, nullable=False, unique=True)
-    first_name = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password = db.Column(db.String, nullable=False)
     active = db.Column(db.Boolean, default=True)
-    role = db.Column(db.String(20), default='user')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     blocked = db.Column(db.Boolean, default=False)
     deleted = db.Column(db.Boolean, default=False)
@@ -31,10 +28,9 @@ class User(db.Model):
         return {
             'id': self.id,
             'mail': self.mail,
-            'first_name': self.first_name,
+            'name': self.name,
             'last_name': self.last_name,
             'active': self.active,
-            'rol': self.role,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'blocked': self.blocked,
             'deleted': self.deleted

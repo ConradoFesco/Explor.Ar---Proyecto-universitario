@@ -12,7 +12,6 @@ def create_historic_site():
     # si no se reciben datos, devuelve un error 400
     if not json_content:
         return jsonify({'error': 'No se recibieron datos'}), 400
-    
     data_site = json_content.get('data_site')
     data_user = json_content.get('data_user')
 
