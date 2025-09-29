@@ -1,7 +1,7 @@
 # services/tag_service.py
 
 from src.web.models.tag import Tag
-from .. import db
+from ..extensions import db
 from slugify import slugify
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError

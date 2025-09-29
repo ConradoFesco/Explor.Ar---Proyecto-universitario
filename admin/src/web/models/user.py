@@ -1,5 +1,8 @@
-from .. import db
+
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from src.web.extensions import db
+from sqlalchemy.orm import relationship
 
 class User(db.Model):
     __tablename__ = 'User'
@@ -9,9 +12,9 @@ class User(db.Model):
     name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
     password = db.Column(db.String, nullable=False)
-    active = db.Column(db.Boolean)
+    active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    blocked = db.Column(db.Boolean)
+    blocked = db.Column(db.Boolean, default=False)
     deleted = db.Column(db.Boolean, default=False)
     
     # Relaciones
@@ -19,7 +22,7 @@ class User(db.Model):
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
     
     def __repr__(self):
-        return f'<User {self.name} {self.last_name}>'
+        return f'<User {self.first_name} {self.last_name}>'
     
     def to_dict(self):
         return {
@@ -32,3 +35,9 @@ class User(db.Model):
             'blocked': self.blocked,
             'deleted': self.deleted
         }
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)

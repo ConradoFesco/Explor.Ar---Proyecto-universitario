@@ -2,7 +2,7 @@ from ..models import HistoricSite
 from .. import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from .. import db
+from ..extensions import db
 from ..services.event_service import event_service
 
 class HistoricSite_Service:

@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de usuarios{% endblock %}
+
+{% block content %}
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Buscador -->
+    <div class="mb-6">
+        <div class="relative max-w-md">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <input type="text" id="searchInput"
+                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 
+                       focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Buscar usuario...">
+        </div>
+    </div>
+
+    <!-- Lista de usuarios -->
+    <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Usuarios registrados</h3>
+        </div>
+        <div class="divide-y divide-gray-200" id="usersList">
+            {% for user in users %}
+                <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors duration-200">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span class="text-blue-600 font-medium text-sm">
+                                {{ user.first_name[0] }}
+                            </span>
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">{{ user.first_name }} {{ user.last_name }}</div>
+                            <div class="text-sm text-gray-500">{{ user.mail }}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <div class="text-sm text-gray-900">{{ user.role or 'Sin rol' }}</div>
+                            <div class="text-sm text-gray-500">{{ user.created_at.strftime("%Y-%m-%d") if user.created_at else 'Sin fecha' }}</div>
+                        </div>
+                        <div>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full 
+                                {% if user.active %} bg-green-100 text-green-800 {% else %} bg-red-100 text-red-800 {% endif %}">
+                                {{ "Activo" if user.active else "Inactivo" }}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <a href="#" 
+                               class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors duration-200" 
+                               title="Editar usuario"
+                               onclick="alert('Función de editar no implementada')">
+                                ✏️
+                            </a>
+                            <a href="#" 
+                               class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200" 
+                               title="Eliminar usuario"
+                               onclick="if(confirm('¿Estás seguro de eliminar este usuario?')) { alert('Función de eliminar no implementada'); }">
+                                🗑️
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="px-6 py-8 text-center text-gray-500">
+                    No se encontraron usuarios
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Script básico para búsqueda de usuarios
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const usersList = document.getElementById('usersList');
+    
+    if (searchInput && usersList) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const userItems = usersList.querySelectorAll('div.px-6.py-4');
+            
+            userItems.forEach(function(item) {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

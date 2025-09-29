@@ -1,4 +1,4 @@
-from .. import db
+from src.web.extensions import db
 from datetime import datetime
 
 class Tag(db.Model):
