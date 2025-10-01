@@ -1,6 +1,7 @@
 from functools import wraps
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from flask import jsonify
+from src.web.models import user as Usuario  
 
 def permission_required(permission):
     """
@@ -10,11 +11,16 @@ def permission_required(permission):
         @wraps(fn)
         def decorator(*args, **kwargs):
             verify_jwt_in_request()
-            identity = get_jwt_identity()
+            user_id = get_jwt_identity()  # en el token guardamos el id del usuario
+            user = Usuario.query.get(user_id)
 
-            user_permissions = identity.get("permissions", [])
+            if not user:
+                return jsonify({"error": "Usuario no encontrado"}), 404
 
-            if permission not in user_permissions:
+            # Ejemplo simple: permisos basados en rol
+            if user.permissions.contain(permission):
+                user_permissions = ["user_new", "user_index", "user_show", "user_update", "user_destroy"]
+            else:
                 return jsonify({"error": "Acceso denegado, falta permiso"}), 403
 
             return fn(*args, **kwargs)

@@ -6,6 +6,7 @@ from src.web.auth.decorators import permission_required
 user_api = Blueprint('user_api', __name__)
 
 @user_api.route('', methods=['POST'])
+@permission_required("user_new")
 def create_user():
     try:
         json_content = request.get_json()
@@ -18,8 +19,8 @@ def create_user():
     except (ValidationError, DatabaseError) as e:
         return jsonify({"error": str(e)}), 400
 
-@user_api.route('', methods=['GET'])   #Esta consulta se hace aca o en el servicio?"
-#@permission_required("user_index")
+@user_api.route('', methods=['GET'])   
+@permission_required("user_index")
 def list_users():
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 25))
@@ -32,7 +33,7 @@ def list_users():
     return jsonify(result), 200
 
 @user_api.route('/<int:user_id>', methods=['GET'])
-#@permission_required("user_show")
+@permission_required("user_show")
 def get_user(user_id):
     try:
         result = user_service.get_user(user_id)
@@ -41,7 +42,7 @@ def get_user(user_id):
         return jsonify({"error": str(e)}), 404
 
 @user_api.route('/<int:user_id>', methods=['PUT'])
-#@permission_required("user_update")
+@permission_required("user_update")
 def update_user(user_id):
     json_content = request.get_json()
     data_user = json_content.get('data_user')
@@ -55,7 +56,7 @@ def update_user(user_id):
         return jsonify({"error": str(e)}), 400
 
 @user_api.route('/<int:user_id>', methods=['DELETE'])
-#@permission_required("user_destroy")
+@permission_required("user_destroy")
 def delete_user(user_id):
     json_content = request.get_json()
     data_user = json_content.get('data_user')
