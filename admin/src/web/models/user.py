@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 
 class User(db.Model):
     __tablename__ = 'User'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     mail = db.Column(db.String, nullable=False, unique=True)
     name = db.Column(db.String, nullable=False)
@@ -15,14 +15,14 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     blocked = db.Column(db.Boolean)
     deleted = db.Column(db.Boolean, default=False)
-    
+
     # Relaciones
     events = db.relationship('Event', backref='user', lazy=True)
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
-    
+
     def __repr__(self):
         return f'<User {self.name} {self.last_name}>'
-    
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -34,12 +34,12 @@ class User(db.Model):
             'blocked': self.blocked,
             'deleted': self.deleted
         }
-    
+
     # --- Métodos de password ---
     def set_password(self, password):
         """Genera y guarda un hash seguro del password"""
         self.password = generate_password_hash(password)
-    
+
     def check_password(self, password):
         """Verifica si el password ingresado coincide con el hash guardado"""
         return check_password_hash(self.password, password)

@@ -2,6 +2,9 @@ from flask import Blueprint, request, jsonify
 from src.web.services.usuario_service import user_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
+from datetime import datetime
+
+
 
 user_api = Blueprint('user_api', __name__)
 
@@ -44,26 +47,85 @@ def get_user(user_id):
 @user_api.route('/<int:user_id>', methods=['PUT'])
 #@permission_required("user_update")
 def update_user(user_id):
-    json_content = request.get_json()
-    data_user = json_content.get('data_user')
-    data_new = json_content.get('data_new')
-    if not data_user or not data_new:
-        return jsonify({'error': 'Faltan datos de usuario'}), 400
+    from src.web.models import User
+    from ..extensions import db
+    from flask import request, jsonify
+
+    # Obtengo el JSON del front
+    data = request.get_json()
+    user = User.query.get_or_404(user_id)
+    #is_admin = 'admin' in user.permissions
+
+    # Contiene SOLO los campos que el usuario quiere modificar
+    changed_fields = data.get('data_new', {})
+
+    if "name" in changed_fields:
+        user.name = changed_fields["name"]
+
+    if "last_name" in changed_fields:
+        user.last_name = changed_fields["last_name"]
+
+    if "mail" in changed_fields:
+        user.mail = changed_fields["mail"]
+
+    if "active" in changed_fields:
+        user.active = changed_fields["active"] # True o False
+
+    #if 'blocked' in changed_fields:
+     #   new_blocked_status = changed_fields["blocked"]
+
+        # Si el usuario a editar tiene permiso de 'admin' e intenta bloquearlo
+        #if is_admin and new_blocked_status == True:
+          #  return jsonify({
+           #     "error": "Acción no permitida",
+            #    "message": f"No se puede bloquear al usuario porque tiene permisos de Administrador."
+           # }), 403 # 403 Forbidden
+
+    # Persistir los cambios en la base de datos
     try:
-        result = user_service.update_user(user_id, data_user, data_new)
-        return jsonify(result), 200
-    except (DatabaseError, NotFoundError) as e:
-        return jsonify({"error": str(e)}), 400
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Error al guardar en la base de datos", "details": str(e)}), 500
+
+    # Respuesta JSON con el usuario actualizado
+    return jsonify({
+        "message": "Usuario actualizado correctamente",
+        "user": user.to_dict()
+    }), 200
+
 
 @user_api.route('/<int:user_id>', methods=['DELETE'])
 #@permission_required("user_destroy")
 def delete_user(user_id):
+    from src.web.models import User
+    from .. import db
     json_content = request.get_json()
-    data_user = json_content.get('data_user')
-    if not data_user:
-        return jsonify({'error': 'Faltan datos de usuario'}), 400
+    user_to_delete = User.query.get(user_id)
+    if not user_to_delete:
+        return jsonify({"error": f"Usuario con id {user_id} no encontrado"}), 404
     try:
-        result = user_service.delete_user(user_id,data_user)
-        return jsonify(result), 200
-    except (NotFoundError, DatabaseError) as e:
-        return jsonify({"error": str(e)}), 404
+        data = json_content.get('data_user')
+        if not data:
+            return jsonify({'error': 'No se proporcionaron datos en la petición'}), 400
+        reason = data.get('reason', 'Sin motivo especificado.')
+        admin_data = data.get('data_user', {})
+        admin_id = admin_data.get('id')
+
+        if not admin_id:
+            return jsonify({"error": "Es necesario especificar el ID del usuario que realiza la operación"}), 400
+
+        user_to_delete.is_active = False # O el campo que uses para marcarlo como inactivo
+        user_to_delete.deleted_at = datetime.utcnow() # Guarda la fecha y hora de la baja
+        user_to_delete.deletion_reason = reason # Guarda el motivo
+        user_to_delete.deleted_by_id = admin_id # Guarda quién lo eliminó
+
+        db.session.commit()
+
+        return jsonify({"message": f"El usuario '{user_to_delete.username}' ha sido eliminado correctamente."}), 200
+
+    except Exception as e:
+        # Si algo sale mal, revertir los cambios y notificar el error
+        db.session.rollback()
+        print(f"Error en la operación: {e}") # Imprime el error en la consola del servidor
+        return jsonify({"error": "Ocurrió un error interno al procesar la solicitud."}), 500
