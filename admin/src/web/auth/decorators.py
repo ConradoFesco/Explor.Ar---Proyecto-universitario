@@ -18,9 +18,7 @@ def permission_required(permission):
                 return jsonify({"error": "Usuario no encontrado"}), 404
 
             # Ejemplo simple: permisos basados en rol
-            if user.permissions.contain(permission):
-                user_permissions = ["user_new", "user_index", "user_show", "user_update", "user_destroy"]
-            else:
+            if not user.permissions.contain(permission):
                 return jsonify({"error": "Acceso denegado, falta permiso"}), 403
 
             return fn(*args, **kwargs)
