@@ -42,7 +42,7 @@
                     <div class="flex items-center space-x-4">
                         <div class="text-right">
                             <div class="text-sm text-gray-900">{{ user.role or 'Sin rol' }}</div>
-                            <div class="text-sm text-gray-500">{{ user.created_at.strftime("%Y-%m-%d") if user.created_at else 'Sin fecha' }}</div>
+                            <div class="text-sm text-gray-500">{{ user.created_at|format_date }}</div>
                         </div>
                         <div>
                             <span class="px-2 py-1 text-xs font-medium rounded-full 
@@ -170,21 +170,32 @@ document.getElementById('confirmDelete').addEventListener('click', async functio
     const reason = document.getElementById('deleteReason').value;
 
     try {
+
+        const deletePayload = {
+            data_user: {
+                //NOTA: Dsp reemplazar con el id del admin.
+                id: 2, },
+                reason: reason
+        };
+
         const response = await fetch(`/api/users/${userToDelete}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                data_user: {
-                    id: 2 //ID del usuario que realiza la eliminación
-                },
-                reason: reason
-            })
+            body: JSON.stringify(deletePayload)
         });
 
         if (response.ok) {
-            window.location.reload();
+            let data = {};
+            const contentType = response.headers.get("content-type");
+
+            if (contentType && contentType.includes("application/json")) {
+                data = await response.json();
+            }
+
+            alert(data.message || "Usuario eliminado correctamente.");
+            window.location.href = "{{ url_for('user_api.list_users') }}"; 
         } else {
             const error = await response.json();
             alert('Error al eliminar usuario: ' + (error.error || 'Error desconocido'));

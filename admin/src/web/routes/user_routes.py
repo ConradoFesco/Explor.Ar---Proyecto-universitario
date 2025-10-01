@@ -1,9 +1,8 @@
-from flask import Blueprint, request, jsonify
-from src.web.services.usuario_service import user_service
+from flask import Blueprint, request, jsonify, render_template
+from src.web.services.usuario_service import usuario_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
 from datetime import datetime
-
 
 
 user_api = Blueprint('user_api', __name__)
@@ -17,7 +16,7 @@ def create_user():
         data_new_user = json_content.get('data_new_user')
         if not data_user or not data_new_user:
             return jsonify({'error': 'Faltan datos de usuario'}), 400
-        result = user_service.create_user(data_user, data_new_user)
+        result = usuario_service.create_user(data_user, data_new_user)
         return jsonify(result), 201
     except (ValidationError, DatabaseError) as e:
         return jsonify({"error": str(e)}), 400
@@ -32,14 +31,24 @@ def list_users():
         "activo": request.args.get('activo')
     }
     filters = {k: v for k, v in filters.items() if v}
-    result = user_service.list_users(filters=filters, page=page, per_page=per_page)
-    return jsonify(result), 200
+    result = usuario_service.list_users()
+    return render_template('list_users.html', users=result), 200 
+
+from datetime import datetime
 
 @user_api.route('/<int:user_id>', methods=['GET'])
 #@permission_required("user_show")
 def get_user(user_id):
     try:
-        result = user_service.get_user(user_id)
+        result = usuario_service.get_user(user_id)
+
+        # Convertir created_at de string a datetime si existe
+        if result and 'created_at' in result and isinstance(result['created_at'], str):
+            try:
+                result['created_at'] = datetime.fromisoformat(result['created_at'].replace('Z', '+00:00'))
+            except:
+                pass  # Si falla la conversión, dejamos el string original
+
         return jsonify(result), 200
     except NotFoundError as e:
         return jsonify({"error": str(e)}), 404
@@ -109,11 +118,13 @@ def delete_user(user_id):
         if not data:
             return jsonify({'error': 'No se proporcionaron datos en la petición'}), 400
         reason = data.get('reason', 'Sin motivo especificado.')
-        admin_data = data.get('data_user', {})
-        admin_id = admin_data.get('id')
+        #admin_data = data.get('data_user', {})
+        admin_id = data.get('id')
 
         if not admin_id:
-            return jsonify({"error": "Es necesario especificar el ID del usuario que realiza la operación"}), 400
+            #asigno temporalmente un id, ACORDARSE DE ELIMINARLO
+            admin_id = 1
+            #return jsonify({"error": "Es necesario especificar el ID del usuario que realiza la operación"}), 400
 
         user_to_delete.is_active = False # O el campo que uses para marcarlo como inactivo
         user_to_delete.deleted_at = datetime.utcnow() # Guarda la fecha y hora de la baja
@@ -122,7 +133,7 @@ def delete_user(user_id):
 
         db.session.commit()
 
-        return jsonify({"message": f"El usuario '{user_to_delete.username}' ha sido eliminado correctamente."}), 200
+        return jsonify({"message": f"El usuario '{user_to_delete.mail}' ha sido eliminado correctamente."}), 200
 
     except Exception as e:
         # Si algo sale mal, revertir los cambios y notificar el error

@@ -10,10 +10,10 @@ class UserService:
         required_fields = ['email', 'name', 'last_name', 'password']
         if not all(field in data for field in required_fields):
             raise ValidationError("Faltan campos obligatorios")
-        
+
         if User.query.filter_by(email=data['email']).first():
             raise ValidationError("Ya existe un usuario con ese email")
-        
+
         hashed_password = generate_password_hash(data['password'])
 
         email = data.get('email')
@@ -52,12 +52,12 @@ class UserService:
         user = User.query.get(user_id)
         if user is None:
             raise NotFoundError(f"Usuario no encontrado")
-        
+
         # Campos que se pueden actualizar
         for field in ['username', 'email', 'password']:
             if field in data:
                 setattr(user, field, data[field])
-        
+
         try:
             if commit:
                 db.session.commit()
@@ -71,7 +71,7 @@ class UserService:
         user = User.query.filter_by(id=user_id, deleted=False).first()
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        
+
         user.deleted = True
         try:
             if commit:
@@ -87,4 +87,4 @@ class UserService:
         return [user.to_dict() for user in users]
 
 # Instancia global para usar en la app
-user_service = UserService()
+usuario_service = UserService()
