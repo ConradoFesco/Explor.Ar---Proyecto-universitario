@@ -81,6 +81,11 @@ def create_app(env="development", static_folder="../../static"):
         from .models.user import User
         users = User.query.all()
         return render_template('list_users.html', users=users)
+    
+    @app.route("/users/<int:user_id>/editar")
+    def edit_user(user_id):
+        user = User.query.get_or_404(user_id)
+        return render_template('edit_user.html', user=user)
 
     from src.web.handlers import error
     

@@ -41,7 +41,6 @@
                     </div>
                     <div class="flex items-center space-x-4">
                         <div class="text-right">
-                            <div class="text-sm text-gray-900">{{ user.role or 'Sin rol' }}</div>
                             <div class="text-sm text-gray-500">{{ user.created_at.strftime("%Y-%m-%d") if user.created_at else 'Sin fecha' }}</div>
                         </div>
                         <div>
@@ -51,16 +50,17 @@
                             </span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <a href="#" 
-                               class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors duration-200" 
-                               title="Editar usuario"
-                               onclick="alert('Función de editar no implementada')">
-                                ✏️
+                            <!-- Editar -->
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}" 
+                                class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors duration-200" 
+                                title="Editar usuario">
+                                    ✏️
                             </a>
-                            <a href="#" 
-                               class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200" 
-                               title="Eliminar usuario"
-                               onclick="if(confirm('¿Estás seguro de eliminar este usuario?')) { alert('Función de eliminar no implementada'); }">
+                            <!-- Eliminar -->
+                            <a href="{{ url_for('user_api.delete_user', user_id=user.id) }}" 
+                                class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200" 
+                                title="Eliminar usuario"
+                                onclick="return confirm('¿Estás seguro de eliminar este usuario?')">
                                 🗑️
                             </a>
                         </div>
