@@ -8,32 +8,32 @@ from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class UserService:
-    def create_user(self, data, commit=True):
-        required_fields = ['email', 'name', 'last_name', 'password']
-        if not all(field in data for field in required_fields):
+    def create_user(self, data_user, data_new_user, commit=True):
+        required_fields = ['mail', 'name', 'last_name', 'password']
+        if not all(field in data_new_user for field in required_fields):
             raise ValidationError("Faltan campos obligatorios")
-        
-        if User.query.filter_by(email=data['email']).first():
-            raise ValidationError("Ya existe un usuario con ese email")
-        
-        hashed_password = generate_password_hash(data['password'])
 
-        email = data.get('email')
-        name=data['name'],
-        last_name=data['last_name'],
-        password=hashed_password,
-        active=data.get('active', True),
+        if User.query.filter_by(mail=data_new_user['mail']).first():
+            raise ValidationError("Ya existe un usuario con ese mail")
+
+        hashed_password = generate_password_hash(data_new_user['password'])
+
+        mail = data_new_user.get('mail')
+        name=data_new_user['name'],
+        last_name=data_new_user['last_name'],
+        active=data_new_user.get('active', True),
         deleted = False
         created_at = datetime.now()
 
         user = User(
-            email=email,
+            mail=mail,
             name=name,
             last_name=last_name,
-            password=password,
+            password=hashed_password,
             deleted=deleted,
             created_at=created_at,
         )
+        user.user_roles.append(RolUserUser(Rol_User_id=1, User_id=user.id))
         try:
             db.session.add(user)
             if commit:
@@ -42,6 +42,7 @@ class UserService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al crear el usuario: {e}")
+
 
     def get_user(self, user_id):
         user = User.query.filter_by(id=user_id, deleted=False).first()
@@ -312,4 +313,4 @@ class UserService:
             raise DatabaseError(f"Error al desbloquear el usuario: {e}")
 
 # Instancia global para usar en la app
-usuario_service = UserService()
+user_service = UserService()
