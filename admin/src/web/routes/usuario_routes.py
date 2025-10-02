@@ -20,13 +20,45 @@ def create_user():
 def list_users():
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 25))
+    
+    # Validar parámetros de paginación
+    if page < 1:
+        page = 1
+    if per_page < 1 or per_page > 25:  # Límite máximo de 25 por página
+        per_page = 25
+    
+    # Construir filtros
     filters = {
         "email": request.args.get('email'),
-        "activo": request.args.get('activo')
+        "activo": request.args.get('activo'),
+        "rol": request.args.get('rol')
     }
     filters = {k: v for k, v in filters.items() if v}
-    result = user_service.list_users(filters=filters, page=page, per_page=per_page)
-    return jsonify(result), 200
+    
+    # Parámetros de ordenamiento
+    sort_by = request.args.get('sort_by', 'created_at')
+    sort_order = request.args.get('sort_order', 'desc')
+    
+    # Validar parámetros de ordenamiento
+    valid_sort_fields = ['created_at', 'name']
+    valid_sort_orders = ['asc', 'desc']
+    
+    if sort_by not in valid_sort_fields:
+        sort_by = 'created_at'
+    if sort_order not in valid_sort_orders:
+        sort_order = 'desc'
+    
+    try:
+        result = user_service.list_users(
+            filters=filters, 
+            page=page, 
+            per_page=per_page, 
+            sort_by=sort_by, 
+            sort_order=sort_order
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>', methods=['GET'])
 @permission_required("user_show")

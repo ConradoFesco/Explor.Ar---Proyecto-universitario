@@ -22,13 +22,13 @@ class User(db.Model):
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
     
     def __repr__(self):
-        return f'<User {self.name} {self.last_name}>'
+        return f'<User {self.first_name} {self.last_name}>'
     
     def to_dict(self):
         return {
             'id': self.id,
             'mail': self.mail,
-            'name': self.name,
+            'first_name': self.first_name,
             'last_name': self.last_name,
             'active': self.active,
             'rol': self.role,
