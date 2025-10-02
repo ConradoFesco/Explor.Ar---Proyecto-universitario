@@ -1,4 +1,4 @@
-from .. import db
+from src.web.extensions import db
 
 class TagHistoricSite(db.Model):
     __tablename__ = 'Tag_Historic_Site'

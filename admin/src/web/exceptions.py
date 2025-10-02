@@ -1,3 +1,4 @@
+
 class ValidationError(Exception):
     """Error para validaciones de datos de entrada."""
     pass

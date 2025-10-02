@@ -1,0 +1,36 @@
+# src/web/routes/login_routes.py
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from ..models.user import User
+from ..extensions import db   # importa tu instancia SQLAlchemy
+from .. import exceptions as exc
+from ..services.auth_service import auth_service
+
+login_bp = Blueprint("login_bp", __name__)
+
+# --- LOGIN ---
+@login_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    mail = data.get("mail")
+    password = data.get("password")
+
+    # --- prints de debug ---
+    print("Mail recibido:", mail)
+    print("Password recibido:", password)
+
+    if not mail or not password:
+        return jsonify({"error": "Complete todos los campos"}), 400
+
+    try:
+        user = auth_service.login(mail, password)
+        return jsonify({"message": "Bienvenido!", "user":  user.to_dict()}), 200
+    except exc.ValidationError as e:
+        return jsonify({"error": str(e)}), 401 # retorna 401 para evitar revelar información
+
+    
+
+# --- LOGOUT ---
+@login_bp.route("/logout", methods=["POST"])
+def logout():
+    session.pop("user_id", None)
+    return jsonify({"message": "Sesión cerrada"}), 200

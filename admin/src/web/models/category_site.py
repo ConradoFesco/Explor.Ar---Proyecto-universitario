@@ -1,4 +1,4 @@
-from .. import db
+from src.web.extensions import db
 
 class CategorySite(db.Model):
     __tablename__ = 'Category_Site'

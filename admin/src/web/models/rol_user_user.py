@@ -1,4 +1,4 @@
-from .. import db
+from src.web.extensions import db
 
 class RolUserUser(db.Model):
     __tablename__ = 'Rol_User_User'
