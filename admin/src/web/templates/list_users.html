@@ -21,207 +21,317 @@
     </div>
 
     <!-- Lista de usuarios -->
-    <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Usuarios registrados</h3>
-        </div>
-        <div class="divide-y divide-gray-200" id="usersList">
-            {% for user in users %}
-                <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors duration-200">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span class="text-blue-600 font-medium text-sm">
-                                {{ user.name[0] }}
-                            </span>
-                        </div>
-                        <div>
-                            <div class="text-sm font-medium text-gray-900">{{ user.name }} {{ user.last_name }}</div>
-                            <div class="text-sm text-gray-500">{{ user.mail }}</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <div class="text-right">
-                            <div class="text-sm text-gray-900">{{ user.role or 'Sin rol' }}</div>
-                            <div class="text-sm text-gray-500">{{ user.created_at|format_date }}</div>
-                        </div>
-                        <div>
-                            <span class="px-2 py-1 text-xs font-medium rounded-full 
-                                {% if user.active %} bg-green-100 text-green-800 {% else %} bg-red-100 text-red-800 {% endif %}">
-                                {{ "Activo" if user.active else "Inactivo" }}
-                            </span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <a href="{{ url_for('edit_user', user_id=user.id) }}" 
-                                class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors duration-200" 
-                                title="Editar usuario">
-                                ✏️
-                            </a>
-                            <button data-user-id="{{ user.id }}"
-                                data-user-name="{{ user.name }} {{ user.last_name }}"
-                                class="delete-user-btn p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200" 
-                                title="Eliminar usuario">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            {% else %}
-                <div class="px-6 py-8 text-center text-gray-500">
-                    No se encontraron usuarios
-                </div>
-            {% endfor %}
-        </div>
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Usuarios registrados</h2>
+        <div id="loading-message" class="text-center text-gray-500 py-8">Cargando usuarios...</div>
+        <ul id="users-list" class="divide-y divide-gray-200 hidden"></ul>
+        <div id="no-users-message" class="text-center text-gray-500 py-8 hidden">No hay usuarios para mostrar.</div>
+        
+        <!-- Controles de paginación -->
+        <div id="pagination-controls" class="pagination hidden mt-6 flex justify-center gap-2"></div>
+        <div id="pagination-info" class="pagination-info hidden mt-2 text-sm text-gray-600 text-center"></div>
     </div>
 </main>
-{% endblock %}
 
-{% block scripts %}
-<!-- Modal de confirmación de eliminación -->
-<div id="deleteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <!-- Icono de advertencia -->
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<!-- Modal de eliminación -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="flex justify-center mb-4">
+            <div class="bg-red-100 rounded-full p-3">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
             </div>
-
-            <!-- Título -->
-            <h3 class="text-lg font-medium text-gray-900 text-center mt-4">
-                Eliminar Usuario
-            </h3>
-
-            <!-- Descripción -->
-            <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500 text-center">
-                    ¿Estás seguro de que deseas eliminar al usuario <strong id="userName"></strong>?
-                </p>
-                <p class="text-xs text-gray-400 text-center mt-2">
-                    Esta es una baja lógica. El usuario será marcado como eliminado pero sus datos permanecerán en el sistema.
-                </p>
-            </div>
-
-            <!-- Motivo de eliminación -->
-            <div class="px-7 py-3">
-                <label for="deleteReason" class="block text-sm font-medium text-gray-700 mb-2">
-                    Motivo de eliminación (opcional)
-                </label>
-                <textarea id="deleteReason" 
-                    rows="3"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Describe el motivo de la eliminación..."></textarea>
-            </div>
-
-            <!-- Botones -->
-            <div class="flex items-center justify-center gap-4 px-4 py-3">
-                <button id="cancelDelete"
-                        class="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300">
-                    Cancelar
-                </button>
-                <button id="confirmDelete"
-                        class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                    Eliminar
-                </button>
-            </div>
+        </div>
+        <h3 class="text-xl font-bold text-center text-gray-800 mb-2">Eliminar usuario</h3>
+        <p class="text-center text-gray-600 mb-4">
+            ¿Estás seguro de que deseas eliminar a <strong id="userName"></strong>? Esta acción no se puede deshacer.
+        </p>
+        <div class="mb-4">
+            <label for="deleteReason" class="block text-sm font-medium text-gray-700 mb-2">
+                Motivo de eliminación (opcional)
+            </label>
+            <textarea id="deleteReason" rows="3" 
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Ingresa el motivo..."></textarea>
+        </div>
+        <div class="flex gap-3">
+            <button id="confirmDelete" 
+                class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                Eliminar
+            </button>
+            <button id="cancelDelete" 
+                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">
+                Cancelar
+            </button>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
+{{ super() }}
 <script>
-// Script de búsqueda de usuarios
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const usersList = document.getElementById('usersList');
+    let currentPage = 1;
+    const perPage = 5;
 
-    if (searchInput && usersList) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const userItems = usersList.querySelectorAll('div.px-6.py-4');
+    document.addEventListener('DOMContentLoaded', () => {
+        // Siempre cargar usuarios frescos
+        currentPage = 1;
+        loadUsers(currentPage);
 
-            userItems.forEach(function(item) {
-                const text = item.textContent.toLowerCase();
-                if (text.includes(searchTerm)) {
-                    item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+        // Buscar mientras se escribe
+        document.getElementById('searchInput').addEventListener('input', () => {
+            loadUsers(1);
         });
-    }
-});
-
-// Funcionalidad del modal de eliminación
-let userToDelete = null;
-
-function openDeleteModal(userId, userName) {
-    userToDelete = userId;
-    document.getElementById('userName').textContent = userName;
-    document.getElementById('deleteModal').classList.remove('hidden');
-}
-
-function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.add('hidden');
-    document.getElementById('deleteReason').value = '';
-    userToDelete = null;
-}
-
-document.getElementById('confirmDelete').addEventListener('click', async function() {
-    const reason = document.getElementById('deleteReason').value;
-
-    try {
-
-        const deletePayload = {
-            data_user: {
-                //NOTA: Dsp reemplazar con el id del admin.
-                id: 2, },
-                reason: reason
-        };
-
-        const response = await fetch(`/api/users/${userToDelete}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(deletePayload)
-        });
-
-        if (response.ok) {
-            let data = {};
-            const contentType = response.headers.get("content-type");
-
-            if (contentType && contentType.includes("application/json")) {
-                data = await response.json();
-            }
-
-            alert(data.message || "Usuario eliminado correctamente.");
-            window.location.href = "{{ url_for('user_api.list_users') }}"; 
-        } else {
-            const error = await response.json();
-            alert('Error al eliminar usuario: ' + (error.error || 'Error desconocido'));
-        }
-    } catch (error) {
-        alert('Error de conexión: ' + error.message);
-    }
-
-    closeDeleteModal();
-});
-
-document.getElementById('cancelDelete').addEventListener('click', closeDeleteModal);
-
-document.getElementById('deleteModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeDeleteModal();
-    }
-});
-
-document.querySelectorAll('.delete-user-btn').forEach(button => {
-    button.addEventListener('click', function() {
-        const userId = this.getAttribute('data-user-id');
-        console.log("El ID que se va a eliminar es:", userId);
-        const userName = this.getAttribute('data-user-name');
-        openDeleteModal(userId, userName);
     });
-});
+
+    // Recargar cuando la página vuelve a ser visible (volviendo del formulario de edición)
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            loadUsers(currentPage);
+        }
+    });
+
+    function getInitials(name, lastName) {
+        const firstInitial = name ? name.charAt(0).toUpperCase() : '';
+        const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+        return firstInitial || lastInitial || '?';
+    }
+
+    function getAvatarColor(index) {
+        const colors = [
+            'bg-blue-200 text-blue-700',
+            'bg-green-200 text-green-700',
+            'bg-purple-200 text-purple-700',
+            'bg-pink-200 text-pink-700',
+            'bg-yellow-200 text-yellow-700',
+            'bg-indigo-200 text-indigo-700'
+        ];
+        return colors[index % colors.length];
+    }
+
+    function loadUsers(page) {
+        const usersList = document.getElementById('users-list');
+        const loadingMessage = document.getElementById('loading-message');
+        const noUsersMessage = document.getElementById('no-users-message');
+        const paginationControls = document.getElementById('pagination-controls');
+        const paginationInfo = document.getElementById('pagination-info');
+        const searchQuery = document.getElementById('searchInput').value.trim();
+
+        // Limpiar contenido anterior
+        usersList.innerHTML = '';
+        paginationControls.innerHTML = '';
+        paginationInfo.innerHTML = '';
+
+        // Mostrar loading
+        loadingMessage.classList.remove('hidden');
+        usersList.classList.add('hidden');
+        noUsersMessage.classList.add('hidden');
+        paginationControls.classList.add('hidden');
+        paginationInfo.classList.add('hidden');
+
+        // Agregar timestamp para evitar caché
+        const timestamp = new Date().getTime();
+        const API_URL = `{{ url_for("user_api.list_users") }}?page=${page}&per_page=${perPage}&q=${searchQuery}&_=${timestamp}`;
+
+        fetch(API_URL, {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la red');
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadingMessage.classList.add('hidden');
+                
+                if (data.users.length === 0) {
+                    noUsersMessage.classList.remove('hidden');
+                    return;
+                }
+
+                // Mostrar usuarios
+                usersList.classList.remove('hidden');
+                data.users.forEach((user, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'py-5 flex items-center justify-between hover:bg-gray-50 transition duration-150 px-2 rounded-lg';
+                    
+                    const initials = getInitials(user.name, user.last_name);
+                    const avatarColor = getAvatarColor(index);
+                    const activeStatus = user.active !== false;
+                    const userRole = user.role || 'Usuario';
+                    const createdDate = user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '2024-01-15';
+                    
+                    listItem.innerHTML = `
+                        <div class="flex items-center gap-4 flex-1">
+                            <div class="w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center font-semibold text-lg flex-shrink-0">
+                                ${initials}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base font-semibold text-gray-900">${user.name} ${user.last_name}</h3>
+                                <p class="text-sm text-gray-500 truncate">${user.mail}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-6">
+                            <div class="text-right hidden sm:block">
+                                <p class="text-sm font-medium text-gray-700">${userRole}</p>
+                                <p class="text-xs text-gray-500">${createdDate}</p>
+                            </div>
+                            <span class="px-3 py-1 text-xs font-semibold rounded-full ${activeStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                ${activeStatus ? 'Activo' : 'Inactivo'}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="window.location.href='/users/${user.id}/editar'" 
+                                    class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition duration-200"
+                                    title="Editar usuario">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </button>
+                                <button onclick="openDeleteModal(${user.id}, '${user.name} ${user.last_name}')" 
+                                    class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition duration-200"
+                                    title="Eliminar">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    usersList.appendChild(listItem);
+                });
+
+                // Mostrar controles de paginación
+                renderPagination(data.pagination);
+                currentPage = page;
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                loadingMessage.textContent = 'Error al cargar los datos.';
+            });
+    }
+
+    function renderPagination(pagination) {
+        const paginationControls = document.getElementById('pagination-controls');
+        const paginationInfo = document.getElementById('pagination-info');
+
+        if (pagination.pages <= 1) return;
+
+        // Info
+        const startItem = (pagination.page - 1) * pagination.per_page + 1;
+        const endItem = Math.min(pagination.page * pagination.per_page, pagination.total);
+        paginationInfo.innerHTML = `Mostrando ${startItem}-${endItem} de ${pagination.total} usuarios`;
+        paginationInfo.classList.remove('hidden');
+
+        // Prev
+        const prevButton = document.createElement('button');
+        prevButton.innerHTML = '← Anterior';
+        prevButton.className = `px-4 py-2 text-sm font-medium rounded-lg transition duration-200 ${
+            pagination.has_prev 
+                ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50' 
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        }`;
+        prevButton.disabled = !pagination.has_prev;
+        prevButton.onclick = () => loadUsers(pagination.prev_num);
+        paginationControls.appendChild(prevButton);
+
+        // Pages
+        const startPage = Math.max(1, pagination.page - 2);
+        const endPage = Math.min(pagination.pages, pagination.page + 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.textContent = i;
+            pageButton.className = `px-4 py-2 text-sm font-medium rounded-lg transition duration-200 ${
+                i === pagination.page 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`;
+            pageButton.onclick = () => loadUsers(i);
+            paginationControls.appendChild(pageButton);
+        }
+
+        // Next
+        const nextButton = document.createElement('button');
+        nextButton.innerHTML = 'Siguiente →';
+        nextButton.className = `px-4 py-2 text-sm font-medium rounded-lg transition duration-200 ${
+            pagination.has_next 
+                ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50' 
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        }`;
+        nextButton.disabled = !pagination.has_next;
+        nextButton.onclick = () => loadUsers(pagination.next_num);
+        paginationControls.appendChild(nextButton);
+
+        paginationControls.classList.remove('hidden');
+    }
+
+    // Funcionalidad del modal de eliminación
+    let userToDelete = null;
+
+    function openDeleteModal(userId, userName) {
+        userToDelete = userId;
+        document.getElementById('userName').textContent = userName;
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        document.getElementById('deleteReason').value = '';
+        userToDelete = null;
+    }
+
+    document.getElementById('confirmDelete').addEventListener('click', async function() {
+        const reason = document.getElementById('deleteReason').value;
+
+        try {
+            const deletePayload = {
+                data_user: {
+                    id: 2, // NOTA: Reemplazar con el id del admin
+                },
+                reason: reason
+            };
+
+            const response = await fetch(`/api/users/${userToDelete}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(deletePayload)
+            });
+
+            if (response.ok) {
+                let data = {};
+                const contentType = response.headers.get("content-type");
+
+                if (contentType && contentType.includes("application/json")) {
+                    data = await response.json();
+                }
+
+                alert(data.message || "Usuario eliminado correctamente.");
+                loadUsers(currentPage); // Recargar la lista actual
+            } else {
+                const error = await response.json();
+                alert('Error al eliminar usuario: ' + (error.error || 'Error desconocido'));
+            }
+        } catch (error) {
+            alert('Error de conexión: ' + error.message);
+        }
+
+        closeDeleteModal();
+    });
+
+    document.getElementById('cancelDelete').addEventListener('click', closeDeleteModal);
+
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDeleteModal();
+        }
+    });
 </script>
 {% endblock %}

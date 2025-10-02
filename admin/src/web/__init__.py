@@ -93,7 +93,7 @@ def create_app(env="development", static_folder="../../static"):
             except:
                 return date_value
 
-    return 'Sin fecha'
+        return 'Sin fecha'
 
     @app.route("/users")
     def list_users():
