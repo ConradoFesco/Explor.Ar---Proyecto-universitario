@@ -7,14 +7,12 @@ from ..services.auth_service import auth_service
 
 login_bp = Blueprint("login_bp", __name__)
 
-# --- LOGIN ---
 @login_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
     mail = data.get("mail")
     password = data.get("password")
 
-    # --- prints de debug ---
     print("Mail recibido:", mail)
     print("Password recibido:", password)
 
@@ -23,14 +21,18 @@ def login():
 
     try:
         user = auth_service.login(mail, password)
+        session["user_id"] = user.id
+        print("session:", session)
         return jsonify({"message": "Bienvenido!", "user":  user.to_dict()}), 200
     except exc.ValidationError as e:
-        return jsonify({"error": str(e)}), 401 # retorna 401 para evitar revelar información
+        return jsonify({"error": str(e)}), 401 
 
     
 
 # --- LOGOUT ---
-@login_bp.route("/logout", methods=["POST"])
+@login_bp.route("/logout", methods=["GET","POST"])
 def logout():
     session.pop("user_id", None)
-    return jsonify({"message": "Sesión cerrada"}), 200
+    if request.is_json:
+        return jsonify({"message": "Sesión cerrada correctamente"})
+    return redirect(url_for("index"))

@@ -22,7 +22,7 @@ class User(db.Model):
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
     
     def __repr__(self):
-        return f'<User {self.first_name} {self.last_name}>'
+        return f'<User {self.name} {self.last_name}>'
     
     def to_dict(self):
         return {
@@ -36,8 +36,8 @@ class User(db.Model):
             'deleted': self.deleted
         }
 
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+    def set_password(self, password_plain):
+        self.password = generate_password_hash(password_plain)
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+    def check_password(self, password_plain):
+        return check_password_hash(self.password, password_plain)
