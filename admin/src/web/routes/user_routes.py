@@ -76,9 +76,7 @@ def get_user(user_id):
         return jsonify({"error": str(e)}), 404
 
 @user_api.route('/<int:user_id>', methods=['PUT'])
-#@permission_required("user_update")
-@user_api.route('/<int:user_id>', methods=['PUT'])
-#@permission_required("user_update")
+#permission_required("user_update")
 def update_user(user_id):
     from src.web.models import User
     from ..extensions import db
@@ -171,3 +169,7 @@ def delete_user(user_id):
         db.session.rollback()
         print(f"Error en la operación: {e}") # Imprime el error en la consola del servidor
         return jsonify({"error": "Ocurrió un error interno al procesar la solicitud."}), 500
+
+@user_api.route('/page', methods=['GET'])
+def list_users_page():
+    return render_template("list_users.html")
