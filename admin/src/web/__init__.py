@@ -14,7 +14,6 @@ import os
 
 load_dotenv()
 
-
 jwt = JWTManager() 
 def create_app(env="development", static_folder="../../static"):
     app = Flask(__name__, static_folder=static_folder)
@@ -105,6 +104,10 @@ def create_app(env="development", static_folder="../../static"):
     def edit_user(user_id):
         user = User.query.get_or_404(user_id)
         return render_template('edit_user.html', user=user)
+    
+    @app.route('/users/nuevo')
+    def create_user_form():
+        return render_template('create_user.html')
 
     from src.web.handlers import error
     

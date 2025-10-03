@@ -22,7 +22,16 @@
 
     <!-- Lista de usuarios -->
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Usuarios registrados</h2>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Usuarios registrados</h2>
+            <button onclick="window.location.href='/users/nuevo'" 
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Agregar Usuario
+            </button>
+        </div>
         <div id="loading-message" class="text-center text-gray-500 py-8">Cargando usuarios...</div>
         <ul id="users-list" class="divide-y divide-gray-200 hidden"></ul>
         <div id="no-users-message" class="text-center text-gray-500 py-8 hidden">No hay usuarios para mostrar.</div>
@@ -73,7 +82,7 @@
 {{ super() }}
 <script>
     let currentPage = 1;
-    const perPage = 5;
+    const perPage = 10;
 
     document.addEventListener('DOMContentLoaded', () => {
         // Siempre cargar usuarios frescos

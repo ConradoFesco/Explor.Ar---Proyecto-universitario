@@ -1,0 +1,232 @@
+{% extends "layout.html" %}
+
+{% block title %}Nuevo Usuario{% endblock %}
+
+{% block content %}
+<main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Crear Nuevo Usuario</h3>
+        </div>
+        
+        <form id="createUserForm" class="p-6 space-y-6">
+            <!-- Nombre -->
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre <span class="text-red-500">*</span>
+                </label>
+                <input type="text" 
+                       id="name" 
+                       name="name" 
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Ingresa el nombre">
+            </div>
+
+            <!-- Apellido -->
+            <div>
+                <label for="last_name" class="block text-sm font-medium text-gray-700 mb-1">
+                    Apellido <span class="text-red-500">*</span>
+                </label>
+                <input type="text" 
+                       id="last_name" 
+                       name="last_name" 
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Ingresa el apellido">
+            </div>
+
+            <!-- Email -->
+            <div>
+                <label for="mail" class="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span class="text-red-500">*</span>
+                </label>
+                <input type="email" 
+                       id="mail" 
+                       name="mail" 
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="ejemplo@correo.com">
+                <p class="text-xs text-gray-500 mt-1">Este será el correo de acceso al sistema</p>
+            </div>
+
+            <!-- Contraseña -->
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Contraseña <span class="text-red-500">*</span>
+                </label>
+                <input type="password" 
+                       id="password" 
+                       name="password" 
+                       required
+                       minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Mínimo 6 caracteres">
+                <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+            </div>
+
+            <!-- Confirmar Contraseña -->
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Confirmar Contraseña <span class="text-red-500">*</span>
+                </label>
+                <input type="password" 
+                       id="confirm_password" 
+                       name="confirm_password" 
+                       required
+                       minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Repite la contraseña">
+            </div>
+
+            <!-- Rol -->
+            <div>
+                <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
+                    Rol <span class="text-red-500">*</span>
+                </label>
+                <select id="role" name="role" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Selecciona un rol</option>
+                    <option value="Usuario">Usuario</option>
+                    <option value="Moderador">Moderador</option>
+                    <option value="Administrador">Administrador</option>
+                </select>
+            </div>
+
+            <!-- Estado Activo -->
+            <div class="flex items-center">
+                <input type="checkbox"
+                       id="active"
+                       name="active"
+                       checked
+                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label for="active" class="ml-2 block text-sm text-gray-700">
+                    Usuario activo
+                </label>
+            </div>
+
+            <!-- Estado Bloqueado -->
+            <div class="flex items-center">
+                <input type="checkbox" 
+                       id="blocked" 
+                       name="blocked"
+                       class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                <label for="blocked" class="ml-2 block text-sm text-gray-700">
+                    Usuario bloqueado
+                </label>
+            </div>
+
+            <!-- Mensaje de ayuda -->
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p class="text-sm text-blue-800">
+                    <strong>Nota:</strong> Los campos marcados con <span class="text-red-500">*</span> son obligatorios.
+                    El usuario recibirá un correo con sus credenciales de acceso.
+                </p>
+            </div>
+
+            <!-- Botones -->
+            <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                <a href="/users" 
+                   class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition duration-200">
+                    Crear Usuario
+                </button>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById("createUserForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    // Obtener valores del formulario
+    const name = document.getElementById('name').value.trim();
+    const last_name = document.getElementById('last_name').value.trim();
+    const mail = document.getElementById('mail').value.trim();
+    const password = document.getElementById('password').value;
+    const confirm_password = document.getElementById('confirm_password').value;
+    const role = document.getElementById('role').value;
+    const active = document.getElementById('active').checked;
+    const blocked = document.getElementById('blocked').checked;
+
+    // Validaciones
+    if (!name || !last_name || !mail || !password || !role) {
+        alert('Por favor completa todos los campos obligatorios');
+        return;
+    }
+
+    if (password !== confirm_password) {
+        alert('Las contraseñas no coinciden');
+        return;
+    }
+
+    if (password.length < 6) {
+        alert('La contraseña debe tener al menos 6 caracteres');
+        return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(mail)) {
+        alert('Por favor ingresa un email válido');
+        return;
+    }
+
+    const formData = {
+        data_user: {
+            id: 2, // NOTA: Reemplazar con el ID del admin logueado
+        },
+        data_new_user: {
+            name: name,
+            last_name: last_name,
+            mail: mail,
+            password: password,
+            role: role,
+            active: active,
+            blocked: blocked
+        }
+    };
+
+    try {
+        const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('Usuario creado correctamente');
+            window.location.replace('/users');
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo crear el usuario'));
+        }
+    } catch (err) {
+        alert('Error en la conexión con el servidor: ' + err.message);
+    }
+});
+
+// Validación en tiempo real de contraseñas
+document.getElementById('confirm_password').addEventListener('input', function() {
+    const password = document.getElementById('password').value;
+    const confirm = this.value;
+    
+    if (confirm && password !== confirm) {
+        this.setCustomValidity('Las contraseñas no coinciden');
+        this.classList.add('border-red-500');
+    } else {
+        this.setCustomValidity('');
+        this.classList.remove('border-red-500');
+    }
+});
+</script>
+{% endblock %}
