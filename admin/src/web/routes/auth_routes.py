@@ -23,6 +23,9 @@ def login():
 
     try:
         user = auth_service.login(mail, password)
+        # Guardar el ID del usuario en la sesión
+        session['user_id'] = user.id
+        session.permanent = True
         return jsonify({"message": "Bienvenido!", "user":  user.to_dict()}), 200
     except exc.ValidationError as e:
         return jsonify({"error": str(e)}), 401 # retorna 401 para evitar revelar información

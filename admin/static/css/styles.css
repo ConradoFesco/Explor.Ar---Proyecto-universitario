@@ -19,3 +19,205 @@ body {
 .footer{
     margin-bottom: 0;
 }
+
+/* ===== ESTILOS DEL MODAL PARA AGREGAR SITIO ===== */
+.add-site-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.add-site-modal.hidden {
+    display: none;
+}
+
+.add-site-modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 400px;
+    width: 90%;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.add-site-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 16px 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.add-site-modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.close-modal-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.close-modal-btn:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.add-site-modal-body {
+    padding: 20px 24px;
+}
+
+.add-site-modal-body p {
+    margin: 0 0 12px 0;
+    color: #374151;
+    line-height: 1.5;
+}
+
+.coordinates-info {
+    background-color: #f9fafb;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.coordinates-info small {
+    color: #6b7280;
+    font-family: 'Courier New', monospace;
+}
+
+.add-site-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px 20px 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.btn-cancel, .btn-add {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    font-size: 14px;
+}
+
+.btn-cancel {
+    background-color: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-cancel:hover {
+    background-color: #e5e7eb;
+}
+
+.btn-add {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.btn-add:hover {
+    background-color: #2563eb;
+}
+
+/* ===== ESTILOS DEL MAPA ===== */
+.map-container {
+    height: 400px;
+    width: 100%;
+    margin: 20px 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* Solución para el problema de z-index del mapa con el menú */
+body.sidebar-open .map-container {
+    z-index: 0;
+}
+
+/* Asegurar que el overlay cubra el mapa */
+#overlay {
+    z-index: 30;
+}
+
+/* El sidebar debe estar por encima del overlay */
+#sidebar {
+    z-index: 40;
+}
+
+/* ===== ESTILOS PARA VALIDACIÓN DE FORMULARIOS ===== */
+.field-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 1px #ef4444 !important;
+}
+
+.field-error:focus {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+.error-message {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+}
+
+.form-success {
+    background-color: #10b981;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    display: none;
+}
+
+.form-success.show {
+    display: block;
+}
+
+.form-error {
+    background-color: #ef4444;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    display: none;
+}
+
+.form-error.show {
+    display: block;
+}

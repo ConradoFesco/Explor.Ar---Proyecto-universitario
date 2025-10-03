@@ -17,6 +17,8 @@ python-slugify = "^8.0.4"
 flask-jwt-extended = "^4.7.1"
 argon2-cffi = "^25.1.0"
 flask-session = "^0.8.0"
+geoalchemy2 = "^0.18.0"
+shapely = "^2.1.2"
 
 
 [tool.poetry.group.test.dependencies]

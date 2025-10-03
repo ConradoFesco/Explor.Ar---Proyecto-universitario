@@ -28,7 +28,7 @@ def list_users():
         "activo": request.args.get('activo')
     }
     filters = {k: v for k, v in filters.items() if v}
-    result = user_service.list_users(filters=filters, page=page, per_page=per_page)
+    result = user_service.list_users()
     return jsonify(result), 200
 
 @user_api.route('/<int:user_id>', methods=['GET'])
