@@ -10,6 +10,11 @@ class AuthService:
         user = User.query.filter_by(mail=mail).first()
         if not user or not check_password_hash(user.password, password):
             raise exc.ValidationError("Credenciales inválidas")
+        
+        # Verificar si el usuario está bloqueado
+        if user.blocked:
+            raise exc.ValidationError("Usted ha sido bloqueado")
+        
         return user
     
 
