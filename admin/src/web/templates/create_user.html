@@ -141,6 +141,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.getElementById("createUserForm").addEventListener("submit", async function(e) {
     e.preventDefault();
@@ -157,24 +159,44 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
 
     // Validaciones
     if (!name || !last_name || !mail || !password || !role) {
-        alert('Por favor completa todos los campos obligatorios');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campos incompletos',
+            text: 'Por favor completa todos los campos obligatorios',
+            confirmButtonColor: '#3B82F6'
+        });
         return;
     }
 
     if (password !== confirm_password) {
-        alert('Las contraseñas no coinciden');
+        Swal.fire({
+            icon: 'error',
+            title: 'Contraseñas no coinciden',
+            text: 'Las contraseñas ingresadas no son iguales',
+            confirmButtonColor: '#3B82F6'
+        });
         return;
     }
 
     if (password.length < 6) {
-        alert('La contraseña debe tener al menos 6 caracteres');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Contraseña muy corta',
+            text: 'La contraseña debe tener al menos 6 caracteres',
+            confirmButtonColor: '#3B82F6'
+        });
         return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(mail)) {
-        alert('Por favor ingresa un email válido');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Email inválido',
+            text: 'Por favor ingresa un email válido',
+            confirmButtonColor: '#3B82F6'
+        });
         return;
     }
 
@@ -205,13 +227,31 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
         const data = await response.json();
         
         if (response.ok) {
-            alert('Usuario creado correctamente');
-            window.location.replace('/users');
+            Swal.fire({
+                icon: 'success',
+                title: '¡Usuario creado!',
+                text: 'El usuario se ha creado correctamente',
+                confirmButtonColor: '#3B82F6',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.replace('/users');
+            });
         } else {
-            alert('Error: ' + (data.error || 'No se pudo crear el usuario'));
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'No se pudo crear el usuario',
+                confirmButtonColor: '#3B82F6'
+            });
         }
     } catch (err) {
-        alert('Error en la conexión con el servidor: ' + err.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: err.message,
+            confirmButtonColor: '#3B82F6'
+        });
     }
 });
 
