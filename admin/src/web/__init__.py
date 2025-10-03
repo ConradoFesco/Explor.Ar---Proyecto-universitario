@@ -10,6 +10,7 @@ from .routes.auth_routes import login_bp
 from .extensions import db, migrate, session_ext
 from flask_session import Session
 from flask_jwt_extended import JWTManager
+
 import os
 
 load_dotenv()
@@ -28,11 +29,11 @@ def create_app(env="development", static_folder="../../static"):
     app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés
     app.config['SESSION_PERMANENT'] = True
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora
-    app.config['SESSION_COOKIE_SECURE'] = True  # solo HTTPS
+    app.config['SESSION_COOKIE_SECURE'] = False # solo HTTPS
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-
+    session_ext = Session()
     session_ext.init_app(app)
 
    
@@ -69,6 +70,8 @@ def create_app(env="development", static_folder="../../static"):
 
     from .routes.auth_routes import login_bp
     app.register_blueprint(login_bp, url_prefix="/api")
+    from .routes.profile_routes import profile_bp
+    app.register_blueprint(profile_bp)
 
     from .routes.tag_routes import tag_api
     app.register_blueprint(tag_api, url_prefix="/api")
