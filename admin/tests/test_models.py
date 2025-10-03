@@ -32,7 +32,7 @@ class TestUser:
         with app.app_context():
             user = User(
                 mail='test@example.com',
-                first_name='Juan',
+                name='Juan',
                 last_name='Pérez',
                 password='password123',
                 active=True
@@ -42,7 +42,7 @@ class TestUser:
             
             assert user.id is not None
             assert user.mail == 'test@example.com'
-            assert user.first_name == 'Juan'
+            assert user.name == 'Juan'
             assert user.last_name == 'Pérez'
             assert user.active is True
             assert user.deleted is False
