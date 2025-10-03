@@ -36,13 +36,13 @@ class User(db.Model):
         }
 
     # --- Métodos de password ---
-    def set_password(self, password):
+    def set_password(self, password_plain):
         """Genera y guarda un hash seguro del password"""
-        self.password = generate_password_hash(password)
+        self.password = generate_password_hash(password_plain)
 
-    def check_password(self, password):
+    def check_password(self, password_plain):
         """Verifica si el password ingresado coincide con el hash guardado"""
-        return check_password_hash(self.password, password)
+        return check_password_hash(self.password, password_plain)
 
     # --- Permisos del usuario ---
     @property

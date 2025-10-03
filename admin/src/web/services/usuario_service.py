@@ -56,9 +56,11 @@ class UserService:
             raise NotFoundError(f"Usuario no encontrado")
 
         # Campos que se pueden actualizar
-        for field in ['username', 'email', 'password']:
-            if field in data:
-                setattr(user, field, data[field])
+        for field in ['mail', 'name', 'last_name', 'password']: #se puede actualizar el mail?
+             if field == "password":
+                setattr(user, field, generate_password_hash(data_new[field]))
+             else:
+                setattr(user, field, data_new[field])
 
         try:
             if commit:
@@ -82,6 +84,20 @@ class UserService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al eliminar el usuario: {e}")
+    def update_password(self, user_id, new_password, commit=True):
+        user = User.query.get(user_id)
+        if user is None:
+            raise NotFoundError("Usuario no encontrado")
+        
+        user.password = generate_password_hash(new_password)
+
+        try:
+            if commit:
+                db.session.commit()
+            return {"message": "Contraseña actualizada correctamente"}
+        except IntegrityError as e:
+            db.session.rollback()
+            raise DatabaseError(f"Error al actualizar contraseña: {e}")
 
     def list_users(self, page=1, per_page=25):
     #"""Consultar todos los usuarios no eliminados con paginación"""

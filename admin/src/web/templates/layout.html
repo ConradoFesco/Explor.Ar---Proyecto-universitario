@@ -97,19 +97,20 @@
 
                 <!-- User Dropdown -->
                 <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 hidden">
-                    <a href="#" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                    <a href="/profile" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200">
                         <svg class="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                         </svg>
                         Ver perfil
                     </a>
                     <hr class="my-1 border-gray-200">
-                    <a href="#" class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200">
+                    <a href="#" onclick="cerrarSesion()" class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200">
                         <svg class="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a2 2 0 013-3h4a3 3 0 013 3v1"></path>
                         </svg>
                         Cerrar sesión
                     </a>
+                    
                 </div>
             </div>
         </div>
@@ -206,6 +207,24 @@
     </div>
 
     <script>
+        async function cerrarSesion() {
+            try {
+                const res = await fetch("/api/logout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message); // "Sesión cerrada"
+                    window.location.href = "/home"; // redirige al home
+                } else {
+                    alert(data.error || "Error al cerrar sesión");
+                }
+            } catch (err) {
+                console.error("Error al cerrar sesión:", err);
+                alert("No se pudo cerrar sesión");
+            }
+        }
         const menuToggle = document.getElementById('menuToggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
