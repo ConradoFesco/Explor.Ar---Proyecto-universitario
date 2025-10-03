@@ -10,7 +10,7 @@ from .routes.auth_routes import login_bp
 from .extensions import db, migrate, session_ext
 from flask_session import Session
 from flask_jwt_extended import JWTManager
-
+from datetime import timedelta
 import os
 
 load_dotenv()
@@ -31,6 +31,7 @@ def create_app(env="development", static_folder="../../static"):
     app.config['SESSION_COOKIE_SECURE'] = False # solo HTTPS
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=1)
 
     session_ext = Session()
     session_ext.init_app(app)
@@ -56,7 +57,7 @@ def create_app(env="development", static_folder="../../static"):
         if "user_id" not in session:
             return redirect(url_for("index"))
         user = User.query.get(session["user_id"])
-        return render_template("home.html", usuario=user.mail)
+        return render_template("home.html", user=user)
 
     @app.route("/logout")
     def logout():
@@ -65,7 +66,17 @@ def create_app(env="development", static_folder="../../static"):
 
     @app.route("/sitios")
     def lista_sitios():
-        return render_template("lista_sitios.html")
+        if "user_id" not in session:
+            return redirect(url_for("index"))
+        user = User.query.get(session["user_id"])
+        return render_template("lista_sitios.html", user=user)
+
+    @app.route("/alta-sitios")
+    def alta_sitios():
+        if "user_id" not in session:
+            return redirect(url_for("index"))
+        user = User.query.get(session["user_id"])
+        return render_template("alta_sitios.html", user=user)
 
     from .routes.auth_routes import login_bp
     app.register_blueprint(login_bp, url_prefix="/api")
@@ -77,6 +88,12 @@ def create_app(env="development", static_folder="../../static"):
 
     from .routes.HistoricSite_Routes import site_api
     app.register_blueprint(site_api, url_prefix="/api")
+    
+    from .routes.state_routes import state_api
+    app.register_blueprint(state_api, url_prefix="/api")
+    
+    from .routes.category_routes import category_api
+    app.register_blueprint(category_api, url_prefix="/api")
 
     from datetime import datetime
     @app.template_filter('format_date')

@@ -1,10 +1,18 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<!-- CSS de Leaflet (necesario para que el mapa se vea correctamente) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+
 <div class="contenido">
     <div class="barra-busqueda">
         <input type="text" placeholder="Barra de búsqueda">
     </div>
+    
+    <!-- Div para mostrar el mapa -->
+    <div id="map-container" class="map-container"></div>
+    
     
     <div class="grid-items">
         <div class="item"></div>
@@ -17,4 +25,50 @@
         <div class="item"></div>
     </div>
 </div>
+
+<!-- Scripts necesarios para el mapa (solo visualización, sin funcionalidad de clic) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
+
+<script>
+// Solución para el problema de z-index del mapa con el menú
+document.addEventListener('DOMContentLoaded', function() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const body = document.body;
+    
+    // Interceptar el evento de toggle del menú
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function() {
+            // Pequeño delay para que se ejecute después del toggle original
+            setTimeout(() => {
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    body.classList.remove('sidebar-open');
+                } else {
+                    body.classList.add('sidebar-open');
+                }
+            }, 10);
+        });
+    }
+    
+    // También interceptar el clic en el overlay
+    const overlay = document.getElementById('overlay');
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            body.classList.remove('sidebar-open');
+        });
+    }
+    
+    // Inicializar el mapa sin funcionalidad de clic (solo visualización)
+    if (typeof mapHandler !== 'undefined') {
+        // Función vacía para desactivar el clic
+        const noClickHandler = function(coords) {
+            console.log("Mapa no clickeable en esta página");
+        };
+        
+        // Inicializar el mapa sin funcionalidad de clic
+        mapHandler.initializeMap('map-container', [-34.92, -57.95], 13, noClickHandler);
+    }
+});
+</script>
 {% endblock %}
