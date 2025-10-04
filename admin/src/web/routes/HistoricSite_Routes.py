@@ -2,17 +2,18 @@ from flask import Blueprint, request, jsonify
 from src.web.services.HistoricSite_Service import historic_site_service
 from .. import exceptions as exc
 from flask import session
+from src.web.auth.decorators import permission_required
 
 site_api = Blueprint('site_api', __name__)
 
 @site_api.route('/HistoricSite_Routes', methods=['POST'])
+#@permission_required("create_historic_site")
 def create_historic_site():
     # 1. El controlador recibe el JSON y lo convierte a diccionario
-    json_content = request.get_json()
     # si no se reciben datos, devuelve un error 400
-    if not json_content:
+    data_site = request.get_json()
+    if not data_site:
         return jsonify({'error': 'No se recibieron datos'}), 400
-    data_site = json_content.get('data_site')
     data_user = session.get('user_id')
 
     if not data_site or not data_user:
@@ -32,6 +33,7 @@ def create_historic_site():
         return jsonify({'error': str(e)}), 409 # 409 = Conflict en la data base
 
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['GET'])
+#@permission_required("get_historic_site")
 def get_historic_site(id):
     # si se recibe el ID, llama al servicio para que haga el trabajo pesado
     try:
@@ -43,6 +45,7 @@ def get_historic_site(id):
         return jsonify({'error': str(e)}), 404 # 404 = Not Found
 
 @site_api.route('/HistoricSite_Routes', methods=['GET'])
+#@permission_required("get_all_historic_sites")
 def get_all_historic_sites():
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
     page = request.args.get('page', 1, type=int)
@@ -66,12 +69,12 @@ def get_all_historic_sites():
 
     
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['PUT'])
+#@permission_required("update_historic_site")
 def update_historic_site(id):
-    json_content = request.get_json()
-    if not json_content:
+    data_site = request.get_json()
+    if not data_site:
         return jsonify({'error': 'No se recibieron datos'}), 400
     
-    data_site = json_content.get('data_site')
     data_user = session.get('user_id')
 
     if not data_site or not data_user:
@@ -90,6 +93,7 @@ def update_historic_site(id):
 
 
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['DELETE'])
+#@permission_required("delete_historic_site")
 def delete_historic_site(id):
     data_user = session.get('user_id')
     
@@ -104,3 +108,35 @@ def delete_historic_site(id):
     except exc.DatabaseError as e:
         # 4. Si el servicio lanzó un error de base de datos, lo captura y lo devuelve
         return jsonify({'error': str(e)}), 409 # 409 = Conflict en la data base
+
+
+@site_api.route('/HistoricSite_Routes/<int:site_id>/tags', methods=['POST'])
+#@permission_required("add_tags")
+def add_tags(site_id):
+    data = request.get_json()
+    data_user = session.get('user_id')
+    
+    if not data or not data_user:
+        return jsonify({'error': 'Faltan datos de tags o usuario'}), 400
+    
+    # Extraer la lista de tag IDs del JSON
+    tag_ids = data.get('tag_ids', [])
+    
+    if not tag_ids:
+        return jsonify({'error': 'No se proporcionaron IDs de tags'}), 400
+    
+    try:
+        result = historic_site_service.add_tags(site_id, tag_ids, data_user)
+        return jsonify({
+            'site': result['site'].to_dict(),
+            'added_tags': result['added_tags'],
+            'skipped_tags': result['skipped_tags'],
+            'message': result['message']
+        }), 200
+    except exc.NotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except exc.ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except exc.DatabaseError as e:
+        return jsonify({'error': str(e)}), 409
+

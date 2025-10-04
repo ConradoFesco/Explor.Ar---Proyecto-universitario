@@ -1,10 +1,12 @@
 # services/tag_service.py
 
 from src.web.models.tag import Tag
+from src.web.models.tag_historic_site import TagHistoricSite
 from ..extensions import db
 from slugify import slugify
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
+from src.web.models.historic_site import HistoricSite
 
 class TagService:
     def create_tag(self,data): 
@@ -86,5 +88,20 @@ class TagService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al eliminar el tag: {str(e)}")
+
+    def get_tags_by_site_id(self, site_id):
+        """Obtiene los tags de un sitio histórico por su ID."""
+        site = HistoricSite.query.get(site_id)
+        if not site:
+            raise NotFoundError("Sitio histórico no encontrado.")
+        
+        # Obtener tags a través de la relación many-to-many
+        tags = Tag.query.join(TagHistoricSite).filter(
+            TagHistoricSite.Historic_Site_id == site_id,
+            Tag.deleted == False
+        ).all()
+        
+        return [tag.to_dict() for tag in tags]
+
 
 tag_service = TagService()

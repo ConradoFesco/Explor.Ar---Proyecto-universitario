@@ -221,3 +221,86 @@ body.sidebar-open .map-container {
 .form-error.show {
     display: block;
 }
+
+/* ===== ESTILOS PARA EL SELECTOR DE TAGS ===== */
+.tag-selector-container {
+    margin-bottom: 1rem;
+}
+
+.selected-tags-display {
+    margin-top: 0.5rem;
+    min-height: 2rem;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    background-color: #f9fafb;
+}
+
+.selected-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.tag-item {
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.tag-item:hover {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.tag-item.selected {
+    background-color: #dbeafe;
+    border-color: #3b82f6;
+}
+
+.tag-item .form-check {
+    margin-bottom: 0;
+}
+
+.tag-item .form-check-input {
+    margin-right: 0.5rem;
+}
+
+.tag-item .form-check-label {
+    cursor: pointer;
+    width: 100%;
+}
+
+.tag-name {
+    font-weight: 500;
+}
+
+/* Estilos para el modal de tags */
+#tagSelectorModal .modal-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#tags-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Badge personalizado para tags seleccionados */
+.selected-tags-list .badge {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.selected-tags-list .btn-close {
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+    opacity: 0.8;
+}
+
+.selected-tags-list .btn-close:hover {
+    opacity: 1;
+}

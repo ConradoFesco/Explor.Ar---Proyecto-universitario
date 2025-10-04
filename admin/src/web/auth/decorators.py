@@ -1,27 +1,37 @@
 from functools import wraps
-from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
-from flask import jsonify
-from src.web.models import user  
+from flask import jsonify, session
+from src.web.models.user import User
 
-ADMIN_PERMISSIONS = ["user_new", "user_index", "user_show", "user_update", "user_destroy"]
-def permission_required(f):
+def permission_required(permission_name):
     """
     Decorador para validar si el usuario tiene un permiso específico.
+    
+    Args:
+        permission_name (str): Nombre del permiso requerido
     """
     def wrapper(f):
         @wraps(f)
         def decorator(*args, **kwargs):
-            verify_jwt_in_request()
-            user_id = get_jwt_identity()  # en el token guardamos el id del usuario
-            user = user.query.get(user_id)
-
-            if not user:
+            user_id = session.get('user_id')
+            
+            if not user_id:
+                return jsonify({"error": "Usuario no autenticado"}), 401
+                
+            # Obtener el usuario de la base de datos
+            current_user = User.query.get(user_id)
+            
+            if not current_user:
                 return jsonify({"error": "Usuario no encontrado"}), 404
-
-            # Ejemplo simple: permisos basados en rol
-            if not all(user.permissions for perm in ADMIN_PERMISSIONS):
-                return jsonify({"error": "Acceso denegado, solo el admin puede acceder"}), 403
-
+                
+            if not current_user.user_roles:
+                return jsonify({"error": "Usuario no tiene roles asignados"}), 403
+                
+            # Verificar si el usuario tiene el permiso requerido
+            user_permissions = current_user.permissions  # Usa la propiedad que ya tienes definida
+            
+            if permission_name not in user_permissions:
+                return jsonify({"error": f"Acceso denegado. Se requiere el permiso: {permission_name}"}), 403
+                
             return f(*args, **kwargs)
         return decorator
     return wrapper

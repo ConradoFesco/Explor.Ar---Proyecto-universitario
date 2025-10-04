@@ -63,3 +63,14 @@ def delete_tag_route(tag_id):
     except DatabaseError as e:
         return jsonify({'error': str(e)}), 409
     return jsonify({'message': 'Tag eliminado exitosamente.'}), 200
+
+@tag_api.route('/tag_routes/<int:site_id>/tags', methods=['GET'])
+#@permission_required("get_tags_by_site_id")
+def get_tags_by_site_id_route(site_id):
+    try:
+        result = tag_service.get_tags_by_site_id(site_id)
+        return jsonify(result), 200
+    except NotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except DatabaseError as e:
+        return jsonify({'error': str(e)}), 409

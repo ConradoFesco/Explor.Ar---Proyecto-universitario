@@ -1,18 +1,18 @@
-from ..models import HistoricSite
+from ..models import HistoricSite, Tag, TagHistoricSite
 from .. import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from ..extensions import db
 from ..services.event_service import event_service
-
+from ..services.tag_service import tag_service
 class HistoricSite_Service:
     def create_historic_site(self, data_site, data_user):
         required_fields = ['name', 'brief_description', 'id_ciudad', 'latitude', 'longitude', 'id_category', 'visible']
         if ( not all(field in data_site for field in required_fields)):
             raise exc.ValidationError("Faltan campos obligatorios del sitio histórico: Nombre, descripción, ciudad, latitud, longitud, categoría y visible")
-        id_user = data_user.get('id_user')
+        id_user = data_user
         if not id_user:
-            raise exc.ValidationError("Faltan campos obligatorios del usuario: id_user")
+            raise exc.ValidationError("Usuario no autenticado. Por favor, inicie sesión.")
         name = data_site.get('name') 
         brief_description = data_site.get('brief_description')
         complete_description = data_site.get('complete_description',None) 
@@ -41,6 +41,12 @@ class HistoricSite_Service:
         try:
             db.session.add(historic_site)
             db.session.flush()
+            
+            # Si se proporcionaron tags, agregarlos al sitio (sin crear evento adicional)
+            tag_ids = data_site.get('tag_ids', [])
+            if tag_ids:
+                self.add_tags(historic_site.id, tag_ids, id_user, event_action=False)
+            
             event_data = {
                 'id_site': historic_site.id,
                 'id_user': id_user,
@@ -105,6 +111,7 @@ class HistoricSite_Service:
         historic_site.id_category = data_site.get('id_category',historic_site.id_category)
         historic_site.deleted = data_site.get('deleted',historic_site.deleted)
         historic_site.visible = data_site.get('visible',historic_site.visible)
+        
         id_user = data_user
         try:
             event_data = {
@@ -142,5 +149,77 @@ class HistoricSite_Service:
         # 5. Devuelve el objeto modificado (opcional pero útil)
         return site
 
+
+    def add_tags(self, site_id, tag_ids_list, data_user, event_action=True): #event_action es true si se quiere crear un evento
+        # Validar que el sitio histórico existe
+        site = HistoricSite.query.get(site_id)
+        if not site:
+            raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
+        
+        # Validar que tag_ids_list es una lista
+        if not isinstance(tag_ids_list, list):
+            raise exc.ValidationError("Los tags deben enviarse como una lista.")
+        
+        if not tag_ids_list:
+            raise exc.ValidationError("La lista de tags no puede estar vacía.")
+        
+        # Validar que todos los tags existen
+        non_existent_tags = []
+        for tag_id in tag_ids_list:
+            try:
+                tag_service.get_tag_by_id(tag_id)
+            except exc.NotFoundError:
+                non_existent_tags.append(tag_id)
+        
+        if non_existent_tags:
+            raise exc.NotFoundError(f"Los siguientes tags no existen: {non_existent_tags}")
+
+        # Obtener relaciones existentes para evitar duplicados
+        existing_relations = TagHistoricSite.query.filter_by(
+            Historic_Site_id=site_id
+        ).filter(TagHistoricSite.Tag_id.in_(tag_ids_list)).all()
+        
+        existing_tag_ids = [rel.Tag_id for rel in existing_relations]
+        new_tag_ids = [tag_id for tag_id in tag_ids_list if tag_id not in existing_tag_ids]
+        
+        if not new_tag_ids:
+            raise exc.ValidationError("El sitio histórico ya posee todos los tags especificados.")
+
+        # Crear las nuevas relaciones solo para los tags que no existen
+        relations_to_add = []
+        for tag_id in new_tag_ids:
+            relation = TagHistoricSite(
+                Historic_Site_id=site_id,
+                Tag_id=tag_id
+            )
+            relations_to_add.append(relation)
+        
+        try:
+            # Agregar todas las relaciones nuevas
+            for relation in relations_to_add:
+                db.session.add(relation)
+            
+            # Crear evento si es necesario
+            if event_action:
+                event_data = {
+                    'id_site': site.id,
+                    'id_user': data_user,
+                    'type_Action': 'UPDATE'
+                }
+                event_service.create_event(event_data, commit=False)
+            
+            db.session.commit()
+            
+            # Retornar información útil sobre qué se agregó
+            return {
+                'site': site,
+                'added_tags': new_tag_ids,
+                'skipped_tags': existing_tag_ids,
+                'message': f'Se agregaron {len(new_tag_ids)} tags nuevos. Se omitieron {len(existing_tag_ids)} tags que ya existían.'
+            }
+            
+        except (IntegrityError, exc.ValidationError) as e:
+            db.session.rollback()
+            raise exc.DatabaseError(f"Error al agregar los tags al sitio histórico y su evento: {e}")
 # instancia de la clase HistoricSite_Service
 historic_site_service = HistoricSite_Service()
