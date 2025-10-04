@@ -225,13 +225,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleFormSubmit(event) {
         event.preventDefault();
         
-        // Validar que el usuario esté logueado
-        if (!window.currentUser || !window.currentUser.id) {
-            alert('Error: No se pudo obtener la información del usuario. Por favor, inicie sesión nuevamente.');
-            window.location.href = '/';
-            return;
-        }
-        
         // Validar campos requeridos
         if (!validateRequiredFields()) {
             // Hacer scroll al primer campo con error
@@ -248,23 +241,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Datos del formulario:', data);
         
+        // Obtener tags seleccionados
+        const selectedTags = window.tagSelector ? window.tagSelector.getSelectedTags() : [];
+        
         // Preparar los datos según la estructura esperada por el backend
         const requestData = {
-            data_site: {
-                name: data.nombre,
-                brief_description: data.descripcion_breve,
-                complete_description: data.descripcion_completa || null,
-                latitude: parseFloat(data.latitud),
-                longitude: parseFloat(data.longitud),
-                year_inauguration: data.año_inauguración || null,
-                id_estado: parseInt(data.estado),
-                id_category: parseInt(data.categoria),
-                visible: true, // Por defecto visible
-                id_ciudad: 1 // TODO: Obtener el ID de ciudad basado en la geocodificación
-            },
-            data_user: {
-                id_user: window.currentUser ? window.currentUser.id : null
-            }
+            name: data.nombre,
+            brief_description: data.descripcion_breve,
+            complete_description: data.descripcion_completa || null,
+            latitude: parseFloat(data.latitud),
+            longitude: parseFloat(data.longitud),
+            year_inauguration: data.año_inauguración || null,
+            id_estado: parseInt(data.estado),
+            id_category: parseInt(data.categoria),
+            visible: true, // Por defecto visible
+            id_ciudad: 1, // TODO: Obtener el ID de ciudad basado en la geocodificación
+            tag_ids: selectedTags.map(tag => tag.id) // Agregar IDs de tags seleccionados
         };
         
         console.log('Datos preparados para el backend:', requestData);
@@ -304,6 +296,12 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error al crear el sitio histórico:', error);
+            // Si el error es de autenticación, redirigir al login
+            if (error.message.includes('Usuario no autenticado') || error.message.includes('Faltan datos de sitio histórico o usuario')) {
+                alert('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
+                window.location.href = '/';
+                return;
+            }
             showErrorMessage(error.message);
         })
         .finally(() => {
@@ -361,5 +359,212 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+
+    // =============================================================================
+    // COMPONENTE REUTILIZABLE DE SELECCIÓN DE TAGS
+    // =============================================================================
+    
+    // Clase para el selector de tags reutilizable
+    class TagSelector {
+        constructor(containerId) {
+            this.containerId = containerId;
+            this.selectedTags = [];
+            this.allTags = [];
+            this.init();
+        }
+
+        init() {
+            this.createHTML();
+            this.loadTags();
+        }
+
+        createHTML() {
+            const container = document.getElementById(this.containerId);
+            if (!container) return;
+
+            // Solo crear el botón en el contenedor del formulario
+            container.innerHTML = `
+                <button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200" id="open-tag-selector">
+                    <i class="bi bi-tags-fill"></i> Agregar Tags
+                </button>
+            `;
+            
+            // Agregar evento al botón
+            document.getElementById('open-tag-selector').addEventListener('click', () => {
+                this.openModal();
+            });
+        }
+
+        async loadTags() {
+            try {
+                const response = await fetch('/api/tag_routes');
+                if (!response.ok) {
+                    throw new Error('Error al cargar tags');
+                }
+                this.allTags = await response.json();
+            } catch (error) {
+                console.error('Error cargando tags:', error);
+                this.allTags = [];
+            }
+        }
+
+        openModal() {
+            // Usar el modal genérico del layout
+            const modal = document.getElementById('detail-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            
+            // Configurar el modal
+            modalTitle.textContent = 'Seleccionar Tags';
+            modalContent.innerHTML = this.createModalContent();
+            
+            // Mostrar el modal
+            modal.classList.remove('hidden');
+            
+            // Agregar eventos después de crear el contenido
+            this.bindModalEvents();
+        }
+
+        createModalContent() {
+            return `
+                <div class="space-y-4">
+                    <!-- Búsqueda -->
+                    <div>
+                        <input type="text" id="tag-search" placeholder="Buscar tags..." 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <!-- Lista de tags -->
+                    <div id="tags-container" class="max-h-64 overflow-y-auto space-y-2">
+                        ${this.renderTagsHTML()}
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="closeModal()" 
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                            Cancelar
+                        </button>
+                        <button type="button" id="confirm-tags"
+                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition duration-200">
+                            Confirmar Selección
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        renderTagsHTML(filteredTags = null) {
+            const tagsToRender = filteredTags || this.allTags;
+            
+            if (tagsToRender.length === 0) {
+                return '<div class="text-center text-gray-500 py-4">No se encontraron tags</div>';
+            }
+
+            return tagsToRender.map(tag => `
+                <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition duration-200">
+                    <input type="checkbox" 
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                           id="tag-${tag.id}"
+                           data-tag-id="${tag.id}"
+                           ${this.isSelected(tag.id) ? 'checked' : ''}>
+                    <label for="tag-${tag.id}" class="ml-3 flex-1 cursor-pointer">
+                        <span class="font-medium text-gray-900">${tag.name}</span>
+                        <span class="text-sm text-gray-500 ml-2">(${tag.slug})</span>
+                    </label>
+                </div>
+            `).join('');
+        }
+
+        bindModalEvents() {
+            // Búsqueda de tags
+            const searchInput = document.getElementById('tag-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    this.filterTags(e.target.value);
+                });
+            }
+
+            // Confirmar selección
+            const confirmButton = document.getElementById('confirm-tags');
+            if (confirmButton) {
+                confirmButton.addEventListener('click', () => {
+                    this.confirmSelection();
+                });
+            }
+        }
+
+        filterTags(searchTerm) {
+            const filtered = this.allTags.filter(tag => 
+                tag.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tag.slug.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            
+            const container = document.getElementById('tags-container');
+            if (container) {
+                container.innerHTML = this.renderTagsHTML(filtered);
+                this.bindModalEvents(); // Re-bind events after re-rendering
+            }
+        }
+
+        isSelected(tagId) {
+            return this.selectedTags.some(tag => tag.id === tagId);
+        }
+
+        confirmSelection() {
+            // Recopilar tags seleccionados
+            const checkboxes = document.querySelectorAll('#tags-container input[type="checkbox"]:checked');
+            this.selectedTags = [];
+            
+            checkboxes.forEach(checkbox => {
+                const tagId = parseInt(checkbox.dataset.tagId);
+                const tag = this.allTags.find(t => t.id === tagId);
+                if (tag) {
+                    this.selectedTags.push(tag);
+                }
+            });
+
+            this.updateSelectedTagsDisplay();
+            closeModal(); // Usar la función global del layout
+        }
+
+        updateSelectedTagsDisplay() {
+            // Actualizar el texto del botón para mostrar cuántos tags están seleccionados
+            const button = document.getElementById('open-tag-selector');
+            if (button && this.selectedTags.length > 0) {
+                button.innerHTML = `<i class="bi bi-tags-fill"></i> Agregar Tags (${this.selectedTags.length} seleccionados)`;
+            } else if (button) {
+                button.innerHTML = `<i class="bi bi-tags-fill"></i> Agregar Tags`;
+            }
+        }
+
+        getSelectedTags() {
+            return [...this.selectedTags];
+        }
+
+        setSelectedTags(tags) {
+            this.selectedTags = [...tags];
+            this.updateSelectedTagsDisplay();
+        }
+
+        clearSelection() {
+            this.selectedTags = [];
+            this.updateSelectedTagsDisplay();
+        }
+    }
+
+    // Inicializar el selector de tags cuando el DOM esté listo
+    if (document.getElementById('tag-selector-container')) {
+        window.tagSelector = new TagSelector('tag-selector-container');
+    }
+
+    // Función global para limpiar también los tags seleccionados
+    const originalClearForm = window.clearForm;
+    window.clearForm = function() {
+        originalClearForm();
+        if (window.tagSelector) {
+            window.tagSelector.clearSelection();
+        }
+    };
 
 });
