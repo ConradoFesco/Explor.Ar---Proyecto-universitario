@@ -8,32 +8,38 @@
         <div class="px-6 py-4 border-b border-gray-200">
             <h3 class="text-lg font-medium text-gray-900">Editar Usuario</h3>
         </div>
-        
+
         <!-- Formulario sin action directo, lo manejamos con JS para llamar al API -->
         <form id="editUserForm" class="p-6 space-y-6">
             <!-- Nombre -->
-            <div>
-                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre
-                </label>
-                <input type="text" 
-                       id="name" 
-                       name="name" 
-                       value="{{ user.name }}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            </div>
+    <div>
+        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+            Nombre <span class="text-red-500">*</span>
+        </label>
+        <input type="text" 
+                id="name" 
+                name="name" 
+                value="{{ user.name }}"
+                required
+                minlength="1"
+                placeholder="Ingresa el nombre"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+    </div>
 
-            <!-- Apellido -->
-            <div>
-                <label for="last_name" class="block text-sm font-medium text-gray-700 mb-1">
-                    Apellido
-                </label>
-                <input type="text" 
-                       id="last_name" 
-                       name="last_name" 
-                       value="{{ user.last_name }}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            </div>
+    <!-- Apellido -->
+    <div>
+        <label for="last_name" class="block text-sm font-medium text-gray-700 mb-1">
+            Apellido <span class="text-red-500">*</span>
+        </label>
+        <input type="text" 
+            id="last_name" 
+            name="last_name" 
+            value="{{ user.last_name }}"
+            required
+            minlength="1"
+            placeholder="Ingresa el apellido"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+    </div>
 
             <!-- Email -->
             <div>
@@ -55,7 +61,7 @@
                 <select id="role" name="role"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="Usuario" {% if user.role == 'Usuario' %}selected{% endif %}>Usuario</option>
-                    <option value="Moderador" {% if user.role == 'Moderador' %}selected{% endif %}>Moderador</option>
+                    <option value="Editor" {% if user.role == 'Editor' %}selected{% endif %}>Moderador</option>
                     <option value="Administrador" {% if user.role == 'Administrador' %}selected{% endif %}>Administrador</option>
                 </select>
             </div>
@@ -112,9 +118,62 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.getElementById("editUserForm").addEventListener("submit", async function(e) {
     e.preventDefault();
+
+    // Validar que nombre y apellido no estén vacíos
+    const nameValue = document.getElementById('name').value.trim();
+    const lastNameValue = document.getElementById('last_name').value.trim();
+
+    if (!nameValue || nameValue.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Nombre requerido',
+            text: 'El nombre no puede estar vacío',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
+
+    if (!lastNameValue || lastNameValue.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Apellido requerido',
+            text: 'El apellido no puede estar vacío',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
+
+    // Validar email
+    const mailValue = document.getElementById('mail').value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!mailValue || !emailRegex.test(mailValue)) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Email inválido',
+            text: 'Por favor ingresa un email válido',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
+
+    // Validar que no se pueda bloquear a un Administrador
+    const currentRole = document.getElementById('role').value;
+    const isBlocked = document.getElementById('blocked').checked;
+    
+    if (currentRole === 'Administrador' && isBlocked) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Acción no permitida',
+            text: 'No se puede bloquear a un usuario con rol de Administrador',
+            confirmButtonColor: '#3B82F6'
+        });
+        return;
+    }
 
     // Valores originales del usuario
     const originalData = {
@@ -147,13 +206,18 @@ document.getElementById("editUserForm").addEventListener("submit", async functio
         }
     }
 
-    // Si no hay cambios, no hacer nada
+    // Si no hay cambios
     if (Object.keys(changedFields).length === 0) {
-        alert('No hay cambios para guardar');
+        Swal.fire({
+            icon: 'info',
+            title: 'Sin cambios',
+            text: 'No hay cambios para guardar',
+            confirmButtonColor: '#3B82F6'
+        });
         return;
     }
 
-    const formData = {
+    const formData = { // Esto está hardcodeado, tiene que usarse el servicio en el back
         data_user: {
             id: 2, // NOTA: Reemplazar con el ID del usuario que está editando (admin logueado)
         },
@@ -171,14 +235,31 @@ document.getElementById("editUserForm").addEventListener("submit", async functio
 
         const data = await response.json();
         if (response.ok) {
-            alert("Usuario actualizado correctamente");
-            // Forzar recarga completa para ver los cambios
-            window.location.replace("/users");
+            Swal.fire({
+                icon: 'success',
+                title: '¡Actualizado!',
+                text: 'Usuario actualizado correctamente',
+                confirmButtonColor: '#3B82F6',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.replace("/users");
+            });
         } else {
-            alert("Error: " + (data.error || "No se pudo actualizar el usuario"));
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'No se pudo actualizar el usuario',
+                confirmButtonColor: '#3B82F6'
+            });
         }
     } catch (err) {
-        alert("Error en la conexión con el servidor: " + err.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: err.message,
+            confirmButtonColor: '#3B82F6'
+        });
     }
 });
 </script>

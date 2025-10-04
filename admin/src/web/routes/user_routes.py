@@ -24,6 +24,7 @@ def create_user():
 def list_users():
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 25))
+
     if page < 1:
         page = 1
     if per_page < 1 or per_page > 25:  # Límite máximo de 25 por página
@@ -49,14 +50,22 @@ def list_users():
         sort_order = 'desc'
     
     try:
-        result = user_service.list_users(
-            filters=filters, 
-            page=page, 
-            per_page=per_page, 
-            sort_by=sort_by, 
-            sort_order=sort_order
-        )
-        return jsonify(result), 200
+        result = user_service.list_users(page=page, per_page=per_page)
+        
+        # Me aseguro que siempre tenga formato JSON con users + pagination
+        return jsonify({
+            "users": result.get("users", []),
+            "pagination": {
+                "page": result.get("page", page),
+                "per_page": result.get("per_page", per_page),
+                "total": result.get("total", 0),
+                "pages": result.get("pages", 1),
+                "has_prev": result.get("has_prev", False),
+                "has_next": result.get("has_next", False),
+                "prev_num": result.get("prev_num"),
+                "next_num": result.get("next_num"),
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -80,7 +89,7 @@ def get_user(user_id):
         return jsonify({"error": str(e)}), 404
 
 @user_api.route('/<int:user_id>', methods=['PUT'])
-#@permission_required("user_update")
+#permission_required("user_update")
 def update_user(user_id):
     from src.web.models import User
     from ..extensions import db
@@ -174,6 +183,7 @@ def delete_user(user_id):
         print(f"Error en la operación: {e}") # Imprime el error en la consola del servidor
         return jsonify({"error": "Ocurrió un error interno al procesar la solicitud."}), 500
 
+<<<<<<< admin/src/web/routes/user_routes.py
 # --- RUTAS PARA GESTIÓN DE BLOQUEO DE USUARIOS ---
 
 @user_api.route('/<int:user_id>/block', methods=['POST'])
@@ -303,3 +313,8 @@ def revoke_role_from_user(user_id, role_id):
         return jsonify({"error": str(e)}), 409
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@user_api.route('/page', methods=['GET']) # esto hay que verlo
+def list_users_page():
+    return render_template("list_users.html")
+

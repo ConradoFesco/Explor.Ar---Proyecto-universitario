@@ -22,7 +22,16 @@
 
     <!-- Lista de usuarios -->
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Usuarios registrados</h2>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Usuarios registrados</h2>
+            <button onclick="window.location.href='/users/nuevo'" 
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Agregar Usuario
+            </button>
+        </div>
         <div id="loading-message" class="text-center text-gray-500 py-8">Cargando usuarios...</div>
         <ul id="users-list" class="divide-y divide-gray-200 hidden"></ul>
         <div id="no-users-message" class="text-center text-gray-500 py-8 hidden">No hay usuarios para mostrar.</div>
@@ -34,7 +43,7 @@
 </main>
 
 <!-- Modal de eliminación -->
-<div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <div class="flex justify-center mb-4">
             <div class="bg-red-100 rounded-full p-3">
@@ -71,26 +80,20 @@
 
 {% block scripts %}
 {{ super() }}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     let currentPage = 1;
     const perPage = 25;
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Obtener página inicial desde URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const pageFromUrl = parseInt(urlParams.get('page')) || 1;
-        const searchFromUrl = urlParams.get('search') || '';
-        
-        // Establecer búsqueda desde URL
-        document.getElementById('searchInput').value = searchFromUrl;
-        
-        // Cargar usuarios con parámetros de URL
-        currentPage = pageFromUrl;
+        // Siempre cargar usuarios frescos
+        currentPage = 1;
         loadUsers(currentPage);
 
         // Buscar mientras se escribe
         document.getElementById('searchInput').addEventListener('input', () => {
-            updateURLAndLoad(1);
+            loadUsers(1);
         });
     });
 
@@ -99,43 +102,6 @@
         if (!document.hidden) {
             loadUsers(currentPage);
         }
-    });
-
-    // Función para actualizar URL y cargar datos
-    function updateURLAndLoad(page) {
-        const searchQuery = document.getElementById('searchInput').value.trim();
-        const url = new URL(window.location);
-        
-        // Actualizar parámetros
-        if (page > 1) {
-            url.searchParams.set('page', page);
-        } else {
-            url.searchParams.delete('page');
-        }
-        
-        if (searchQuery) {
-            url.searchParams.set('search', searchQuery);
-        } else {
-            url.searchParams.delete('search');
-        }
-        
-        // Actualizar URL sin recargar la página
-        window.history.pushState({}, '', url);
-        
-        // Cargar datos
-        currentPage = page;
-        loadUsers(page);
-    }
-
-    // Manejar navegación del navegador (botones atrás/adelante)
-    window.addEventListener('popstate', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const pageFromUrl = parseInt(urlParams.get('page')) || 1;
-        const searchFromUrl = urlParams.get('search') || '';
-        
-        document.getElementById('searchInput').value = searchFromUrl;
-        currentPage = pageFromUrl;
-        loadUsers(currentPage);
     });
 
     function getInitials(name, lastName) {
@@ -162,8 +128,6 @@
         const noUsersMessage = document.getElementById('no-users-message');
         const paginationControls = document.getElementById('pagination-controls');
         const paginationInfo = document.getElementById('pagination-info');
-        
-        // Obtener búsqueda desde input o URL
         const searchQuery = document.getElementById('searchInput').value.trim();
 
         // Limpiar contenido anterior
@@ -180,7 +144,7 @@
 
         // Agregar timestamp para evitar caché
         const timestamp = new Date().getTime();
-        const API_URL = `{{ url_for("user_api.list_users") }}?page=${page}&per_page=${perPage}&search=${encodeURIComponent(searchQuery)}&_=${timestamp}`;
+        const API_URL = `{{ url_for("user_api.list_users") }}?page=${page}&per_page=${perPage}&q=${searchQuery}&_=${timestamp}`;
 
         fetch(API_URL, {
             cache: 'no-store',
@@ -211,6 +175,7 @@
                     const initials = getInitials(user.name, user.last_name);
                     const avatarColor = getAvatarColor(index);
                     const activeStatus = user.active !== false;
+                    const blockedStatus = user.blocked === true;
                     const userRole = user.role || 'Usuario';
                     const createdDate = user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '2024-01-15';
                     
@@ -284,7 +249,7 @@
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
         }`;
         prevButton.disabled = !pagination.has_prev;
-        prevButton.onclick = () => updateURLAndLoad(pagination.prev_num);
+        prevButton.onclick = () => loadUsers(pagination.prev_num);
         paginationControls.appendChild(prevButton);
 
         // Pages
@@ -299,7 +264,7 @@
                     ? 'bg-blue-600 text-white' 
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
             }`;
-            pageButton.onclick = () => updateURLAndLoad(i);
+            pageButton.onclick = () => loadUsers(i);
             paginationControls.appendChild(pageButton);
         }
 
@@ -312,7 +277,7 @@
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
         }`;
         nextButton.disabled = !pagination.has_next;
-        nextButton.onclick = () => updateURLAndLoad(pagination.next_num);
+        nextButton.onclick = () => loadUsers(pagination.next_num);
         paginationControls.appendChild(nextButton);
 
         paginationControls.classList.remove('hidden');
