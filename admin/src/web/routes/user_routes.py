@@ -97,7 +97,7 @@ def update_user(user_id):
 
     # Obtengo el JSON del front
     data = request.get_json()
-    user = User.query.get_or_404(user_id)
+    user = User.query.get_or_404(user_id) # modificar y mandar al servicio!!!!
 
     # Contiene SOLO los campos que el usuario quiere modificar
     changed_fields = data.get('data_new', {})
@@ -183,7 +183,6 @@ def delete_user(user_id):
         print(f"Error en la operación: {e}") # Imprime el error en la consola del servidor
         return jsonify({"error": "Ocurrió un error interno al procesar la solicitud."}), 500
 
-<<<<<<< admin/src/web/routes/user_routes.py
 # --- RUTAS PARA GESTIÓN DE BLOQUEO DE USUARIOS ---
 
 @user_api.route('/<int:user_id>/block', methods=['POST'])
@@ -314,7 +313,7 @@ def revoke_role_from_user(user_id, role_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@user_api.route('/page', methods=['GET']) # esto hay que verlo
+@user_api.route('/page', methods=['GET'])
 def list_users_page():
     return render_template("list_users.html")
 

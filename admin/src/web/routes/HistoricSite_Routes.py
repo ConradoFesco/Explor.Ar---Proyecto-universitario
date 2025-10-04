@@ -1,7 +1,7 @@
-
 from flask import Blueprint, request, jsonify
 from src.web.services.HistoricSite_Service import historic_site_service
 from .. import exceptions as exc
+from flask import session
 
 site_api = Blueprint('site_api', __name__)
 
@@ -13,7 +13,7 @@ def create_historic_site():
     if not json_content:
         return jsonify({'error': 'No se recibieron datos'}), 400
     data_site = json_content.get('data_site')
-    data_user = json_content.get('data_user')
+    data_user = session.get('user_id')
 
     if not data_site or not data_user:
         return jsonify({'error': 'Faltan datos de sitio histórico o usuario'}), 400
@@ -72,7 +72,7 @@ def update_historic_site(id):
         return jsonify({'error': 'No se recibieron datos'}), 400
     
     data_site = json_content.get('data_site')
-    data_user = json_content.get('data_user')
+    data_user = session.get('user_id')
 
     if not data_site or not data_user:
         return jsonify({'error': 'Faltan datos de sitio histórico o usuario'}), 400
@@ -91,13 +91,7 @@ def update_historic_site(id):
 
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['DELETE'])
 def delete_historic_site(id):
-    json_content = request.get_json()
-    if not json_content:
-        return jsonify({'error': 'No se recibieron datos'}), 400
-    
-    data_user = json_content.get('data_user')
-    if not data_user:
-        return jsonify({'error': 'Faltan datos de usuario'}), 400
+    data_user = session.get('user_id')
     
     try:
         # 1. Llama al servicio para que haga el trabajo

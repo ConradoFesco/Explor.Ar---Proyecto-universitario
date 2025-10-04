@@ -1,0 +1,588 @@
+{% extends "layout.html" %}
+
+{% block title %}Modificar Sitio Histórico{% endblock %}
+
+{% block content %}
+<!-- CSS de Leaflet (necesario para que el mapa se vea correctamente) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Modificar Sitio Histórico</h2>
+            <a href="{{ url_for('lista_sitios') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                ← Volver al Listado
+            </a>
+        </div>
+        
+        <div class="mb-6">
+            <p class="text-gray-600 mb-4">
+                Modifique la información del sitio histórico. Haga clic en el mapa para cambiar la ubicación.
+            </p>
+        </div>
+        
+        <!-- Div para mostrar el mapa -->
+        <div id="map-container" class="map-container mb-6" style="height: 500px; border: 2px solid #e5e7eb; border-radius: 8px;"></div>
+        
+        <!-- Mensaje de éxito -->
+        <div class="form-success hidden" id="success-message">
+            ¡Sitio histórico modificado exitosamente!
+        </div>
+
+        <!-- Mensaje de error -->
+        <div class="form-error hidden" id="error-message">
+            Error al modificar el sitio histórico.
+        </div>
+
+        <!-- Formulario para modificar sitio histórico -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Información del Sitio Histórico</h3>
+            
+            <form id="site-form" class="space-y-4">
+                <!-- Primera fila: Nombre y Año de Inauguración -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                        <input type="text" id="nombre" name="nombre" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ingrese el nombre del sitio">
+                        <div class="error-message hidden" id="nombre-error">El nombre es requerido</div>
+                    </div>
+                    <div>
+                        <label for="año_inauguración" class="block text-sm font-medium text-gray-700 mb-1">Año de Inauguración</label>
+                        <input type="number" id="año_inauguración" name="año_inauguración" min="1000" max="9999"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ej: 1920">
+                    </div>
+                </div>
+
+                <!-- Segunda fila: Descripción breve -->
+                <div>
+                    <label for="descripcion_breve" class="block text-sm font-medium text-gray-700 mb-1">Descripción Breve *</label>
+                    <textarea id="descripcion_breve" name="descripcion_breve" required rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Descripción corta del sitio histórico"></textarea>
+                    <div class="error-message hidden" id="descripcion_breve-error">La descripción breve es requerida</div>
+                </div>
+
+                <!-- Tercera fila: Descripción completa -->
+                <div>
+                    <label for="descripcion_completa" class="block text-sm font-medium text-gray-700 mb-1">Descripción Completa</label>
+                    <textarea id="descripcion_completa" name="descripcion_completa" rows="4"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Descripción detallada del sitio histórico"></textarea>
+                </div>
+
+                <!-- Cuarta fila: Coordenadas (generadas automáticamente) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="latitud" class="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
+                        <input type="number" id="latitud" name="latitud" step="any" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                    </div>
+                    <div>
+                        <label for="longitud" class="block text-sm font-medium text-gray-700 mb-1">Longitud</label>
+                        <input type="number" id="longitud" name="longitud" step="any" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                    </div>
+                </div>
+
+                <!-- Quinta fila: Ubicación (generada automáticamente) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ciudad" class="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                        <input type="text" id="ciudad" name="ciudad" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                    </div>
+                    <div>
+                        <label for="provincia" class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                        <input type="text" id="provincia" name="provincia" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                    </div>
+                </div>
+
+                <!-- Sexta fila: Estado y Categoría (seleccionables) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
+                        <select id="estado" name="estado" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleccione un estado...</option>
+                        </select>
+                        <div class="error-message hidden" id="estado-error">Debe seleccionar un estado</div>
+                    </div>
+                    <div>
+                        <label for="categoria" class="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
+                        <select id="categoria" name="categoria" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleccione una categoría...</option>
+                        </select>
+                        <div class="error-message hidden" id="categoria-error">Debe seleccionar una categoría</div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="cancelEdit()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Scripts necesarios para el mapa (en este orden) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
+
+<!-- Pasar datos del usuario al JavaScript -->
+<script>
+    window.currentUser = {
+        id: {{ user.id if user else 'null' }},
+        first_name: "{{ user.first_name if user else '' }}",
+        last_name: "{{ user.last_name if user else '' }}",
+        mail: "{{ user.mail if user else '' }}"
+    };
+</script>
+
+<script>
+// Variables globales
+let map;
+let marker;
+let currentSiteId = null;
+
+// Obtener ID del sitio desde la URL
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    currentSiteId = urlParams.get('edit');
+    
+    if (currentSiteId) {
+        loadSiteData(currentSiteId);
+    } else {
+        showError('No se especificó un sitio para modificar');
+    }
+    
+    // Inicializar el mapa después de cargar los datos del sitio
+    setTimeout(() => {
+        initializeMapForEdit();
+    }, 100);
+});
+
+// Función para cargar los datos del sitio
+async function loadSiteData(siteId) {
+    try {
+        const response = await fetch(`{{ url_for("site_api.get_historic_site", id=0) }}`.replace('0', siteId));
+        if (!response.ok) {
+            throw new Error('Error al cargar los datos del sitio');
+        }
+        
+        const site = await response.json();
+        
+        // Llenar el formulario con los datos del sitio
+        document.getElementById('nombre').value = site.name || '';
+        document.getElementById('año_inauguración').value = site.year_inauguration || '';
+        document.getElementById('descripcion_breve').value = site.brief_description || '';
+        document.getElementById('descripcion_completa').value = site.complete_description || '';
+        document.getElementById('latitud').value = site.latitude || '';
+        document.getElementById('longitud').value = site.longitude || '';
+        document.getElementById('ciudad').value = site.city_name || '';
+        document.getElementById('provincia').value = site.province_name || '';
+        
+        // Establecer la ubicación en el mapa
+        if (site.latitude && site.longitude) {
+            setMapLocation(parseFloat(site.latitude), parseFloat(site.longitude));
+        }
+        
+        // Cargar estados y categorías después de cargar los datos del sitio
+        loadStatesAndCategories();
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showError('Error al cargar los datos del sitio: ' + error.message);
+    }
+}
+
+// Función para inicializar el mapa para edición
+function initializeMapForEdit() {
+    // Verificar que mapHandler esté disponible
+    if (typeof mapHandler === 'undefined') {
+        console.error('mapHandler no está disponible. Verifica que map_handler.js se haya cargado correctamente.');
+        return;
+    }
+
+    // Función que se ejecuta cuando el usuario hace clic en el mapa
+    const handleMapClick = function(coords) {
+        console.log("Coordenadas seleccionadas:", coords);
+        
+        // Actualizar los campos del formulario con las coordenadas
+        updateFormCoordinates(coords);
+        
+        // Obtener información de ubicación (ciudad y provincia) usando geocodificación inversa
+        getLocationInfo(coords);
+        
+        console.log("Ubicación actualizada en el formulario");
+    };
+
+    // Obtener coordenadas actuales del formulario o usar coordenadas por defecto
+    const latInput = document.getElementById('latitud');
+    const lngInput = document.getElementById('longitud');
+    
+    let initialCoords = [-34.92, -57.95]; // Coordenadas por defecto (La Plata)
+    if (latInput && lngInput && latInput.value && lngInput.value) {
+        initialCoords = [parseFloat(latInput.value), parseFloat(lngInput.value)];
+    }
+
+    // Inicializar el mapa con las coordenadas actuales
+    mapHandler.initializeMap('map-container', initialCoords, 13, handleMapClick);
+}
+
+// Función para establecer ubicación en el mapa
+function setMapLocation(lat, lng) {
+    // Esta función se ejecutará después de que el mapa esté inicializado
+    setTimeout(() => {
+        if (typeof mapHandler !== 'undefined' && mapHandler.map) {
+            mapHandler.map.setView([lat, lng], 13);
+            if (mapHandler.marker) {
+                mapHandler.marker.setLatLng([lat, lng]);
+            }
+        }
+    }, 200);
+}
+
+// Función para actualizar las coordenadas en el formulario
+function updateFormCoordinates(coords) {
+    const latInput = document.getElementById('latitud');
+    const lngInput = document.getElementById('longitud');
+    
+    if (latInput) latInput.value = coords.lat.toFixed(6);
+    if (lngInput) lngInput.value = coords.lng.toFixed(6);
+}
+
+// Función para obtener información de ubicación usando geocodificación inversa
+function getLocationInfo(coords) {
+    // Usar Nominatim (OpenStreetMap) para geocodificación inversa
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}&zoom=10&addressdetails=1`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Datos de geocodificación:', data);
+            
+            const ciudadInput = document.getElementById('ciudad');
+            const provinciaInput = document.getElementById('provincia');
+            
+            if (data.address) {
+                // Intentar obtener la ciudad
+                let ciudad = data.address.city || 
+                           data.address.town || 
+                           data.address.village || 
+                           data.address.municipality ||
+                           data.address.suburb ||
+                           '';
+                
+                // Intentar obtener la provincia/estado
+                let provincia = data.address.state || 
+                              data.address.region || 
+                              data.address.province ||
+                              '';
+                
+                if (ciudadInput) ciudadInput.value = ciudad;
+                if (provinciaInput) provinciaInput.value = provincia;
+            }
+        })
+        .catch(error => {
+            console.error('Error en geocodificación inversa:', error);
+            // Si falla, dejar los campos vacíos
+            const ciudadInput = document.getElementById('ciudad');
+            const provinciaInput = document.getElementById('provincia');
+            if (ciudadInput) ciudadInput.value = '';
+            if (provinciaInput) provinciaInput.value = '';
+        });
+}
+
+// Función para cargar estados desde el backend
+function loadEstados() {
+    const url = '/api/state_routes';
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const estadoSelect = document.getElementById('estado');
+            if (estadoSelect && Array.isArray(data)) {
+                // Limpiar opciones existentes (excepto la primera)
+                estadoSelect.innerHTML = '<option value="">Seleccione un estado...</option>';
+                
+                // Agregar opciones de estados
+                data.forEach(estado => {
+                    const option = document.createElement('option');
+                    option.value = estado.id;
+                    option.textContent = estado.state; // Usar 'state' según el modelo
+                    estadoSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando estados:', error);
+        });
+}
+
+// Función para cargar categorías desde el backend
+function loadCategorias() {
+    const url = '/api/category_routes';
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const categoriaSelect = document.getElementById('categoria');
+            if (categoriaSelect && Array.isArray(data)) {
+                // Limpiar opciones existentes (excepto la primera)
+                categoriaSelect.innerHTML = '<option value="">Seleccione una categoría...</option>';
+                
+                // Agregar opciones de categorías
+                data.forEach(categoria => {
+                    const option = document.createElement('option');
+                    option.value = categoria.id;
+                    option.textContent = categoria.name; // Usar 'name' según el modelo
+                    categoriaSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando categorías:', error);
+        });
+}
+
+// Función para cargar estados y categorías
+function loadStatesAndCategories() {
+    loadEstados();
+    loadCategorias();
+}
+
+// Función para mostrar errores
+function showError(message) {
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('hidden');
+    
+    // Ocultar después de 5 segundos
+    setTimeout(() => {
+        errorDiv.classList.add('hidden');
+    }, 5000);
+}
+
+// Función para mostrar éxito
+function showSuccess(message) {
+    const successDiv = document.getElementById('success-message');
+    successDiv.textContent = message;
+    successDiv.classList.remove('hidden');
+    
+    // Ocultar después de 3 segundos
+    setTimeout(() => {
+        successDiv.classList.add('hidden');
+    }, 3000);
+}
+
+// Función para cancelar edición
+function cancelEdit() {
+    if (confirm('¿Estás seguro de que deseas cancelar los cambios?')) {
+        window.location.href = '{{ url_for("lista_sitios") }}';
+    }
+}
+
+// Manejo del formulario
+document.getElementById('site-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Validar formulario
+    if (!validateForm()) {
+        return;
+    }
+    
+    // Recopilar datos del formulario
+    const formData = {
+        data_site: {
+            name: document.getElementById('nombre').value,
+            year_inauguration: document.getElementById('año_inauguración').value || null,
+            brief_description: document.getElementById('descripcion_breve').value,
+            complete_description: document.getElementById('descripcion_completa').value || null,
+            latitude: parseFloat(document.getElementById('latitud').value),
+            longitude: parseFloat(document.getElementById('longitud').value),
+            id_ciudad: 1, // Por ahora hardcodeado, debería obtenerse de la geocodificación
+            id_estado: parseInt(document.getElementById('estado').value),
+            id_category: parseInt(document.getElementById('categoria').value)
+        },
+        data_user: {
+            id: window.currentUser.id,
+            first_name: window.currentUser.first_name,
+            last_name: window.currentUser.last_name,
+            mail: window.currentUser.mail
+        }
+    };
+    
+    try {
+        const response = await fetch(`{{ url_for("site_api.update_historic_site", id=0) }}`.replace('0', currentSiteId), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            showSuccess('Sitio histórico modificado exitosamente');
+            // Redirigir después de un breve delay
+            setTimeout(() => {
+                window.location.href = '{{ url_for("lista_sitios") }}';
+            }, 2000);
+        } else {
+            const errorData = await response.json();
+            showError('Error al modificar el sitio: ' + (errorData.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showError('Error de conexión al modificar el sitio');
+    }
+});
+
+// Función de validación específica para modificar
+function validateForm() {
+    let isValid = true;
+    
+    // Limpiar errores anteriores
+    document.querySelectorAll('.error-message').forEach(error => {
+        error.classList.add('hidden');
+    });
+    
+    // Validar nombre
+    const nombre = document.getElementById('nombre').value.trim();
+    if (!nombre) {
+        document.getElementById('nombre-error').classList.remove('hidden');
+        isValid = false;
+    }
+    
+    // Validar descripción breve
+    const descripcionBreve = document.getElementById('descripcion_breve').value.trim();
+    if (!descripcionBreve) {
+        document.getElementById('descripcion_breve-error').classList.remove('hidden');
+        isValid = false;
+    }
+    
+    // Validar estado
+    const estado = document.getElementById('estado').value;
+    if (!estado) {
+        document.getElementById('estado-error').classList.remove('hidden');
+        isValid = false;
+    }
+    
+    // Validar categoría
+    const categoria = document.getElementById('categoria').value;
+    if (!categoria) {
+        document.getElementById('categoria-error').classList.remove('hidden');
+        isValid = false;
+    }
+    
+    // Validar coordenadas
+    const latitud = document.getElementById('latitud').value;
+    const longitud = document.getElementById('longitud').value;
+    if (!latitud || !longitud) {
+        showError('Debe seleccionar una ubicación en el mapa');
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+// Agregar event listeners para limpiar errores al escribir
+document.addEventListener('DOMContentLoaded', function() {
+    const requiredFields = ['nombre', 'descripcion_breve', 'estado', 'categoria'];
+    requiredFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function() {
+                // Limpiar error visual cuando el usuario empiece a escribir
+                this.classList.remove('field-error');
+                const errorDiv = document.getElementById(fieldId + '-error');
+                if (errorDiv) {
+                    errorDiv.classList.remove('hidden');
+                }
+            });
+        }
+    });
+});
+
+// Solución para el problema de z-index del mapa con el menú
+document.addEventListener('DOMContentLoaded', function() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const body = document.body;
+    
+    // Interceptar el evento de toggle del menú
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function() {
+            // Pequeño delay para que se ejecute después del toggle original
+            setTimeout(() => {
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    body.classList.remove('sidebar-open');
+                } else {
+                    body.classList.add('sidebar-open');
+                }
+            }, 10);
+        });
+    }
+    
+    // También interceptar el clic en el overlay
+    const overlay = document.getElementById('overlay');
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            body.classList.remove('sidebar-open');
+        });
+    }
+});
+</script>
+
+<style>
+.form-success {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border: 1px solid #c3e6cb;
+}
+
+.form-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border: 1px solid #f5c6cb;
+}
+
+.error-message {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.map-container {
+    position: relative;
+    z-index: 1;
+}
+
+body.sidebar-open .map-container {
+    z-index: 0;
+}
+</style>
+{% endblock %}

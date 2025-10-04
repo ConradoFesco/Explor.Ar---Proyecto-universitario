@@ -105,7 +105,7 @@ class HistoricSite_Service:
         historic_site.id_category = data_site.get('id_category',historic_site.id_category)
         historic_site.deleted = data_site.get('deleted',historic_site.deleted)
         historic_site.visible = data_site.get('visible',historic_site.visible)
-        id_user = data_user.get('id_user')
+        id_user = data_user
         try:
             event_data = {
                 'id_site': historic_site.id,
@@ -131,14 +131,14 @@ class HistoricSite_Service:
         try:
             event_data = {
                 'id_site': site.id,
-                'id_user': data_user.get('id_user'),
+                'id_user': data_user,
                 'type_Action': 'DELETE'
             }
             event_service.create_event(event_data,commit=False)
             db.session.commit()
         except (IntegrityError, exc.ValidationError) as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al eliminar el sitio histórico y su evento: {e}")
+            raise exc.DatabaseError(f"Error al eliminar el sitio histórico: {e}")
         # 5. Devuelve el objeto modificado (opcional pero útil)
         return site
 
