@@ -217,9 +217,9 @@ document.getElementById("editUserForm").addEventListener("submit", async functio
         return;
     }
 
-    const formData = {
+    const formData = { // Esto está hardcodeado, tiene que usarse el servicio en el back
         data_user: {
-            id: 2,
+            id: 2, // NOTA: Reemplazar con el ID del usuario que está editando (admin logueado)
         },
         data_new: changedFields
     };
