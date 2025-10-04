@@ -1,8 +1,8 @@
 from src.web.models.event import Event
 from ..extensions import db
+from .. import exceptions as exc
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
-from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 
 class EventService:
     def create_event(self, data, commit=True):
@@ -29,5 +29,60 @@ class EventService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al crear el evento: {e}")
+    
+    def get_all_events(self, id, include_deleted=False, page=1, per_page=25):
+        from src.web.models.user import User
+        
+        query = Event.query.filter_by(id_site=id)
+        if not include_deleted:
+            query = query.filter_by(deleted=False)
+        
+        # Hacer join con User para obtener información del usuario
+        query = query.join(User, Event.id_user == User.id)
+        
+        pagination = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+        events = pagination.items
+        return {
+            'events': [{
+                'id': event.id, 
+                'id_site': event.id_site, 
+                'id_user': event.id_user, 
+                'date_time': event.date_time, 
+                'type_Action': event.type_Action,
+                'user_name': event.user.name if event.user else 'Usuario desconocido',
+                'user_last_name': event.user.last_name if event.user else ''
+            } for event in events],
+            'pagination': {
+                'page': pagination.page,
+                'pages': pagination.pages,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev,
+                'next_num': pagination.next_num,
+                'prev_num': pagination.prev_num
+            }
+        }
 
+    def soft_delete_event(self, id, data_user):
+        # 1. Busca el evento por su ID
+        event = Event.query.get(id)
+        # 2. Si no lo encuentra, lanza un error claro
+        if not event:
+            raise exc.NotFoundError(f"El evento con id {id} no fue encontrado.") 
+        # 3. Realiza la "baja lógica" cambiando el estado
+        event.deleted = True
+        # 4. Guarda los cambios en la base de datos
+        try:
+            db.session.commit()
+        except IntegrityError as e:
+            db.session.rollback()
+            raise exc.DatabaseError(f"Error al eliminar el evento: {e}")
+        return event
+
+# instancia de la clase EventService
 event_service = EventService()

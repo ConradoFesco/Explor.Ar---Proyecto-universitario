@@ -56,8 +56,7 @@ def create_app(env="development", static_folder="../../static"):
     def home():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        user = User.query.get(session["user_id"])
-        return render_template("home.html", user=user)
+        return render_template("home.html")
 
     @app.route("/logout")
     def logout():
@@ -68,18 +67,23 @@ def create_app(env="development", static_folder="../../static"):
     def lista_sitios():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        user = User.query.get(session["user_id"])
-        return render_template("lista_sitios.html", user=user)
+        return render_template("lista_sitios.html")
 
     @app.route("/alta-sitios")
     def alta_sitios():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        user = User.query.get(session["user_id"])
-        return render_template("alta_sitios.html", user=user)
+        return render_template("alta_sitios.html")
+
+    @app.route("/modificar-sitios")
+    def modificar_sitios():
+        if "user_id" not in session:
+            return redirect(url_for("index"))
+        return render_template("modificar_sitios.html")
 
     from .routes.auth_routes import login_bp
     app.register_blueprint(login_bp, url_prefix="/api")
+
     from .routes.profile_routes import profile_bp
     app.register_blueprint(profile_bp)
 
@@ -94,6 +98,9 @@ def create_app(env="development", static_folder="../../static"):
     
     from .routes.category_routes import category_api
     app.register_blueprint(category_api, url_prefix="/api")
+
+    from .routes.event_routes import event_api
+    app.register_blueprint(event_api, url_prefix="/api")
 
     from datetime import datetime
     @app.template_filter('format_date')
@@ -116,14 +123,11 @@ def create_app(env="development", static_folder="../../static"):
 
     @app.route("/users")
     def list_users():
-        from .models.user import User
-        users = User.query.all()
-        return render_template('list_users.html', users=users)
+        return render_template('list_users.html')
 
     @app.route("/users/<int:user_id>/editar")
     def edit_user(user_id):
-        user = User.query.get_or_404(user_id)
-        return render_template('edit_user.html', user=user)
+        return render_template('edit_user.html')
     
     @app.route('/users/nuevo')
     def create_user_form():

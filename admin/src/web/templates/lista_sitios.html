@@ -216,8 +216,145 @@
                         </div>
                     ` : ''}
                 </div>
+                
+                <!-- Botones de acción -->
+                <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100 justify-end">
+                    <button onclick="modifySite(${site.id})" 
+                            class="group bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 hover:border-amber-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-opacity-50">
+                        <i class="fas fa-edit mr-2 group-hover:scale-110 transition-transform duration-200"></i>Modificar
+                    </button>
+                    <button onclick="deleteSite(${site.id})" 
+                            class="group bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 hover:border-red-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-200 focus:ring-opacity-50">
+                        <i class="fas fa-trash mr-2 group-hover:scale-110 transition-transform duration-200"></i>Eliminar
+                    </button>
+                    <button onclick="viewEventsHistory(${site.id})" 
+                            class="group bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 hover:border-emerald-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:ring-opacity-50">
+                        <i class="fas fa-history mr-2 group-hover:scale-110 transition-transform duration-200"></i>Historial de Eventos
+                    </button>
+                </div>
             </div>
         `;
+    }
+
+    // Función para modificar un sitio histórico
+    function modifySite(siteId) {
+        // Cerrar el modal actual
+        closeModal();
+        
+        // Redirigir a la página de edición
+        window.location.href = `{{ url_for('modificar_sitios') }}?edit=${siteId}`;
+    }
+
+    // Función para eliminar un sitio histórico
+    function deleteSite(siteId) {
+        if (confirm('¿Estás seguro de que deseas eliminar este sitio histórico? Esta acción no se puede deshacer.')) {
+            const deleteUrl = `{{ url_for("site_api.delete_historic_site", id=0) }}`.replace('0', siteId);
+            
+            fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al eliminar el sitio histórico');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Sitio histórico eliminado correctamente');
+                // Cerrar el modal y recargar la lista
+                closeModal();
+                loadSites(currentPage);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al eliminar el sitio histórico: ' + error.message);
+            });
+        }
+    }
+
+    // Función para ver el historial de eventos de un sitio histórico
+    function viewEventsHistory(siteId) {
+        const eventsUrl = `{{ url_for("event_api.get_all_events", id=0) }}`.replace('0', siteId);
+        const title = 'Historial de Eventos';
+        
+        console.log('Cargando eventos para sitio ID:', siteId);
+        console.log('URL de eventos:', eventsUrl);
+        
+        // Usar la función genérica del layout para cargar el modal
+        loadModalContent(eventsUrl, title, renderEventsHistory, handleEventsError);
+    }
+
+    // Función para manejar errores específicos de eventos
+    function handleEventsError(error) {
+        console.error('Error al cargar eventos:', error);
+        return `
+            <div class="text-red-600 text-center py-8">
+                <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                <p class="text-lg font-semibold mb-2">Error al cargar el historial de eventos</p>
+                <p class="text-sm">${error.message || 'Error desconocido'}</p>
+                <p class="text-xs mt-4 text-gray-500">Verifique que el sitio tenga eventos registrados</p>
+            </div>
+        `;
+    }
+
+    // Función para renderizar el historial de eventos
+    function renderEventsHistory(data) {
+        console.log('Datos recibidos para renderizar eventos:', data);
+        
+        // La respuesta viene con paginación, necesitamos acceder a events
+        const events = data.events || [];
+        
+        console.log('Eventos extraídos:', events);
+        console.log('Cantidad de eventos:', events.length);
+        
+        if (!events || events.length === 0) {
+            return `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-calendar-times text-4xl mb-4"></i>
+                    <p>No hay eventos registrados para este sitio histórico.</p>
+                </div>
+            `;
+        }
+
+        let eventsHtml = '<div class="space-y-4">';
+        
+        events.forEach(event => {
+            // Formatear la fecha
+            let formattedDate = 'Sin fecha';
+            if (event.date_time) {
+                try {
+                    const date = new Date(event.date_time);
+                    formattedDate = date.toLocaleString('es-ES', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (e) {
+                    formattedDate = event.date_time;
+                }
+            }
+            
+            eventsHtml += `
+                <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition duration-200">
+                    <div class="flex justify-between items-start mb-2">
+                        <h5 class="font-semibold text-gray-800">${event.type_Action || 'Acción sin especificar'}</h5>
+                        <span class="text-sm text-gray-500">${formattedDate}</span>
+                    </div>
+                    <div class="flex items-center text-sm text-gray-600">
+                        <i class="fas fa-user mr-2"></i>
+                        <span>Realizado por: ${event.user_name || 'Usuario'} ${event.user_last_name || ''}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        eventsHtml += '</div>';
+        return eventsHtml;
     }
 </script>
 {% endblock %}

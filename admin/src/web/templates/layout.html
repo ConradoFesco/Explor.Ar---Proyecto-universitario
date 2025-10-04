@@ -292,8 +292,9 @@
          * @param {string} url - URL para obtener los datos
          * @param {string} title - Título del modal
          * @param {Function} renderFunction - Función que recibe los datos y devuelve HTML
+         * @param {Function} errorFunction - Función opcional para manejar errores personalizados
          */
-        function loadModalContent(url, title, renderFunction) {
+        function loadModalContent(url, title, renderFunction, errorFunction = null) {
             const modal = document.getElementById('detail-modal');
             const modalTitle = document.getElementById('modal-title');
             const modalContent = document.getElementById('modal-content');
@@ -314,7 +315,7 @@
             fetch(url)
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Error al cargar los datos');
+                        throw new Error(`Error ${response.status}: ${response.statusText}`);
                     }
                     return response.json();
                 })
@@ -323,12 +324,16 @@
                 })
                 .catch(error => {
                     console.error('Error fetching details:', error);
-                    modalContent.innerHTML = `
-                        <div class="text-red-600 text-center">
-                            <p>Error al cargar los detalles.</p>
-                            <p class="text-sm mt-2">${error.message}</p>
-                        </div>
-                    `;
+                    if (errorFunction) {
+                        modalContent.innerHTML = errorFunction(error);
+                    } else {
+                        modalContent.innerHTML = `
+                            <div class="text-red-600 text-center">
+                                <p>Error al cargar los detalles.</p>
+                                <p class="text-sm mt-2">${error.message}</p>
+                            </div>
+                        `;
+                    }
                 });
         }
 
