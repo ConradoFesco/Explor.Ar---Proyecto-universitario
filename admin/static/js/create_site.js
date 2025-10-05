@@ -47,6 +47,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (latInput) latInput.value = coords.lat.toFixed(6);
         if (lngInput) lngInput.value = coords.lng.toFixed(6);
+        
+        // Limpiar errores de coordenadas cuando se actualicen
+        if (latInput.value && lngInput.value) {
+            latInput.classList.remove('field-error');
+            lngInput.classList.remove('field-error');
+            
+            const latError = document.getElementById('latitud-error');
+            const lngError = document.getElementById('longitud-error');
+            if (latError) latError.classList.remove('show');
+            if (lngError) lngError.classList.remove('show');
+        }
     }
 
     // Función para obtener información de ubicación usando geocodificación inversa
@@ -79,6 +90,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (ciudadInput) ciudadInput.value = ciudad;
                     if (provinciaInput) provinciaInput.value = provincia;
+                    
+                    // Limpiar errores si se obtuvieron datos
+                    if (ciudad && provincia) {
+                        clearLocationErrors();
+                    }
+                } else {
+                    // Si no hay datos de dirección, limpiar campos
+                    if (ciudadInput) ciudadInput.value = '';
+                    if (provinciaInput) provinciaInput.value = '';
                 }
             })
             .catch(error => {
@@ -89,6 +109,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (ciudadInput) ciudadInput.value = '';
                 if (provinciaInput) provinciaInput.value = '';
             });
+    }
+    
+    // Función para limpiar errores de ubicación
+    function clearLocationErrors() {
+        const locationFields = ['latitud', 'longitud', 'ciudad', 'provincia'];
+        locationFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            const errorDiv = document.getElementById(fieldId + '-error');
+            
+            if (field && field.value.trim()) {
+                field.classList.remove('field-error');
+                if (errorDiv) {
+                    errorDiv.classList.remove('show');
+                }
+            }
+        });
     }
 
     // Función para cargar estados desde el backend
@@ -170,7 +206,11 @@ document.addEventListener('DOMContentLoaded', function() {
             { id: 'nombre', message: 'El nombre es requerido' },
             { id: 'descripcion_breve', message: 'La descripción breve es requerida' },
             { id: 'estado', message: 'Debe seleccionar un estado' },
-            { id: 'categoria', message: 'Debe seleccionar una categoría' }
+            { id: 'categoria', message: 'Debe seleccionar una categoría' },
+            { id: 'latitud', message: 'Debe seleccionar una ubicación en el mapa' },
+            { id: 'longitud', message: 'Debe seleccionar una ubicación en el mapa' },
+            { id: 'ciudad', message: 'Debe seleccionar una ubicación en el mapa para obtener la ciudad' },
+            { id: 'provincia', message: 'Debe seleccionar una ubicación en el mapa para obtener la provincia' }
         ];
         
         let isValid = true;
@@ -255,7 +295,8 @@ document.addEventListener('DOMContentLoaded', function() {
             id_estado: parseInt(data.estado),
             id_category: parseInt(data.categoria),
             visible: true, // Por defecto visible
-            id_ciudad: 1, // TODO: Obtener el ID de ciudad basado en la geocodificación
+            name_city: data.ciudad, // Enviar el nombre de la ciudad como string
+            name_province: data.provincia, // Enviar el nombre de la provincia como string
             tag_ids: selectedTags.map(tag => tag.id) // Agregar IDs de tags seleccionados
         };
         
@@ -345,16 +386,22 @@ document.addEventListener('DOMContentLoaded', function() {
     loadCategorias();
     
     // Agregar event listeners para limpiar errores al escribir
-    const requiredFields = ['nombre', 'descripcion_breve', 'estado', 'categoria'];
+    const requiredFields = ['nombre', 'descripcion_breve', 'estado', 'categoria', 'latitud', 'longitud', 'ciudad', 'provincia'];
     requiredFields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field) {
-            field.addEventListener('input', function() {
-                // Limpiar error visual cuando el usuario empiece a escribir
-                this.classList.remove('field-error');
-                const errorDiv = document.getElementById(fieldId + '-error');
-                if (errorDiv) {
-                    errorDiv.classList.remove('show');
+            // Para campos de solo lectura (coordenadas y ubicación), usar el evento 'change'
+            // Para campos editables, usar el evento 'input'
+            const eventType = field.readOnly ? 'change' : 'input';
+            
+            field.addEventListener(eventType, function() {
+                // Limpiar error visual cuando el campo tenga un valor
+                if (this.value.trim()) {
+                    this.classList.remove('field-error');
+                    const errorDiv = document.getElementById(fieldId + '-error');
+                    if (errorDiv) {
+                        errorDiv.classList.remove('show');
+                    }
                 }
             });
         }
