@@ -86,10 +86,7 @@
                 </label>
                 <select id="role" name="role" required
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="">Selecciona un rol</option>
-                    <option value="Usuario">Usuario</option>
-                    <option value="Moderador">Moderador</option>
-                    <option value="Administrador">Administrador</option>
+                    <option value="">Cargando roles...</option>
                 </select>
             </div>
 
@@ -144,6 +141,33 @@
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+// Cargar roles disponibles al cargar la página
+async function loadRoles() {
+    try {
+        const response = await fetch('/api/users/roles');
+        const data = await response.json();
+        
+        const roleSelect = document.getElementById('role');
+        roleSelect.innerHTML = '<option value="">Selecciona un rol</option>';
+        
+        if (data.roles && Array.isArray(data.roles)) {
+            data.roles.forEach(role => {
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.textContent = role.name.charAt(0).toUpperCase() + role.name.slice(1);
+                roleSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error al cargar roles:', error);
+        const roleSelect = document.getElementById('role');
+        roleSelect.innerHTML = '<option value="">Error al cargar roles</option>';
+    }
+}
+
+// Cargar roles cuando se carga la página
+document.addEventListener('DOMContentLoaded', loadRoles);
+
 document.getElementById("createUserForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
@@ -201,9 +225,6 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
     }
 
     const formData = {
-        data_user: {
-            id: 2, // NOTA: Reemplazar con el ID del admin logueado
-        },
         data_new_user: {
             name: name,
             last_name: last_name,

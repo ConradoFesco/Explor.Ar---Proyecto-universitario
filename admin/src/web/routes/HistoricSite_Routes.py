@@ -7,7 +7,7 @@ from src.web.auth.decorators import permission_required
 site_api = Blueprint('site_api', __name__)
 
 @site_api.route('/HistoricSite_Routes', methods=['POST'])
-#@permission_required("create_historic_site")
+@permission_required("create_historic_site")
 def create_historic_site():
     # 1. El controlador recibe el JSON y lo convierte a diccionario
     # si no se reciben datos, devuelve un error 400
@@ -33,7 +33,7 @@ def create_historic_site():
         return jsonify({'error': str(e)}), 409 # 409 = Conflict en la data base
 
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['GET'])
-#@permission_required("get_historic_site")
+@permission_required("get_historic_site")
 def get_historic_site(id):
     # si se recibe el ID, llama al servicio para que haga el trabajo pesado
     try:
@@ -45,7 +45,7 @@ def get_historic_site(id):
         return jsonify({'error': str(e)}), 404 # 404 = Not Found
 
 @site_api.route('/HistoricSite_Routes', methods=['GET'])
-#@permission_required("get_all_historic_sites")
+@permission_required("get_all_historic_sites")
 def get_all_historic_sites():
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
     page = request.args.get('page', 1, type=int)
@@ -60,7 +60,10 @@ def get_all_historic_sites():
     city_id = request.args.get('city_id', type=int)
     province_id = request.args.get('province_id', type=int)
     state_id = request.args.get('state_id', type=int)
-    visible = request.args.get('visible', type=bool)
+    visible_param = request.args.get('visible')
+    visible = None
+    if visible_param is not None:
+        visible = visible_param.lower() == 'true'
     
     # Filtro de tags (puede venir como lista separada por comas)
     tag_ids = request.args.get('tag_ids', '')
@@ -114,7 +117,7 @@ def get_all_historic_sites():
         return jsonify({'error': str(e)}), 404 # 404 = Not Found
 
 @site_api.route('/HistoricSite_Routes/map', methods=['GET'])
-#@permission_required("get_all_sites_for_map")
+@permission_required("get_all_sites_for_map")
 def get_all_sites_for_map():
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
     page = request.args.get('page', 1, type=int)
@@ -138,7 +141,7 @@ def get_all_sites_for_map():
 
     
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['PUT'])
-#@permission_required("update_historic_site")
+@permission_required("update_historic_site")
 def update_historic_site(id):
     data_site = request.get_json()
     if not data_site:
@@ -162,7 +165,7 @@ def update_historic_site(id):
 
 
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['DELETE'])
-#@permission_required("delete_historic_site")
+@permission_required("delete_historic_site")
 def delete_historic_site(id):
     data_user = session.get('user_id')
     
@@ -180,7 +183,7 @@ def delete_historic_site(id):
 
 
 @site_api.route('/HistoricSite_Routes/<int:site_id>/tags', methods=['POST'])
-#@permission_required("add_tags")
+@permission_required("add_tags")
 def add_tags(site_id):
     data = request.get_json()
     data_user = session.get('user_id')
@@ -210,7 +213,7 @@ def add_tags(site_id):
         return jsonify({'error': str(e)}), 409
 
 @site_api.route('/HistoricSite_Routes/<int:site_id>/tags', methods=['PUT'])
-#@permission_required("update_tags")
+@permission_required("update_tags")
 def update_site_tags(site_id):
     """Endpoint para actualizar completamente los tags de un sitio (agregar y quitar)"""
     data = request.get_json()
@@ -243,34 +246,14 @@ def update_site_tags(site_id):
         return jsonify({'error': str(e)}), 409
 
 @site_api.route('/HistoricSite_Routes/filter-options', methods=['GET'])
-#@permission_required("get_filter_options")
+@permission_required("get_filter_options")
 def get_filter_options():
     """Endpoint para obtener las opciones de filtros disponibles"""
     try:
-        from ..models import City, Province, Tag, StateSite
-        
-        # Obtener ciudades
-        cities = City.query.filter_by(deleted=False).all()
-        cities_data = [{'id': city.id, 'name': city.name} for city in cities]
-        
-        # Obtener provincias
-        provinces = Province.query.filter_by(deleted=False).all()
-        provinces_data = [{'id': province.id, 'name': province.name} for province in provinces]
-        
-        # Obtener tags
-        tags = Tag.query.filter_by(deleted=False).all()
-        tags_data = [{'id': tag.id, 'name': tag.name, 'slug': tag.slug} for tag in tags]
-        
-        # Obtener estados
-        states = StateSite.query.filter_by(deleted=False).all()
-        states_data = [{'id': state.id, 'name': state.state} for state in states]
-        
-        return jsonify({
-            'cities': cities_data,
-            'provinces': provinces_data,
-            'tags': tags_data,
-            'states': states_data
-        }), 200
+        result = historic_site_service.get_filter_options()
+        return jsonify(result), 200
+    except exc.DatabaseError as e:
+        return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

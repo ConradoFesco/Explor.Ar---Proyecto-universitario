@@ -19,9 +19,11 @@ class UserService:
         hashed_password = generate_password_hash(data_new_user['password'])
 
         mail = data_new_user.get('mail')
-        name=data_new_user['name'],
-        last_name=data_new_user['last_name'],
-        active=data_new_user.get('active', True),
+        name = data_new_user['name']
+        last_name = data_new_user['last_name']
+        active = data_new_user.get('active', True)
+        blocked = data_new_user.get('blocked', False)
+        role_id = data_new_user.get('role')  # ID del rol seleccionado
         deleted = False
         created_at = datetime.now()
 
@@ -30,10 +32,25 @@ class UserService:
             name=name,
             last_name=last_name,
             password=hashed_password,
+            active=active,
+            blocked=blocked,
             deleted=deleted,
             created_at=created_at,
         )
-        user.user_roles.append(RolUserUser(Rol_User_id=6, User_id=user.id))
+        
+        # Asignar el rol seleccionado si se proporciona
+        if role_id:
+            # Verificar que el rol existe
+            role = RolUser.query.get(role_id)
+            if not role:
+                raise ValidationError(f"Rol con ID {role_id} no encontrado")
+            user.user_roles.append(RolUserUser(Rol_User_id=role_id))
+        else:
+            # Rol por defecto si no se especifica (usuario básico)
+            default_role = RolUser.query.filter_by(name='usuario').first()
+            if default_role:
+                user.user_roles.append(RolUserUser(Rol_User_id=default_role.id))
+        
         try:
             db.session.add(user)
             if commit:
@@ -50,18 +67,30 @@ class UserService:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         return user.to_dict()
 
-    def update_user(self, user_id, data, commit=True):
+    def update_user(self, user_id, changed_fields, commit=True):
         """Actualiza un usuario existente"""
         user = User.query.get(user_id)
         if user is None:
             raise NotFoundError(f"Usuario no encontrado")
         
-        # Campos que se pueden actualizar
-        for field in ['mail', 'name', 'last_name', 'password']: #se puede actualizar el mail?
-             if field == "password":
-                setattr(user, field, generate_password_hash(data_new[field]))
-             else:
-                setattr(user, field, data_new[field])
+        # Actualizar solo los campos que vienen en changed_fields
+        if "name" in changed_fields:
+            user.name = changed_fields["name"]
+
+        if "last_name" in changed_fields:
+            user.last_name = changed_fields["last_name"]
+
+        if "mail" in changed_fields:
+            user.mail = changed_fields["mail"]
+
+        if "active" in changed_fields:
+            user.active = changed_fields["active"]
+        
+        if "blocked" in changed_fields:
+            user.blocked = changed_fields["blocked"]
+        
+        if "password" in changed_fields:
+            user.password = generate_password_hash(changed_fields["password"])
 
         try:
             if commit:
@@ -85,11 +114,39 @@ class UserService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al eliminar el usuario: {e}")
+
+    def delete_user_with_reason(self, user_id, reason, admin_user_data, commit=True):
+        """Baja lógica: marcar como eliminado con motivo y información del administrador"""
+        user = User.query.filter_by(id=user_id, deleted=False).first()
+        if not user:
+            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+        
+        # Obtener el ID del administrador desde los datos de sesión
+        admin_id = admin_user_data if isinstance(admin_user_data, int) else admin_user_data.get('id', 1)
+        
+        # Marcar como eliminado con información adicional
+        user.active = False
+        user.deleted = True
+        user.deleted_at = datetime.utcnow()
+        user.deletion_reason = reason
+        user.deleted_by_id = admin_id
+        
+        try:
+            if commit:
+                db.session.commit()
+            return f"El usuario '{user.mail}' ha sido eliminado correctamente."
+        except IntegrityError as e:
+            db.session.rollback()
+            raise DatabaseError(f"Error al eliminar el usuario: {e}")
             
     def update_password(self, user_id, new_password, commit=True):
         user = User.query.get(user_id)
         if user is None:
             raise NotFoundError("Usuario no encontrado")
+        
+        # Verificar si la nueva contraseña es igual a la actual
+        if check_password_hash(user.password, new_password):
+            raise ValidationError("La nueva contraseña no puede ser igual a la actual")
         
         user.password = generate_password_hash(new_password)
 
