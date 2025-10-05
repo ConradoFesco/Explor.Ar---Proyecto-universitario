@@ -68,9 +68,16 @@ class HistoricSite_Service:
             }
             event_service.create_event(event_data,commit=False)
             db.session.commit()
-        except (IntegrityError, exc.ValidationError) as e:
+        except IntegrityError as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al crear el sitio histórico y su evento: {e}")
+            # Verificar si es un error de violación de unicidad del nombre
+            if "Historic_Site_name_key" in str(e):
+                raise exc.ValidationError("Ya existe un sitio histórico con este nombre. Por favor, elija otro nombre.")
+            else:
+                raise exc.DatabaseError(f"Error al crear el sitio histórico: {e}")
+        except exc.ValidationError as e:
+            db.session.rollback()
+            raise e
 
         return historic_site
 

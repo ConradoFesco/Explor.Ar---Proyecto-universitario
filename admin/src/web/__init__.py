@@ -4,7 +4,6 @@ from src.web.handlers import error
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
-from flask_jwt_extended import JWTManager
 from werkzeug.security import generate_password_hash, check_password_hash
 from .routes.auth_routes import login_bp
 from .extensions import db, migrate, session_ext

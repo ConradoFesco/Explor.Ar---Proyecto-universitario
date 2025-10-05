@@ -50,7 +50,8 @@ class User(db.Model):
         perms = []
         for rol_rel in self.user_roles:   # recorre la relación User ↔ RolUser
             rol = rol_rel.rol_user
-            for perm in rol.permissions:
-                if perm.code not in perms:
-                    perms.append(perm.code)
+            for perm_rel in rol.permission_rol_users:  # accede a través de la relación
+                perm = perm_rel.permission
+                if perm.name not in perms:
+                    perms.append(perm.name)
         return perms

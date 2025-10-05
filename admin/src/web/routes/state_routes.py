@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
 from src.web.services.state_service import state_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
+from src.web.auth.decorators import permission_required
 
 state_api = Blueprint('state_api', __name__)
 
 @state_api.route('/state_routes', methods=['GET'])
+@permission_required('get_all_states')
 def get_all_states():
     try:
         states = state_service.get_all_states()

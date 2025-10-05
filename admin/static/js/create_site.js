@@ -254,14 +254,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Función para mostrar mensaje de éxito
     function showSuccessMessage() {
-        const successDiv = document.getElementById('success-message');
-        if (successDiv) {
-            successDiv.classList.add('show');
-            // Ocultar después de 5 segundos
-            setTimeout(() => {
-                successDiv.classList.remove('show');
-            }, 5000);
-        }
+        Swal.fire({
+            icon: 'success',
+            title: '¡Sitio histórico creado!',
+            text: 'El sitio histórico se ha creado exitosamente',
+            confirmButtonColor: '#3B82F6',
+            timer: 3000,
+            showConfirmButton: false
+        });
     }
     
     // Función para manejar el envío del formulario
@@ -336,6 +336,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(result => {
             console.log('Sitio histórico creado exitosamente:', result);
             showSuccessMessage();
+            
+            // Agregar el nuevo sitio al mapa
+            addNewSiteToMap(result);
+            
             clearForm();
         })
         .catch(error => {
@@ -355,27 +359,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Función para mostrar mensaje de error
-    function showErrorMessage(message) {
-        // Crear o actualizar mensaje de error
-        let errorDiv = document.getElementById('error-message');
-        if (!errorDiv) {
-            errorDiv = document.createElement('div');
-            errorDiv.id = 'error-message';
-            errorDiv.className = 'form-error';
-            
-            // Insertar antes del formulario
-            const form = document.getElementById('site-form');
-            form.parentNode.insertBefore(errorDiv, form);
+    // Función para agregar el nuevo sitio al mapa
+    function addNewSiteToMap(siteData) {
+        // Verificar que mapHandler esté disponible y el mapa esté inicializado
+        if (typeof mapHandler === 'undefined' || !mapHandler.map) {
+            console.warn('mapHandler no está disponible o el mapa no está inicializado');
+            return;
         }
         
-        errorDiv.textContent = `Error: ${message}`;
-        errorDiv.classList.add('show');
+        // Crear el marcador para el nuevo sitio
+        const newMarker = mapHandler.createSiteMarker(siteData);
         
-        // Ocultar después de 5 segundos
-        setTimeout(() => {
-            errorDiv.classList.remove('show');
-        }, 5000);
+        // Centrar el mapa en el nuevo sitio para que el usuario lo vea
+        mapHandler.centerOnSite(siteData);
+        
+        console.log('Nuevo sitio agregado al mapa:', siteData.name);
+    }
+
+    // Función para mostrar mensaje de error
+    function showErrorMessage(message) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error al crear el sitio',
+            text: message,
+            confirmButtonColor: '#3B82F6'
+        });
     }
 
     // Configurar el evento de envío del formulario
