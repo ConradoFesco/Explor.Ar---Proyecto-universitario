@@ -5,9 +5,12 @@ from datetime import datetime
 from ..extensions import db
 from ..services.event_service import event_service
 from ..services.tag_service import tag_service
+from ..services.city_service import city_service
+from ..services.province_service import province_service
+
 class HistoricSite_Service:
     def create_historic_site(self, data_site, data_user):
-        required_fields = ['name', 'brief_description', 'id_ciudad', 'latitude', 'longitude', 'id_category', 'visible']
+        required_fields = ['name', 'brief_description', 'name_city', 'name_province', 'latitude', 'longitude', 'id_category', 'visible']
         if ( not all(field in data_site for field in required_fields)):
             raise exc.ValidationError("Faltan campos obligatorios del sitio histórico: Nombre, descripción, ciudad, latitud, longitud, categoría y visible")
         id_user = data_user
@@ -16,7 +19,8 @@ class HistoricSite_Service:
         name = data_site.get('name') 
         brief_description = data_site.get('brief_description')
         complete_description = data_site.get('complete_description',None) 
-        id_ciudad = data_site.get('id_ciudad')
+        name_city = data_site.get('name_city')
+        name_province = data_site.get('name_province')
         latitude = data_site.get('latitude')
         longitude = data_site.get('longitude')
         id_estado = data_site.get('id_estado',None) 
@@ -25,20 +29,30 @@ class HistoricSite_Service:
         visible = data_site.get('visible')
         deleted = False
         created_at = datetime.now()
-        historic_site = HistoricSite(
-            name=name, 
-            brief_description=brief_description, 
-            complete_description=complete_description, 
-            id_ciudad=id_ciudad, 
-            latitude=latitude, 
-            longitude=longitude, 
-            id_estado=id_estado, 
-            year_inauguration=year_inauguration, 
-            id_category=id_category, 
-            visible=visible, 
-            deleted=deleted, 
-            created_at=created_at)
         try:
+            # Primero crear/buscar la provincia
+            province = province_service.find_or_create(name_province)
+            
+            # Luego crear/buscar la ciudad usando el objeto provincia
+            city = city_service.find_or_create(name_city, province)
+            
+            # Asegurar que los cambios de provincia y ciudad se guarden
+            db.session.flush()
+            
+            historic_site = HistoricSite(
+                name=name, 
+                brief_description=brief_description, 
+                complete_description=complete_description, 
+                id_ciudad=city.id, 
+                latitude=latitude, 
+                longitude=longitude, 
+                id_estado=id_estado, 
+                year_inauguration=year_inauguration, 
+                id_category=id_category, 
+                visible=visible, 
+                deleted=deleted, 
+                created_at=created_at)
+            
             db.session.add(historic_site)
             db.session.flush()
             
