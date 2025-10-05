@@ -33,7 +33,7 @@ class UserService:
             deleted=deleted,
             created_at=created_at,
         )
-        user.user_roles.append(RolUserUser(Rol_User_id=1, User_id=user.id))
+        user.user_roles.append(RolUserUser(Rol_User_id=6, User_id=user.id))
         try:
             db.session.add(user)
             if commit:

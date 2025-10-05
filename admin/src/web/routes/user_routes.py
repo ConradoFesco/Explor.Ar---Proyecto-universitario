@@ -6,7 +6,7 @@ from src.web.auth.decorators import permission_required
 user_api = Blueprint('user_api', __name__)
 
 @user_api.route('', methods=['POST'])
-#@permission_required("user_new")
+@permission_required("create_user")
 def create_user():
     try:
         json_content = request.get_json()
@@ -20,7 +20,7 @@ def create_user():
         return jsonify({"error": str(e)}), 400
 
 @user_api.route('', methods=['GET'])
-#@permission_required("user_index")
+@permission_required("get_all_users")
 def list_users():
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 25))
@@ -72,7 +72,7 @@ def list_users():
 from datetime import datetime
 
 @user_api.route('/<int:user_id>', methods=['GET'])
-#@permission_required("user_show")
+@permission_required("get_user")
 def get_user(user_id):
     try:
         result = user_service.get_user(user_id)
@@ -97,7 +97,7 @@ def get_user(user_id):
         return jsonify({"error": str(e)}), 404
 
 @user_api.route('/<int:user_id>', methods=['PUT'])
-#permission_required("user_update")
+@permission_required("update_user")
 def update_user(user_id):
     from src.web.models import User
     from ..extensions import db
@@ -154,7 +154,7 @@ def update_user(user_id):
            # }), 403 # 403 Forbidden
 
 @user_api.route('/<int:user_id>', methods=['DELETE'])
-#@permission_required("user_destroy")
+@permission_required("delete_user")
 def delete_user(user_id):
     from src.web.models import User
     from .. import db
@@ -194,7 +194,7 @@ def delete_user(user_id):
 # --- RUTAS PARA GESTIÓN DE BLOQUEO DE USUARIOS ---
 
 @user_api.route('/<int:user_id>/block', methods=['POST'])
-#@permission_required("user_block")
+@permission_required("update_user")
 def block_user(user_id):
     """Bloquea un usuario"""
     try:
@@ -220,7 +220,7 @@ def block_user(user_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/unblock', methods=['POST'])
-#@permission_required("user_block")
+@permission_required("update_user")
 def unblock_user(user_id):
     """Desbloquea un usuario"""
     try:
@@ -248,7 +248,7 @@ def unblock_user(user_id):
 # --- RUTAS PARA GESTIÓN DE ROLES ---
 
 @user_api.route('/<int:user_id>/roles', methods=['GET'])
-#@permission_required("user_show")
+@permission_required("get_user")
 def get_user_roles(user_id):
     """Obtiene los roles asignados a un usuario"""
     try:
@@ -260,7 +260,7 @@ def get_user_roles(user_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/roles', methods=['GET'])
-#@permission_required("user_index")
+@permission_required("get_all_users")
 def get_available_roles():
     """Obtiene todos los roles disponibles en el sistema"""
     try:
@@ -270,7 +270,7 @@ def get_available_roles():
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/roles/<int:role_id>', methods=['POST'])
-#@permission_required("user_update")
+@permission_required("update_user")
 def assign_role_to_user(user_id, role_id):
     """Asigna un rol a un usuario"""
     try:
@@ -296,7 +296,7 @@ def assign_role_to_user(user_id, role_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/roles/<int:role_id>', methods=['DELETE'])
-#@permission_required("user_update")
+@permission_required("update_user")
 def revoke_role_from_user(user_id, role_id):
     """Revoca un rol de un usuario"""
     try:

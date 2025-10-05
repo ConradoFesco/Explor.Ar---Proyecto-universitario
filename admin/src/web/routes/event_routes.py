@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
 from src.web.services.event_service import event_service
 from .. import exceptions as exc
+from src.web.auth.decorators import permission_required
 
 event_api = Blueprint('event_api', __name__)
 
 @event_api.route('/event_routes/<int:id>', methods=['GET'])
+@permission_required('get_all_events')
 def get_all_events(id):
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
     page = request.args.get('page', 1, type=int)
@@ -29,6 +31,7 @@ def get_all_events(id):
 
 
 @event_api.route('/event_routes/<int:id>', methods=['DELETE'])
+@permission_required('delete_event')
 def delete_event(id):
     json_content = request.get_json()
     if not json_content:
