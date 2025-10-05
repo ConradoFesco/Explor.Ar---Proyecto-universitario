@@ -3,11 +3,115 @@
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-gray-800">Listado de Sitios Históricos</h2>
             <a href="{{ url_for('alta_sitios') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200">
                 + Agregar Sitio Histórico
             </a>
+        </div>
+
+        <!-- Controles de búsqueda y filtrado -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <!-- Barra de búsqueda y ordenamiento -->
+            <div class="flex flex-wrap gap-4 mb-4">
+                <!-- Búsqueda por texto -->
+                <div class="flex-1 min-w-64">
+                    <div class="relative">
+                        <input type="text" id="search-input" placeholder="Buscar por nombre o descripción..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ordenamiento -->
+                <div class="flex gap-2">
+                    <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="created_at">Fecha de registro</option>
+                        <option value="name">Nombre</option>
+                        <option value="city">Ciudad</option>
+                    </select>
+                    <select id="sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="desc">Descendente</option>
+                        <option value="asc">Ascendente</option>
+                    </select>
+                </div>
+                
+                <!-- Botón de filtros -->
+                <button id="toggle-filters" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+                    <i class="fas fa-filter"></i>
+                    Filtros
+                </button>
+            </div>
+
+            <!-- Panel de filtros (inicialmente oculto) -->
+            <div id="filters-panel" class="hidden border-t border-gray-200 pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Filtro por ciudad -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                        <select id="filter-city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todas las ciudades</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por provincia -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                        <select id="filter-province" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todas las provincias</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por estado -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Estado del sitio</label>
+                        <select id="filter-state" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todos los estados</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por visibilidad -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Visibilidad</label>
+                        <select id="filter-visible" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todos</option>
+                            <option value="true">Visible</option>
+                            <option value="false">No visible</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por rango de fechas -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha desde</label>
+                        <input type="date" id="filter-date-from" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha hasta</label>
+                        <input type="date" id="filter-date-to" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Filtro por tags -->
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                    <div id="tags-filter-container" class="flex flex-wrap gap-2">
+                        <!-- Los tags se cargarán dinámicamente -->
+                    </div>
+                </div>
+                
+                <!-- Botones de acción -->
+                <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+                    <button id="clear-filters" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
+                        Limpiar filtros
+                    </button>
+                    <button id="apply-filters" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
+                        Aplicar filtros
+                    </button>
+                </div>
+            </div>
         </div>
         <div id="loading-message" class="text-center text-gray-500">Cargando sitios...</div>
         <ul id="sites-list" class="divide-y divide-gray-200 hidden"></ul>
@@ -24,10 +128,216 @@
 {{ super() }} <script>
     let currentPage = 1;
     const perPage = 5;
+    let filterOptions = null;
+    let currentFilters = {
+        search: '',
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        city_id: '',
+        province_id: '',
+        tag_ids: [],
+        state_id: '',
+        date_from: '',
+        date_to: '',
+        visible: ''
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
+        loadFilterOptions();
         loadSites(currentPage);
+        setupEventListeners();
     });
+
+    function setupEventListeners() {
+        // Búsqueda
+        const searchInput = document.getElementById('search-input');
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentFilters.search = e.target.value;
+                currentPage = 1;
+                loadSites(currentPage);
+            }, 500); // Debounce de 500ms
+        });
+
+        // Ordenamiento
+        document.getElementById('sort-by').addEventListener('change', (e) => {
+            currentFilters.sort_by = e.target.value;
+            currentPage = 1;
+            loadSites(currentPage);
+        });
+
+        document.getElementById('sort-order').addEventListener('change', (e) => {
+            currentFilters.sort_order = e.target.value;
+            currentPage = 1;
+            loadSites(currentPage);
+        });
+
+        // Toggle de filtros
+        document.getElementById('toggle-filters').addEventListener('click', () => {
+            const panel = document.getElementById('filters-panel');
+            panel.classList.toggle('hidden');
+        });
+
+        // Filtros
+        document.getElementById('filter-city').addEventListener('change', (e) => {
+            currentFilters.city_id = e.target.value;
+        });
+
+        document.getElementById('filter-province').addEventListener('change', (e) => {
+            currentFilters.province_id = e.target.value;
+        });
+
+        document.getElementById('filter-state').addEventListener('change', (e) => {
+            currentFilters.state_id = e.target.value;
+        });
+
+        document.getElementById('filter-visible').addEventListener('change', (e) => {
+            currentFilters.visible = e.target.value;
+        });
+
+        document.getElementById('filter-date-from').addEventListener('change', (e) => {
+            currentFilters.date_from = e.target.value;
+        });
+
+        document.getElementById('filter-date-to').addEventListener('change', (e) => {
+            currentFilters.date_to = e.target.value;
+        });
+
+        // Botones de filtros
+        document.getElementById('apply-filters').addEventListener('click', () => {
+            currentPage = 1;
+            loadSites(currentPage);
+        });
+
+        document.getElementById('clear-filters').addEventListener('click', () => {
+            clearFilters();
+        });
+    }
+
+    function loadFilterOptions() {
+        fetch('{{ url_for("site_api.get_filter_options") }}')
+            .then(response => response.json())
+            .then(data => {
+                filterOptions = data;
+                populateFilterOptions();
+            })
+            .catch(error => {
+                console.error('Error loading filter options:', error);
+            });
+    }
+
+    function populateFilterOptions() {
+        if (!filterOptions) return;
+
+        // Poblar ciudades
+        const citySelect = document.getElementById('filter-city');
+        filterOptions.cities.forEach(city => {
+            const option = document.createElement('option');
+            option.value = city.id;
+            option.textContent = city.name;
+            citySelect.appendChild(option);
+        });
+
+        // Poblar provincias
+        const provinceSelect = document.getElementById('filter-province');
+        filterOptions.provinces.forEach(province => {
+            const option = document.createElement('option');
+            option.value = province.id;
+            option.textContent = province.name;
+            provinceSelect.appendChild(option);
+        });
+
+        // Poblar estados
+        const stateSelect = document.getElementById('filter-state');
+        filterOptions.states.forEach(state => {
+            const option = document.createElement('option');
+            option.value = state.id;
+            option.textContent = state.name;
+            stateSelect.appendChild(option);
+        });
+
+        // Poblar tags
+        const tagsContainer = document.getElementById('tags-filter-container');
+        filterOptions.tags.forEach(tag => {
+            const tagElement = document.createElement('div');
+            tagElement.className = 'flex items-center';
+            tagElement.innerHTML = `
+                <input type="checkbox" id="tag-${tag.id}" value="${tag.id}" 
+                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label for="tag-${tag.id}" class="ml-2 text-sm text-gray-700 cursor-pointer">
+                    ${tag.name}
+                </label>
+            `;
+            tagsContainer.appendChild(tagElement);
+
+            // Event listener para el checkbox
+            tagElement.querySelector('input').addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    if (!currentFilters.tag_ids.includes(tag.id)) {
+                        currentFilters.tag_ids.push(tag.id);
+                    }
+                } else {
+                    currentFilters.tag_ids = currentFilters.tag_ids.filter(id => id !== tag.id);
+                }
+            });
+        });
+    }
+
+    function clearFilters() {
+        currentFilters = {
+            search: '',
+            sort_by: 'created_at',
+            sort_order: 'desc',
+            city_id: '',
+            province_id: '',
+            tag_ids: [],
+            state_id: '',
+            date_from: '',
+            date_to: '',
+            visible: ''
+        };
+
+        // Limpiar inputs
+        document.getElementById('search-input').value = '';
+        document.getElementById('sort-by').value = 'created_at';
+        document.getElementById('sort-order').value = 'desc';
+        document.getElementById('filter-city').value = '';
+        document.getElementById('filter-province').value = '';
+        document.getElementById('filter-state').value = '';
+        document.getElementById('filter-visible').value = '';
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+
+        // Limpiar checkboxes de tags
+        document.querySelectorAll('#tags-filter-container input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+
+        currentPage = 1;
+        loadSites(currentPage);
+    }
+
+    function buildApiUrl(page) {
+        const params = new URLSearchParams({
+            page: page,
+            per_page: perPage,
+            sort_by: currentFilters.sort_by,
+            sort_order: currentFilters.sort_order
+        });
+
+        if (currentFilters.search) params.append('search', currentFilters.search);
+        if (currentFilters.city_id) params.append('city_id', currentFilters.city_id);
+        if (currentFilters.province_id) params.append('province_id', currentFilters.province_id);
+        if (currentFilters.state_id) params.append('state_id', currentFilters.state_id);
+        if (currentFilters.visible !== '') params.append('visible', currentFilters.visible);
+        if (currentFilters.date_from) params.append('date_from', currentFilters.date_from);
+        if (currentFilters.date_to) params.append('date_to', currentFilters.date_to);
+        if (currentFilters.tag_ids.length > 0) params.append('tag_ids', currentFilters.tag_ids.join(','));
+
+        return `{{ url_for("site_api.get_all_historic_sites") }}?${params.toString()}`;
+    }
 
     function loadSites(page) {
         const sitesList = document.getElementById('sites-list');
@@ -35,10 +345,12 @@
         const noSitesMessage = document.getElementById('no-sites-message');
         const paginationControls = document.getElementById('pagination-controls');
         const paginationInfo = document.getElementById('pagination-info');
+        
         // Limpiar contenido anterior
         sitesList.innerHTML = '';
         paginationControls.innerHTML = '';
         paginationInfo.innerHTML = '';
+        
         // Mostrar loading
         loadingMessage.classList.remove('hidden');
         sitesList.classList.add('hidden');
@@ -46,7 +358,7 @@
         paginationControls.classList.add('hidden');
         paginationInfo.classList.add('hidden');
         
-        const API_URL = `{{ url_for("site_api.get_all_historic_sites") }}?page=${page}&per_page=${perPage}`;
+        const API_URL = buildApiUrl(page);
         
         fetch(API_URL)
             .then(response => {
@@ -62,6 +374,7 @@
                     noSitesMessage.classList.remove('hidden');
                     return;
                 }
+                
                 // Mostrar sitios
                 sitesList.classList.remove('hidden');
                 data.sites.forEach(site => {
@@ -77,10 +390,27 @@
                         ).join('')}</div>`
                         : '';
                     
+                    // Información adicional del sitio
+                    const additionalInfo = [];
+                    if (site.city_name) additionalInfo.push(`<span class="text-xs text-gray-500">📍 ${site.city_name}</span>`);
+                    if (site.created_at) {
+                        const date = new Date(site.created_at);
+                        additionalInfo.push(`<span class="text-xs text-gray-500">📅 ${date.toLocaleDateString('es-ES')}</span>`);
+                    }
+                    if (site.visible !== undefined) {
+                        const visibilityIcon = site.visible ? '👁️' : '🚫';
+                        additionalInfo.push(`<span class="text-xs text-gray-500">${visibilityIcon} ${site.visible ? 'Visible' : 'No visible'}</span>`);
+                    }
+                    
+                    const additionalInfoHTML = additionalInfo.length > 0 
+                        ? `<div class="flex flex-wrap gap-2 mt-1">${additionalInfo.join('')}</div>`
+                        : '';
+                    
                     listItem.innerHTML = `
                         <div class="flex-1">
                             <span class="text-lg font-medium text-gray-700">${site.name}</span>
                             <p class="text-sm text-gray-500 mt-1">${site.brief_description}</p>
+                            ${additionalInfoHTML}
                             ${tagsHTML}
                         </div>
                         <button onclick="viewSiteDetail(${site.id})" 
@@ -90,6 +420,7 @@
                     `;
                     sitesList.appendChild(listItem);
                 });
+                
                 // Mostrar controles de paginación
                 renderPagination(data.pagination);
                 currentPage = page;
