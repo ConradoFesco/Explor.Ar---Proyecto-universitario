@@ -341,5 +341,57 @@ class HistoricSite_Service:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al actualizar los tags del sitio histórico: {e}")
 
+
+    def get_all_sites_for_map(self, include_deleted=False, page=1, per_page=25): 
+        """Obtiene todos los sitios históricos con información para el mapa, incluyendo paginación."""
+        from ..models import Tag
+        query = HistoricSite.query
+        if not include_deleted:
+            query = query.filter_by(deleted=False)
+        # Aplicar paginación
+        pagination = query.paginate(
+            page=page, 
+            per_page=per_page, 
+            error_out=False
+        )
+        sites = pagination.items
+        sites_data = []
+        for site in sites:
+            # Obtener tags del sitio
+            site_tags = []
+            for tag_relation in site.tag_historic_sites:
+                if not tag_relation.tag.deleted:  # Solo incluir tags no eliminados
+                    site_tags.append({
+                        'id': tag_relation.tag.id,
+                        'name': tag_relation.tag.name,
+                        'slug': tag_relation.tag.slug
+                    })
+            
+            sites_data.append({
+                'id': site.id, 
+                'name': site.name, 
+                'brief_description': site.brief_description,
+                'latitude': site.latitude,
+                'longitude': site.longitude,
+                'name_city': site.city.name if site.city else None,
+                'name_province': site.city.province.name if site.city and site.city.province else None,
+                'year_inauguration': site.year_inauguration,
+                'tags': site_tags
+            })
+        
+        return {
+            'sites': sites_data,
+            'pagination': {
+                'page': pagination.page,
+                'pages': pagination.pages,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev,
+                'next_num': pagination.next_num,
+                'prev_num': pagination.prev_num
+            }
+        }
+
 # instancia de la clase HistoricSite_Service
 historic_site_service = HistoricSite_Service()

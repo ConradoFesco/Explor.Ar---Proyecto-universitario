@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // - 13: Nivel de zoom inicial (1-18, donde 18 es el más cercano)
     // - handleMapClick: Función que se ejecutará cuando se haga clic en el mapa
     mapHandler.initializeMap('map-container', [-34.92, -57.95], 13, handleMapClick);
+    
+    // Cargar sitios históricos existentes en el mapa
+    mapHandler.loadHistoricSites();
 
 
     // Función para actualizar las coordenadas en el formulario
@@ -613,5 +616,6 @@ document.addEventListener('DOMContentLoaded', function() {
             window.tagSelector.clearSelection();
         }
     };
+
 
 });

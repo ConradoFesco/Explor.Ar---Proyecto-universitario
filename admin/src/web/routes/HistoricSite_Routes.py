@@ -67,6 +67,29 @@ def get_all_historic_sites():
         # si el servicio lanzó un error de validación, lo captura y lo devuelve
         return jsonify({'error': str(e)}), 404 # 404 = Not Found
 
+@site_api.route('/HistoricSite_Routes/map', methods=['GET'])
+#@permission_required("get_all_sites_for_map")
+def get_all_sites_for_map():
+    include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    # Validar parámetros
+    if page < 1:
+        page = 1
+    if per_page < 1 or per_page > 25:  # Límite máximo de 25 por página
+        per_page = 25
+    try:
+        result = historic_site_service.get_all_sites_for_map(
+            include_deleted=include_deleted, 
+            page=page, 
+            per_page=per_page
+        )
+        # si todo sale bien, devuelve el objeto y un código 200
+        return jsonify(result), 200
+    except exc.NotFoundError as e:
+        # si el servicio lanzó un error de validación, lo captura y lo devuelve
+        return jsonify({'error': str(e)}), 404 # 404 = Not Found
+
     
 @site_api.route('/HistoricSite_Routes/<int:id>', methods=['PUT'])
 #@permission_required("update_historic_site")
