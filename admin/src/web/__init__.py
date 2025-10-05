@@ -127,7 +127,7 @@ def create_app(env="development", static_folder="../../static"):
 
     @app.route("/users/<int:user_id>/editar")
     def edit_user(user_id):
-        return render_template('edit_user.html')
+        return render_template('edit_user.html', user_id=user_id)
     
     @app.route('/users/nuevo')
     def create_user_form():

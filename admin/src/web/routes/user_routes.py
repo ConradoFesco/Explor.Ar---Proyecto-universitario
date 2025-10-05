@@ -84,6 +84,14 @@ def get_user(user_id):
             except:
                 pass  # Si falla la conversión, dejamos el string original
 
+        # Agregar información adicional que pueda necesitar el formulario de edición
+        # como roles disponibles, etc.
+        try:
+            available_roles = user_service.get_available_roles()
+            result['available_roles'] = available_roles
+        except:
+            result['available_roles'] = []
+        
         return jsonify(result), 200
     except NotFoundError as e:
         return jsonify({"error": str(e)}), 404

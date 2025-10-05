@@ -9,8 +9,30 @@
             <h3 class="text-lg font-medium text-gray-900">Editar Usuario</h3>
         </div>
 
+        <!-- Loading state -->
+        <div id="loading-state" class="p-6 text-center">
+            <div class="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-white bg-blue-500 cursor-not-allowed">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Cargando datos del usuario...
+            </div>
+        </div>
+
+        <!-- Error state -->
+        <div id="error-state" class="p-6 text-center hidden">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 class="text-sm font-medium text-red-800 mb-2">Error al cargar los datos</h3>
+                <p id="error-message" class="text-sm text-red-700 mb-4">No se pudieron cargar los datos del usuario.</p>
+                <button onclick="loadUserData()" class="bg-red-100 text-red-800 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-200 transition duration-200">
+                    Reintentar
+                </button>
+            </div>
+        </div>
+
         <!-- Formulario sin action directo, lo manejamos con JS para llamar al API -->
-        <form id="editUserForm" class="p-6 space-y-6">
+        <form id="editUserForm" class="p-6 space-y-6 hidden">
             <!-- Nombre -->
     <div>
         <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
@@ -19,7 +41,6 @@
         <input type="text" 
                 id="name" 
                 name="name" 
-                value="{{ user.name }}"
                 required
                 minlength="1"
                 placeholder="Ingresa el nombre"
@@ -34,7 +55,6 @@
         <input type="text" 
             id="last_name" 
             name="last_name" 
-            value="{{ user.last_name }}"
             required
             minlength="1"
             placeholder="Ingresa el apellido"
@@ -49,7 +69,6 @@
                 <input type="email" 
                        id="mail" 
                        name="mail" 
-                       value="{{ user.mail }}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             </div>
 
@@ -60,9 +79,7 @@
                 </label>
                 <select id="role" name="role"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="Usuario" {% if user.role == 'Usuario' %}selected{% endif %}>Usuario</option>
-                    <option value="Editor" {% if user.role == 'Editor' %}selected{% endif %}>Moderador</option>
-                    <option value="Administrador" {% if user.role == 'Administrador' %}selected{% endif %}>Administrador</option>
+                    <option value="">Cargando roles...</option>
                 </select>
             </div>
 
@@ -71,7 +88,6 @@
                 <input type="checkbox"
                        id="active"
                        name="active"
-                       {% if user.active %}checked{% endif %}
                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                 <label for="active" class="ml-2 block text-sm text-gray-700">
                     Usuario activo
@@ -83,7 +99,6 @@
                 <input type="checkbox" 
                        id="blocked" 
                        name="blocked" 
-                       {% if user.blocked %}checked{% endif %}
                        class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
                 <label for="blocked" class="ml-2 block text-sm text-gray-700">
                     Usuario bloqueado
@@ -93,11 +108,11 @@
             <!-- Info adicional -->
             <div class="bg-gray-50 rounded-lg p-4 space-y-2">
                 <p class="text-sm text-gray-600">
-                    <span class="font-medium">ID:</span> {{ user.id }}
+                    <span class="font-medium">ID:</span> <span id="user-id">-</span>
                 </p>
                 <p class="text-sm text-gray-600">
                     <span class="font-medium">Fecha de creación:</span> 
-                    {{ user.created_at.strftime("%d/%m/%Y %H:%M") if user.created_at else 'N/A' }}
+                    <span id="user-created-at">-</span>
                 </p>
             </div>
 
@@ -121,146 +136,179 @@
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-document.getElementById("editUserForm").addEventListener("submit", async function(e) {
-    e.preventDefault();
+    // Variable global para almacenar los datos originales del usuario
+    let originalUserData = null;
+    const userId = {{ user_id }};
 
-    // Validar que nombre y apellido no estén vacíos
-    const nameValue = document.getElementById('name').value.trim();
-    const lastNameValue = document.getElementById('last_name').value.trim();
-
-    if (!nameValue || nameValue.length === 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Nombre requerido',
-            text: 'El nombre no puede estar vacío',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    if (!lastNameValue || lastNameValue.length === 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Apellido requerido',
-            text: 'El apellido no puede estar vacío',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    // Validar email
-    const mailValue = document.getElementById('mail').value.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!mailValue || !emailRegex.test(mailValue)) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Email inválido',
-            text: 'Por favor ingresa un email válido',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    // Validar que no se pueda bloquear a un Administrador
-    const currentRole = document.getElementById('role').value;
-    const isBlocked = document.getElementById('blocked').checked;
-    
-    if (currentRole === 'Administrador' && isBlocked) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Acción no permitida',
-            text: 'No se puede bloquear a un usuario con rol de Administrador',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    // Valores originales del usuario
-    const originalData = {
-        name: "{{ user.name }}",
-        last_name: "{{ user.last_name }}",
-        mail: "{{ user.mail }}",
-        role: "{{ user.role or '' }}",
-        active: '{{ "true" if user.active else "false" }}',
-        blocked: '{{ "true" if user.blocked else "false" }}'
-    };
-
-    originalData.active = (originalData.active === 'true');
-    originalData.blocked = (originalData.blocked === 'true');
-
-    // Valores actuales del formulario
-    const currentData = {
-        name: document.getElementById('name').value,
-        last_name: document.getElementById('last_name').value,
-        mail: document.getElementById('mail').value,
-        role: document.getElementById('role').value,
-        active: document.getElementById('active').checked,
-        blocked: document.getElementById('blocked').checked
-    };
-
-    // Solo incluir campos que cambiaron
-    const changedFields = {};
-    for (let key in currentData) {
-        if (currentData[key] !== originalData[key]) {
-            changedFields[key] = currentData[key];
+    // Función para cargar los datos del usuario
+    async function loadUserData() {
+        try {
+            const response = await fetch(`/api/users/${userId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const userData = await response.json();
+            originalUserData = userData;
+            
+            // Llenar el formulario con los datos del usuario
+            populateForm(userData);
+            
+            // Mostrar el formulario y ocultar el loading
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('editUserForm').classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Error cargando datos del usuario:', error);
+            showError(error.message);
         }
     }
 
-    // Si no hay cambios
-    if (Object.keys(changedFields).length === 0) {
-        Swal.fire({
-            icon: 'info',
-            title: 'Sin cambios',
-            text: 'No hay cambios para guardar',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    const formData = { // Esto está hardcodeado, tiene que usarse el servicio en el back
-        data_user: {
-            id: 2, // NOTA: Reemplazar con el ID del usuario que está editando (admin logueado)
-        },
-        data_new: changedFields
-    };
-
-    try {
-        const response = await fetch(`/api/users/{{ user.id }}`, {
-            method: "PUT",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-            Swal.fire({
-                icon: 'success',
-                title: '¡Actualizado!',
-                text: 'Usuario actualizado correctamente',
-                confirmButtonColor: '#3B82F6',
-                timer: 2000,
-                showConfirmButton: false
-            }).then(() => {
-                window.location.replace("/users");
-            });
+    // Función para poblar el formulario con los datos del usuario
+    function populateForm(userData) {
+        // Campos básicos
+        document.getElementById('name').value = userData.name || '';
+        document.getElementById('last_name').value = userData.last_name || '';
+        document.getElementById('mail').value = userData.mail || '';
+        
+        // Estados booleanos
+        document.getElementById('active').checked = userData.active || false;
+        document.getElementById('blocked').checked = userData.blocked || false;
+        
+        // Información adicional
+        document.getElementById('user-id').textContent = userData.id || '-';
+        
+        if (userData.created_at) {
+            try {
+                const date = new Date(userData.created_at);
+                document.getElementById('user-created-at').textContent = 
+                    date.toLocaleString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+            } catch (e) {
+                document.getElementById('user-created-at').textContent = userData.created_at;
+            }
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: data.error || 'No se pudo actualizar el usuario',
-                confirmButtonColor: '#3B82F6'
-            });
+            document.getElementById('user-created-at').textContent = 'N/A';
         }
-    } catch (err) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de conexión',
-            text: err.message,
-            confirmButtonColor: '#3B82F6'
-        });
+        
+        // Llenar roles disponibles
+        populateRoles(userData.available_roles || [], userData.role || '');
     }
-});
+
+    // Función para poblar el select de roles
+    function populateRoles(availableRoles, currentRole) {
+        const roleSelect = document.getElementById('role');
+        roleSelect.innerHTML = availableRoles.length > 0 
+            ? availableRoles.map(role => `<option value="${role.name}" ${role.name === currentRole ? 'selected' : ''}>${role.name}</option>`).join('')
+            : '<option value="">No hay roles disponibles</option>';
+    }
+
+    // Función para mostrar error
+    function showError(message) {
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('error-state').classList.remove('hidden');
+        document.getElementById('error-message').textContent = message;
+    }
+
+    // Función para validar el formulario
+    function validateForm() {
+        const name = document.getElementById('name').value.trim();
+        const lastName = document.getElementById('last_name').value.trim();
+        const email = document.getElementById('mail').value.trim();
+        const role = document.getElementById('role').value;
+        const isBlocked = document.getElementById('blocked').checked;
+
+        if (!name) {
+            Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'El nombre no puede estar vacío', confirmButtonColor: '#3B82F6' });
+            return false;
+        }
+
+        if (!lastName) {
+            Swal.fire({ icon: 'warning', title: 'Apellido requerido', text: 'El apellido no puede estar vacío', confirmButtonColor: '#3B82F6' });
+            return false;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            Swal.fire({ icon: 'warning', title: 'Email inválido', text: 'Por favor ingresa un email válido', confirmButtonColor: '#3B82F6' });
+            return false;
+        }
+
+        if (role === 'Administrador' && isBlocked) {
+            Swal.fire({ icon: 'error', title: 'Acción no permitida', text: 'No se puede bloquear a un usuario con rol de Administrador', confirmButtonColor: '#3B82F6' });
+            return false;
+        }
+
+        return true;
+    }
+
+    // Función para manejar el envío del formulario
+    document.getElementById("editUserForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
+
+        if (!validateForm()) return;
+
+        // Obtener datos actuales del formulario
+        const currentData = {
+            name: document.getElementById('name').value,
+            last_name: document.getElementById('last_name').value,
+            mail: document.getElementById('mail').value,
+            role: document.getElementById('role').value,
+            active: document.getElementById('active').checked,
+            blocked: document.getElementById('blocked').checked
+        };
+
+        // Solo incluir campos que cambiaron
+        const changedFields = Object.keys(currentData).reduce((acc, key) => {
+            if (currentData[key] !== originalUserData[key]) {
+                acc[key] = currentData[key];
+            }
+            return acc;
+        }, {});
+
+        if (Object.keys(changedFields).length === 0) {
+            Swal.fire({ icon: 'info', title: 'Sin cambios', text: 'No hay cambios para guardar', confirmButtonColor: '#3B82F6' });
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: "PUT",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data_user: { id: 2 }, // TODO: Obtener ID del admin logueado
+                    data_new: changedFields
+                })
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Actualizado!',
+                    text: 'Usuario actualizado correctamente',
+                    confirmButtonColor: '#3B82F6',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => window.location.replace("/users"));
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo actualizar el usuario', confirmButtonColor: '#3B82F6' });
+            }
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#3B82F6' });
+        }
+    });
+
+    // Cargar datos cuando se carga la página
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUserData();
+    });
 </script>
 {% endblock %}

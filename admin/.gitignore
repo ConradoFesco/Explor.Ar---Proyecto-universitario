@@ -6,6 +6,9 @@ ENV/
 .ENV/
 .env
 
+# Flask Session
+flask_session/
+
 # Archivos compilados de Python
 __pycache__/
 *.py[cod]
