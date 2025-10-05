@@ -79,12 +79,27 @@ class HistoricSite_Service:
         # si no se encuentra el sitio histórico, devuelve un error 404
         if site is None or site.deleted:
             raise exc.NotFoundError("Sitio histórico no encontrado")
+        
+        # Crear respuesta personalizada que incluya los tags
+        site_data = site.to_dict()
+        
+        # Agregar información de tags
+        site_data['tags'] = []
+        for tag_relation in site.tag_historic_sites:
+            if not tag_relation.tag.deleted:  # Solo incluir tags no eliminados
+                site_data['tags'].append({
+                    'id': tag_relation.tag.id,
+                    'name': tag_relation.tag.name,
+                    'slug': tag_relation.tag.slug
+                })
+        
         # si se encuentra el sitio histórico, devuelve el sitio histórico
-        return site
+        return site_data
     
     def get_all_historic_sites(self, include_deleted=False, page=1, per_page=25): 
         """Obtiene todos los sitios históricos con paginación."""
-        query = HistoricSite.query.with_entities(HistoricSite.id, HistoricSite.name, HistoricSite.brief_description)
+        from ..models import Tag
+        query = HistoricSite.query
         if not include_deleted:
             query = query.filter_by(deleted=False)
         # Aplicar paginación
@@ -94,8 +109,27 @@ class HistoricSite_Service:
             error_out=False
         )
         sites = pagination.items
+        sites_data = []
+        for site in sites:
+            # Obtener tags del sitio
+            site_tags = []
+            for tag_relation in site.tag_historic_sites:
+                if not tag_relation.tag.deleted:  # Solo incluir tags no eliminados
+                    site_tags.append({
+                        'id': tag_relation.tag.id,
+                        'name': tag_relation.tag.name,
+                        'slug': tag_relation.tag.slug
+                    })
+            
+            sites_data.append({
+                'id': site.id, 
+                'name': site.name, 
+                'brief_description': site.brief_description,
+                'tags': site_tags
+            })
+        
         return {
-            'sites': [{'id': site.id, 'name': site.name, 'brief_description': site.brief_description} for site in sites],
+            'sites': sites_data,
             'pagination': {
                 'page': pagination.page,
                 'pages': pagination.pages,
@@ -235,5 +269,77 @@ class HistoricSite_Service:
         except (IntegrityError, exc.ValidationError) as e:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al agregar los tags al sitio histórico y su evento: {e}")
+
+    def update_site_tags(self, site_id, new_tag_ids, data_user):
+        """Actualiza completamente los tags de un sitio histórico (agrega nuevos y elimina los que no están en la lista)"""
+        # Validar que el sitio histórico existe
+        site = HistoricSite.query.get(site_id)
+        if not site:
+            raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
+        
+        # Validar que new_tag_ids es una lista
+        if not isinstance(new_tag_ids, list):
+            raise exc.ValidationError("Los tags deben enviarse como una lista.")
+        
+        # Si new_tag_ids está vacío, significa que queremos quitar todos los tags
+        if new_tag_ids:
+            # Validar que todos los tags existen
+            non_existent_tags = []
+            for tag_id in new_tag_ids:
+                try:
+                    tag_service.get_tag_by_id(tag_id)
+                except exc.NotFoundError:
+                    non_existent_tags.append(tag_id)
+            
+            if non_existent_tags:
+                raise exc.NotFoundError(f"Los siguientes tags no existen: {non_existent_tags}")
+
+        # Obtener relaciones actuales
+        current_relations = TagHistoricSite.query.filter_by(Historic_Site_id=site_id).all()
+        current_tag_ids = [rel.Tag_id for rel in current_relations]
+        
+        # Determinar qué tags agregar y cuáles quitar
+        tags_to_add = [tag_id for tag_id in new_tag_ids if tag_id not in current_tag_ids]
+        tags_to_remove = [tag_id for tag_id in current_tag_ids if tag_id not in new_tag_ids]
+        
+        try:
+            # Eliminar tags que ya no están en la lista
+            if tags_to_remove:
+                TagHistoricSite.query.filter_by(Historic_Site_id=site_id).filter(
+                    TagHistoricSite.Tag_id.in_(tags_to_remove)
+                ).delete(synchronize_session=False)
+            
+            # Agregar nuevos tags
+            for tag_id in tags_to_add:
+                new_relation = TagHistoricSite(
+                    Historic_Site_id=site_id,
+                    Tag_id=tag_id
+                )
+                db.session.add(new_relation)
+            
+            # Crear evento solo si hubo cambios
+            if tags_to_add or tags_to_remove:
+                event_data = {
+                    'id_site': site.id,
+                    'id_user': data_user,
+                    'type_Action': 'UPDATE'
+                }
+                event_service.create_event(event_data, commit=False)
+            
+            db.session.commit()
+            
+            # Retornar información sobre los cambios realizados
+            return {
+                'site': site,
+                'added_tags': tags_to_add,
+                'removed_tags': tags_to_remove,
+                'final_tags': new_tag_ids,
+                'message': f'Se agregaron {len(tags_to_add)} tags y se eliminaron {len(tags_to_remove)} tags.'
+            }
+            
+        except (IntegrityError, exc.ValidationError) as e:
+            db.session.rollback()
+            raise exc.DatabaseError(f"Error al actualizar los tags del sitio histórico: {e}")
+
 # instancia de la clase HistoricSite_Service
 historic_site_service = HistoricSite_Service()

@@ -38,8 +38,8 @@ def get_historic_site(id):
     # si se recibe el ID, llama al servicio para que haga el trabajo pesado
     try:
         # si todo sale bien, devuelve el objeto y un código 200
-        site = historic_site_service.get_historic_site(id)
-        return jsonify(site.to_dict()), 200
+        site_data = historic_site_service.get_historic_site(id)
+        return jsonify(site_data), 200
     except exc.NotFoundError as e:
         # si el servicio lanzó un error de validación, lo captura y lo devuelve
         return jsonify({'error': str(e)}), 404 # 404 = Not Found
@@ -131,6 +131,39 @@ def add_tags(site_id):
             'site': result['site'].to_dict(),
             'added_tags': result['added_tags'],
             'skipped_tags': result['skipped_tags'],
+            'message': result['message']
+        }), 200
+    except exc.NotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except exc.ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except exc.DatabaseError as e:
+        return jsonify({'error': str(e)}), 409
+
+@site_api.route('/HistoricSite_Routes/<int:site_id>/tags', methods=['PUT'])
+#@permission_required("update_tags")
+def update_site_tags(site_id):
+    """Endpoint para actualizar completamente los tags de un sitio (agregar y quitar)"""
+    data = request.get_json()
+    data_user = session.get('user_id')
+    
+    if not data_user:
+        return jsonify({'error': 'Usuario no autenticado'}), 400
+    
+    # Extraer la lista de tag IDs del JSON
+    tag_ids = data.get('tag_ids', [])
+    
+    # tag_ids puede estar vacío para quitar todos los tags
+    if not isinstance(tag_ids, list):
+        return jsonify({'error': 'Los tags deben enviarse como una lista'}), 400
+    
+    try:
+        result = historic_site_service.update_site_tags(site_id, tag_ids, data_user)
+        return jsonify({
+            'site': result['site'].to_dict(),
+            'added_tags': result['added_tags'],
+            'removed_tags': result['removed_tags'],
+            'final_tags': result['final_tags'],
             'message': result['message']
         }), 200
     except exc.NotFoundError as e:
