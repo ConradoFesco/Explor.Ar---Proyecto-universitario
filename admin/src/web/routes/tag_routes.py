@@ -7,7 +7,7 @@ from src.web.auth.decorators import permission_required
 
 tag_api = Blueprint('tag_api', __name__, url_prefix='/api')
 
-@tag_api.route('/tag_routes', methods=['POST'])
+@tag_api.route('/tags', methods=['POST'])
 @permission_required('create_tag')
 def create_new_tag():
     """Endpoint para crear un nuevo tag."""
@@ -20,32 +20,58 @@ def create_new_tag():
         return jsonify({'error': str(e)}), 409
     return jsonify(tag), 201
 
-@tag_api.route('/tag_routes', methods=['GET'])
+@tag_api.route('/tags', methods=['GET'])
 @permission_required('get_all_tags')
 def get_all_tags_route(): 
-    """Endpoint para obtener todos los tags.
-    Acepta un parámetro de query para incluir tags eliminados.
-    Ej: /api/tags?include_deleted=true"""
-    include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
-    tags = tag_service.get_all_tags(include_deleted=include_deleted)
-    return jsonify(tags), 200
+    """Endpoint para obtener todos los tags con paginación y filtros."""
+    try:
+        # Parámetros de paginación
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 25))
+        
+        # Parámetros de búsqueda y ordenamiento
+        search = request.args.get('search', '')
+        sort_by = request.args.get('sort_by', 'name')
+        sort_order = request.args.get('sort_order', 'asc')
+        
+        # Parámetro para incluir eliminados
+        include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
+        
+        result = tag_service.get_all_tags_paginated(
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            include_deleted=include_deleted
+        )
+        return jsonify(result), 200
+    except ValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
 
-@tag_api.route('/tag_routes/<string:tag_id_or_slug>', methods=['GET'])
+@tag_api.route('/tags/<string:tag_id_or_slug>', methods=['GET'])
 @permission_required('get_tag')
 def get_tag_by_id_or_slug_route(tag_id_or_slug): 
     """Endpoint para obtener un tag por ID o slug."""
     try:
         # Intenta obtener el tag por ID
-        tag_id = int(tag_id_or_slug)
-        tag = tag_service.get_tag_by_id(tag_id)
-    except ValueError:
-        # Si no es un entero, intenta obtenerlo por slug
-        tag = tag_service.get_tag_by_slug(tag_id_or_slug)
+        try:
+            tag_id = int(tag_id_or_slug)
+            tag = tag_service.get_tag_by_id(tag_id)
+        except ValueError:
+            # Si no es un entero, intenta obtenerlo por slug
+            tag = tag_service.get_tag_by_slug(tag_id_or_slug)
+        return jsonify(tag), 200
     except NotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    return jsonify(tag), 200
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
 
-@tag_api.route('/tag_routes/<int:tag_id>', methods=['PUT'])
+@tag_api.route('/tags/<int:tag_id>', methods=['PUT'])
 @permission_required('update_tag')
 def update_tag_route(tag_id): 
     """Endpoint para actualizar un tag."""
@@ -58,19 +84,19 @@ def update_tag_route(tag_id):
         return jsonify({'error': str(e)}), 409
     return jsonify(updated_tag), 200
 
-@tag_api.route('/tag_routes/<int:tag_id>', methods=['DELETE'])
+@tag_api.route('/tags/<int:tag_id>', methods=['DELETE'])
 @permission_required('delete_tag')
 def delete_tag_route(tag_id): 
-    """Endpoint para "eliminar" (soft delete) un tag."""
+    """Endpoint para eliminar un tag (solo si no está asociado a sitios)."""
     try:
         success = tag_service.delete_tag(tag_id)
+        return jsonify({'message': 'Tag eliminado exitosamente.'}), 200
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
     except DatabaseError as e:
         return jsonify({'error': str(e)}), 409
-    return jsonify({'message': 'Tag eliminado exitosamente.'}), 200
 
-@tag_api.route('/tag_routes/<int:site_id>/tags', methods=['GET'])
+@tag_api.route('/tags/<int:site_id>/tags', methods=['GET'])
 @permission_required('get_tag')
 def get_tags_by_site_id_route(site_id):
     try:
