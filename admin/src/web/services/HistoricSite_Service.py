@@ -96,12 +96,78 @@ class HistoricSite_Service:
         # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site_data
     
-    def get_all_historic_sites(self, include_deleted=False, page=1, per_page=25): 
-        """Obtiene todos los sitios históricos con paginación."""
-        from ..models import Tag
+    def get_all_historic_sites(self, include_deleted=False, page=1, per_page=25, 
+                              search_text=None, sort_by='created_at', sort_order='desc',
+                              city_id=None, province_id=None, tag_ids=None, 
+                              state_id=None, date_from=None, date_to=None, 
+                              visible=None): 
+        """Obtiene todos los sitios históricos con paginación, filtros y ordenamiento."""
+        from ..models import Tag, City, Province, StateSite
+        from sqlalchemy import and_, or_, desc, asc
+        
+        # Query base
         query = HistoricSite.query
+        
+        # Filtro de eliminados
         if not include_deleted:
             query = query.filter_by(deleted=False)
+        
+        # Filtro de búsqueda por texto (nombre o descripción breve)
+        if search_text:
+            search_filter = or_(
+                HistoricSite.name.ilike(f'%{search_text}%'),
+                HistoricSite.brief_description.ilike(f'%{search_text}%')
+            )
+            query = query.filter(search_filter)
+        
+        # Filtro por ciudad
+        if city_id:
+            query = query.filter(HistoricSite.id_ciudad == city_id)
+        
+        # Filtro por provincia (a través de la relación con ciudad)
+        if province_id:
+            query = query.join(City).filter(City.id_province == province_id)
+        
+        # Filtro por tags (multiselección)
+        if tag_ids and len(tag_ids) > 0:
+            from ..models import TagHistoricSite
+            # Filtrar sitios que tengan al menos uno de los tags especificados
+            query = query.join(TagHistoricSite).filter(TagHistoricSite.Tag_id.in_(tag_ids))
+        
+        # Filtro por estado del sitio
+        if state_id:
+            query = query.filter(HistoricSite.id_estado == state_id)
+        
+        # Filtro por rango de fechas
+        if date_from:
+            query = query.filter(HistoricSite.created_at >= date_from)
+        if date_to:
+            query = query.filter(HistoricSite.created_at <= date_to)
+        
+        # Filtro por visibilidad
+        if visible is not None:
+            query = query.filter(HistoricSite.visible == visible)
+        
+        # Ordenamiento
+        if sort_by == 'name':
+            if sort_order == 'desc':
+                query = query.order_by(desc(HistoricSite.name))
+            else:
+                query = query.order_by(asc(HistoricSite.name))
+        elif sort_by == 'city':
+            if sort_order == 'desc':
+                query = query.join(City).order_by(desc(City.name))
+            else:
+                query = query.join(City).order_by(asc(City.name))
+        elif sort_by == 'created_at':
+            if sort_order == 'desc':
+                query = query.order_by(desc(HistoricSite.created_at))
+            else:
+                query = query.order_by(asc(HistoricSite.created_at))
+        else:
+            # Por defecto, ordenar por fecha de creación descendente
+            query = query.order_by(desc(HistoricSite.created_at))
+        
         # Aplicar paginación
         pagination = query.paginate(
             page=page, 
@@ -125,6 +191,11 @@ class HistoricSite_Service:
                 'id': site.id, 
                 'name': site.name, 
                 'brief_description': site.brief_description,
+                'created_at': site.created_at.isoformat() if site.created_at else None,
+                'city_name': site.city.name if site.city else None,
+                'province_name': site.city.province.name if site.city and site.city.province else None,
+                'state_name': site.state_site.state if site.state_site else None,
+                'visible': site.visible,
                 'tags': site_tags
             })
         
