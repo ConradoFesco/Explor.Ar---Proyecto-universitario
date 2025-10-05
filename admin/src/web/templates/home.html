@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Inicializar el mapa sin funcionalidad de clic
         mapHandler.initializeMap('map-container', [-34.92, -57.95], 13, noClickHandler);
+        
+        // Cargar sitios históricos existentes en el mapa
+        mapHandler.loadHistoricSites();
     }
 });
 </script>
