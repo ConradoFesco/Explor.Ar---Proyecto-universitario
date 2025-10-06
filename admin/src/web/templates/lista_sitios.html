@@ -331,7 +331,7 @@
         if (currentFilters.city_id) params.append('city_id', currentFilters.city_id);
         if (currentFilters.province_id) params.append('province_id', currentFilters.province_id);
         if (currentFilters.state_id) params.append('state_id', currentFilters.state_id);
-        if (currentFilters.visible !== '') params.append('visible', currentFilters.visible);
+        if (currentFilters.visible !== '') params.append('visible', currentFilters.visible === 'true' ? 'true' : 'false');
         if (currentFilters.date_from) params.append('date_from', currentFilters.date_from);
         if (currentFilters.date_to) params.append('date_to', currentFilters.date_to);
         if (currentFilters.tag_ids.length > 0) params.append('tag_ids', currentFilters.tag_ids.join(','));

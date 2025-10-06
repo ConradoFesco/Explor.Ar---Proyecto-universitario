@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 class AuthService:
     def login(self, mail, password):
-        user = User.query.filter_by(mail=mail).first()
+        user = User.query.filter_by(mail=mail, deleted=False).first()
         if not user or not  user.check_password(password):
             raise exc.ValidationError("Credenciales inválidas")
         

@@ -24,15 +24,6 @@
         <!-- Div para mostrar el mapa -->
         <div id="map-container" class="map-container mb-6" style="height: 500px; border: 2px solid #e5e7eb; border-radius: 8px;"></div>
         
-        <!-- Mensaje de éxito -->
-        <div class="form-success hidden" id="success-message">
-            ¡Sitio histórico modificado exitosamente!
-        </div>
-
-        <!-- Mensaje de error -->
-        <div class="form-error hidden" id="error-message">
-            Error al modificar el sitio histórico.
-        </div>
 
         <!-- Formulario para modificar sitio histórico -->
         <div class="bg-gray-50 rounded-lg p-6 mb-6">
@@ -125,6 +116,18 @@
                     </div>
                 </div>
 
+                <!-- Séptima fila: Visibilidad -->
+                <div class="flex items-center">
+                    <input type="checkbox"
+                           id="visible"
+                           name="visible"
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="visible" class="ml-2 block text-sm text-gray-700">
+                        Sitio visible al público
+                    </label>
+                    <span class="ml-2 text-xs text-gray-500">(Si está marcado, el sitio será visible en el mapa público)</span>
+                </div>
+
                 <!-- Botones de acción -->
                 <div class="flex justify-end space-x-3 pt-4">
                     <button type="button" onclick="cancelEdit()" 
@@ -199,6 +202,22 @@ async function loadSiteData(siteId) {
         document.getElementById('ciudad').value = site.city_name || '';
         document.getElementById('provincia').value = site.province_name || '';
         
+        // Establecer el estado de visibilidad
+        document.getElementById('visible').checked = site.visible === true;
+        
+        // Mostrar información de debug en consola
+        console.log('Datos del sitio cargados:', {
+            name: site.name,
+            city_name: site.city_name,
+            province_name: site.province_name,
+            state_name: site.state_name,
+            category_name: site.category_name,
+            id_estado: site.id_estado,
+            id_category: site.id_category,
+            latitude: site.latitude,
+            longitude: site.longitude
+        });
+        
         // Establecer la ubicación en el mapa
         if (site.latitude && site.longitude) {
             setMapLocation(parseFloat(site.latitude), parseFloat(site.longitude));
@@ -206,6 +225,11 @@ async function loadSiteData(siteId) {
         
         // Cargar estados y categorías después de cargar los datos del sitio
         loadStatesAndCategories();
+        
+        // Establecer valores seleccionados después de cargar las opciones
+        setTimeout(() => {
+            setSelectedValues(site);
+        }, 500);
         
     } catch (error) {
         console.error('Error:', error);
@@ -228,6 +252,12 @@ function initializeMapForEdit() {
         // Actualizar los campos del formulario con las coordenadas
         updateFormCoordinates(coords);
         
+        // Actualizar el marcador en el mapa
+        if (typeof mapHandler !== 'undefined' && mapHandler.map && mapHandler.marker) {
+            mapHandler.marker.setLatLng([coords.lat, coords.lng]);
+            console.log("Marcador actualizado a nueva ubicación:", coords.lat, coords.lng);
+        }
+        
         // Obtener información de ubicación (ciudad y provincia) usando geocodificación inversa
         getLocationInfo(coords);
         
@@ -245,6 +275,13 @@ function initializeMapForEdit() {
 
     // Inicializar el mapa con las coordenadas actuales
     mapHandler.initializeMap('map-container', initialCoords, 13, handleMapClick);
+    
+    // Si tenemos coordenadas del sitio, establecer la ubicación después de un breve delay
+    if (latInput && lngInput && latInput.value && lngInput.value) {
+        setTimeout(() => {
+            setMapLocation(parseFloat(latInput.value), parseFloat(lngInput.value));
+        }, 1000);
+    }
 }
 
 // Función para establecer ubicación en el mapa
@@ -252,12 +289,20 @@ function setMapLocation(lat, lng) {
     // Esta función se ejecutará después de que el mapa esté inicializado
     setTimeout(() => {
         if (typeof mapHandler !== 'undefined' && mapHandler.map) {
+            // Centrar el mapa en la ubicación del sitio
             mapHandler.map.setView([lat, lng], 13);
+            
+            // Asegurar que el marcador esté en la ubicación correcta
             if (mapHandler.marker) {
                 mapHandler.marker.setLatLng([lat, lng]);
+            } else {
+                // Si no hay marcador, crear uno
+                mapHandler.marker = L.marker([lat, lng]).addTo(mapHandler.map);
             }
+            
+            console.log('Mapa actualizado a ubicación:', lat, lng);
         }
-    }, 200);
+    }, 500);
 }
 
 // Función para actualizar las coordenadas en el formulario
@@ -267,6 +312,11 @@ function updateFormCoordinates(coords) {
     
     if (latInput) latInput.value = coords.lat.toFixed(6);
     if (lngInput) lngInput.value = coords.lng.toFixed(6);
+    
+    console.log('Coordenadas actualizadas en formulario:', {
+        lat: coords.lat.toFixed(6),
+        lng: coords.lng.toFixed(6)
+    });
 }
 
 // Función para obtener información de ubicación usando geocodificación inversa
@@ -369,35 +419,70 @@ function loadStatesAndCategories() {
     loadCategorias();
 }
 
-// Función para mostrar errores
-function showError(message) {
-    const errorDiv = document.getElementById('error-message');
-    errorDiv.textContent = message;
-    errorDiv.classList.remove('hidden');
+// Función para establecer los valores seleccionados en los selectores
+function setSelectedValues(site) {
+    // Establecer estado seleccionado
+    if (site.id_estado) {
+        const estadoSelect = document.getElementById('estado');
+        if (estadoSelect) {
+            estadoSelect.value = site.id_estado;
+        }
+    }
     
-    // Ocultar después de 5 segundos
-    setTimeout(() => {
-        errorDiv.classList.add('hidden');
-    }, 5000);
+    // Establecer categoría seleccionada
+    if (site.id_category) {
+        const categoriaSelect = document.getElementById('categoria');
+        if (categoriaSelect) {
+            categoriaSelect.value = site.id_category;
+        }
+    }
+    
+    console.log('Valores establecidos:', {
+        id_estado: site.id_estado,
+        id_category: site.id_category,
+        estado_select_value: document.getElementById('estado').value,
+        categoria_select_value: document.getElementById('categoria').value
+    });
 }
 
-// Función para mostrar éxito
+// Función para mostrar errores con SweetAlert
+function showError(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: message,
+        confirmButtonColor: '#dc2626'
+    });
+}
+
+// Función para mostrar éxito con SweetAlert
 function showSuccess(message) {
-    const successDiv = document.getElementById('success-message');
-    successDiv.textContent = message;
-    successDiv.classList.remove('hidden');
-    
-    // Ocultar después de 3 segundos
-    setTimeout(() => {
-        successDiv.classList.add('hidden');
-    }, 3000);
+    Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: message,
+        confirmButtonColor: '#16a34a',
+        timer: 2000,
+        showConfirmButton: false
+    });
 }
 
 // Función para cancelar edición
 function cancelEdit() {
-    if (confirm('¿Estás seguro de que deseas cancelar los cambios?')) {
-        window.location.href = '{{ url_for("lista_sitios") }}';
-    }
+    Swal.fire({
+        title: '¿Cancelar cambios?',
+        text: '¿Estás seguro de que deseas cancelar los cambios? Los datos no guardados se perderán.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, cancelar',
+        cancelButtonText: 'No, continuar editando'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '{{ url_for("lista_sitios") }}';
+        }
+    });
 }
 
 // Manejo del formulario
@@ -411,23 +496,16 @@ document.getElementById('site-form').addEventListener('submit', async function(e
     
     // Recopilar datos del formulario
     const formData = {
-        data_site: {
-            name: document.getElementById('nombre').value,
-            year_inauguration: document.getElementById('año_inauguración').value || null,
-            brief_description: document.getElementById('descripcion_breve').value,
-            complete_description: document.getElementById('descripcion_completa').value || null,
-            latitude: parseFloat(document.getElementById('latitud').value),
-            longitude: parseFloat(document.getElementById('longitud').value),
-            id_ciudad: 1, // Por ahora hardcodeado, debería obtenerse de la geocodificación
-            id_estado: parseInt(document.getElementById('estado').value),
-            id_category: parseInt(document.getElementById('categoria').value)
-        },
-        data_user: {
-            id: window.currentUser.id,
-            first_name: window.currentUser.first_name,
-            last_name: window.currentUser.last_name,
-            mail: window.currentUser.mail
-        }
+        name: document.getElementById('nombre').value,
+        year_inauguration: document.getElementById('año_inauguración').value || null,
+        brief_description: document.getElementById('descripcion_breve').value,
+        complete_description: document.getElementById('descripcion_completa').value || null,
+        latitude: parseFloat(document.getElementById('latitud').value),
+        longitude: parseFloat(document.getElementById('longitud').value),
+        id_ciudad: 1, // Por ahora hardcodeado, debería obtenerse de la geocodificación
+        id_estado: parseInt(document.getElementById('estado').value),
+        id_category: parseInt(document.getElementById('categoria').value),
+        visible: document.getElementById('visible').checked
     };
     
     try {
@@ -440,18 +518,36 @@ document.getElementById('site-form').addEventListener('submit', async function(e
         });
         
         if (response.ok) {
-            showSuccess('Sitio histórico modificado exitosamente');
-            // Redirigir después de un breve delay
-            setTimeout(() => {
+            const data = await response.json();
+            const siteName = document.getElementById('nombre').value || 'el sitio histórico';
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Modificación exitosa!',
+                text: `"${siteName}" ha sido modificado correctamente`,
+                confirmButtonColor: '#16a34a',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
                 window.location.href = '{{ url_for("lista_sitios") }}';
-            }, 2000);
+            });
         } else {
             const errorData = await response.json();
-            showError('Error al modificar el sitio: ' + (errorData.error || 'Error desconocido'));
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al modificar',
+                text: errorData.error || 'No se pudo modificar el sitio histórico. Verifique los datos e intente nuevamente.',
+                confirmButtonColor: '#dc2626'
+            });
         }
     } catch (error) {
         console.error('Error:', error);
-        showError('Error de conexión al modificar el sitio');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: 'No se pudo conectar con el servidor. Verifique su conexión a internet e intente nuevamente.',
+            confirmButtonColor: '#dc2626'
+        });
     }
 });
 
@@ -496,7 +592,12 @@ function validateForm() {
     const latitud = document.getElementById('latitud').value;
     const longitud = document.getElementById('longitud').value;
     if (!latitud || !longitud) {
-        showError('Debe seleccionar una ubicación en el mapa');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Ubicación requerida',
+            text: 'Debe seleccionar una ubicación en el mapa haciendo clic en el punto deseado.',
+            confirmButtonColor: '#3B82F6'
+        });
         isValid = false;
     }
     
@@ -552,24 +653,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-.form-success {
-    background-color: #d4edda;
-    color: #155724;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    border: 1px solid #c3e6cb;
-}
-
-.form-error {
-    background-color: #f8d7da;
-    color: #721c24;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    border: 1px solid #f5c6cb;
-}
-
 .error-message {
     color: #dc2626;
     font-size: 0.875rem;

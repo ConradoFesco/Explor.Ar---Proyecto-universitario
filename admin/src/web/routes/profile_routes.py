@@ -29,15 +29,6 @@ def update_password():
     if not new_password or len(new_password) < 6:
         return jsonify({"error": "La contraseña debe tener al menos 6 caracteres"}), 400
 
-    # Traer el usuario actual
-    user = User.query.get(session["user_id"])
-    if not user:
-        return jsonify({"error": "Usuario no encontrado"}), 404
-
-    # Verificar si la nueva contraseña es igual a la actual
-    if check_password_hash(user.password, new_password):
-        return jsonify({"error": "La nueva contraseña no puede ser igual a la actual"}), 400
-
     # Actualizar la contraseña usando el método del service
     try:
         result = user_service.update_password(session["user_id"], new_password)

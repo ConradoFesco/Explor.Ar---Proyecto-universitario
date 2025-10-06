@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template
 from src.web.services.usuario_service import user_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
+from flask import session
 
 user_api = Blueprint('user_api', __name__)
 
@@ -9,15 +10,28 @@ user_api = Blueprint('user_api', __name__)
 @permission_required("create_user")
 def create_user():
     try:
+        # Obtener datos del usuario desde la sesión
+        user_data = session.get('user_id')
+        if not user_data:
+            return jsonify({'error': 'Usuario no autenticado'}), 401
+        
+        # Obtener datos del JSON
         json_content = request.get_json()
-        data_user = json_content.get('data_user')
+        if not json_content:
+            return jsonify({'error': 'No se recibieron datos'}), 400
+        
         data_new_user = json_content.get('data_new_user')
-        if not data_user or not data_new_user:
-            return jsonify({'error': 'Faltan datos de usuario'}), 400
-        result = user_service.create_user(data_user, data_new_user)
+        if not data_new_user:
+            return jsonify({'error': 'Faltan datos del nuevo usuario'}), 400
+        
+        result = user_service.create_user(user_data, data_new_user)
         return jsonify(result), 201
-    except (ValidationError, DatabaseError) as e:
+    except ValidationError as e:
         return jsonify({"error": str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @user_api.route('', methods=['GET'])
 @permission_required("get_all_users")
@@ -99,49 +113,38 @@ def get_user(user_id):
 @user_api.route('/<int:user_id>', methods=['PUT'])
 @permission_required("update_user")
 def update_user(user_id):
-    from src.web.models import User
-    from ..extensions import db
-    from flask import request, jsonify
-
-    # Obtengo el JSON del front
-    data = request.get_json()
-    user = User.query.get_or_404(user_id) # modificar y mandar al servicio!!!!
-
-    # Contiene SOLO los campos que el usuario quiere modificar
-    changed_fields = data.get('data_new', {})
-
-    # Actualizar solo los campos que vienen en changed_fields
-    if "name" in changed_fields:
-        user.name = changed_fields["name"]
-
-    if "last_name" in changed_fields:
-        user.last_name = changed_fields["last_name"]
-
-    if "mail" in changed_fields:
-        user.mail = changed_fields["mail"]
-
-    if "active" in changed_fields:
-        user.active = changed_fields["active"]
-    
-    if "blocked" in changed_fields:
-        user.blocked = changed_fields["blocked"]
-    
-    if "role" in changed_fields:
-        # Aquí podrías manejar el cambio de rol si lo necesitas
-        pass
-
-    # Persistir los cambios en la base de datos
     try:
-        db.session.commit()
+        # Obtener datos del usuario desde la sesión
+        user_data = session.get('user_id')
+        if not user_data:
+            return jsonify({'error': 'Usuario no autenticado'}), 401
+        
+        # Obtener datos del JSON
+        json_content = request.get_json()
+        if not json_content:
+            return jsonify({'error': 'No se recibieron datos'}), 400
+        
+        # Contiene SOLO los campos que el usuario quiere modificar
+        changed_fields = json_content.get('data_new', {})
+        if not changed_fields:
+            return jsonify({'error': 'No se proporcionaron campos para actualizar'}), 400
+        
+        # Llamar al servicio para actualizar el usuario
+        result = user_service.update_user(user_id, changed_fields)
+        
+        return jsonify({
+            "message": "Usuario actualizado correctamente",
+            "user": result
+        }), 200
+        
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "Error al guardar en la base de datos", "details": str(e)}), 500
-
-    # Respuesta JSON con el usuario actualizado
-    return jsonify({
-        "message": "Usuario actualizado correctamente",
-        "user": user.to_dict()
-    }), 200
+        return jsonify({'error': str(e)}), 500
 
     #if 'blocked' in changed_fields:
      #   new_blocked_status = changed_fields["blocked"]
@@ -156,39 +159,32 @@ def update_user(user_id):
 @user_api.route('/<int:user_id>', methods=['DELETE'])
 @permission_required("delete_user")
 def delete_user(user_id):
-    from src.web.models import User
-    from .. import db
-    json_content = request.get_json()
-    user_to_delete = User.query.get(user_id)
-    if not user_to_delete:
-        return jsonify({"error": f"Usuario con id {user_id} no encontrado"}), 404
     try:
-        data = json_content.get('data_user')
-        if not data:
-            return jsonify({'error': 'No se proporcionaron datos en la petición'}), 400
-        reason = data.get('reason', 'Sin motivo especificado.')
-        #admin_data = data.get('data_user', {})
-        admin_id = data.get('id')
-
-        if not admin_id:
-            #asigno temporalmente un id, ACORDARSE DE ELIMINARLO
-            admin_id = 1
-            #return jsonify({"error": "Es necesario especificar el ID del usuario que realiza la operación"}), 400
-
-        user_to_delete.active = False  # ✅ Este es el campo correcto
-        user_to_delete.deleted = True  # ✅ Marca como eliminado
-        user_to_delete.deleted_at = datetime.utcnow() # Guarda la fecha y hora de la baja
-        user_to_delete.deletion_reason = reason # Guarda el motivo
-        user_to_delete.deleted_by_id = admin_id # Guarda quién lo eliminó
-
-        db.session.commit()
-
-        return jsonify({"message": f"El usuario '{user_to_delete.mail}' ha sido eliminado correctamente."}), 200
-
+        # Obtener datos del usuario desde la sesión
+        user_data = session.get('user_id')
+        if not user_data:
+            return jsonify({'error': 'Usuario no autenticado'}), 401
+        
+        # Obtener datos del JSON
+        json_content = request.get_json()
+        if not json_content:
+            return jsonify({'error': 'No se recibieron datos'}), 400
+        
+        # Obtener el motivo de eliminación
+        reason = json_content.get('reason', 'Sin motivo especificado.')
+        
+        # Llamar al servicio para eliminar el usuario
+        result = user_service.delete_user_with_reason(user_id, reason, user_data)
+        
+        return jsonify({"message": result}), 200
+        
+    except NotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
-        # Si algo sale mal, revertir los cambios y notificar el error
-        db.session.rollback()
-        print(f"Error en la operación: {e}") # Imprime el error en la consola del servidor
         return jsonify({"error": "Ocurrió un error interno al procesar la solicitud."}), 500
 
 # --- RUTAS PARA GESTIÓN DE BLOQUEO DE USUARIOS ---

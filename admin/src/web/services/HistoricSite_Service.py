@@ -1,4 +1,4 @@
-from ..models import HistoricSite, Tag, TagHistoricSite
+from ..models import HistoricSite, Tag, TagHistoricSite, City, Province, StateSite
 from .. import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -82,12 +82,20 @@ class HistoricSite_Service:
         return historic_site
 
     def get_historic_site(self, id):
-        site = HistoricSite.query.get(id)
-        # si no se encuentra el sitio histórico, devuelve un error 404
-        if site is None or site.deleted:
+        from ..models import City, Province, StateSite, CategorySite
+        
+        # Hacer join para obtener datos de relaciones
+        site = HistoricSite.query.join(City, HistoricSite.id_ciudad == City.id)\
+                                 .join(Province, City.id_province == Province.id)\
+                                 .join(StateSite, HistoricSite.id_estado == StateSite.id, isouter=True)\
+                                 .join(CategorySite, HistoricSite.id_category == CategorySite.id, isouter=True)\
+                                 .filter(HistoricSite.id == id, HistoricSite.deleted == False)\
+                                 .first()
+        
+        if site is None:
             raise exc.NotFoundError("Sitio histórico no encontrado")
         
-        # Crear respuesta personalizada que incluya los tags
+        # Crear respuesta personalizada que incluya los tags y relaciones
         site_data = site.to_dict()
         
         # Agregar información de tags
@@ -99,6 +107,12 @@ class HistoricSite_Service:
                     'name': tag_relation.tag.name,
                     'slug': tag_relation.tag.slug
                 })
+        
+        # Agregar información de relaciones usando los joins
+        site_data['city_name'] = site.city.name if hasattr(site, 'city') and site.city else None
+        site_data['province_name'] = site.city.province.name if hasattr(site, 'city') and site.city and site.city.province else None
+        site_data['state_name'] = site.state_site.state if hasattr(site, 'state_site') and site.state_site else None
+        site_data['category_name'] = site.category.name if hasattr(site, 'category') and site.category else None
         
         # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site_data
@@ -470,6 +484,34 @@ class HistoricSite_Service:
                 'prev_num': pagination.prev_num
             }
         }
+
+    def get_filter_options(self):
+        """Obtiene las opciones de filtros disponibles para sitios históricos"""
+        try:
+            # Obtener ciudades
+            cities = City.query.filter_by(deleted=False).all()
+            cities_data = [{'id': city.id, 'name': city.name} for city in cities]
+            
+            # Obtener provincias
+            provinces = Province.query.filter_by(deleted=False).all()
+            provinces_data = [{'id': province.id, 'name': province.name} for province in provinces]
+            
+            # Obtener tags
+            tags = Tag.query.filter_by(deleted=False).all()
+            tags_data = [{'id': tag.id, 'name': tag.name, 'slug': tag.slug} for tag in tags]
+            
+            # Obtener estados
+            states = StateSite.query.filter_by(deleted=False).all()
+            states_data = [{'id': state.id, 'name': state.state} for state in states]
+            
+            return {
+                'cities': cities_data,
+                'provinces': provinces_data,
+                'tags': tags_data,
+                'states': states_data
+            }
+        except Exception as e:
+            raise exc.DatabaseError(f"Error al obtener opciones de filtro: {e}")
 
 # instancia de la clase HistoricSite_Service
 historic_site_service = HistoricSite_Service()

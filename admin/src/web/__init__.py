@@ -80,6 +80,12 @@ def create_app(env="development", static_folder="../../static"):
             return redirect(url_for("index"))
         return render_template("modificar_sitios.html")
 
+    @app.route("/tags")
+    def lista_tags():
+        if "user_id" not in session:
+            return redirect(url_for("index"))
+        return render_template("list_tags.html")
+
     from .routes.auth_routes import login_bp
     app.register_blueprint(login_bp, url_prefix="/api")
 
