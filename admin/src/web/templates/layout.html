@@ -81,9 +81,12 @@
                 </div>
             </button>
 
-            <!-- Title -->
-            <h1 class="text-xl font-bold text-gray-800">{% block header_title %}Poner logo{% endblock %}</h1>
-
+            <!-- Logo centrado -->
+            <div class="absolute left-1/2 transform -translate-x-1/2">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" 
+                    alt="HeritageTech Logo" 
+                    class="h-24 w-24">
+            </div>
             <!-- User Profile -->
             <div class="relative">
                 <button id="userMenuToggle" 
