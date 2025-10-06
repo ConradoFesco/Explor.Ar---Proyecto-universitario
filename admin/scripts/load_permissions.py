@@ -63,6 +63,9 @@ def create_permissions():
         "get_all_states",
         "update_state",
         "delete_state",
+
+        #Permiso para flag
+        "flag_admin"
     ]
     
     created_permissions = []
@@ -114,7 +117,8 @@ def assign_permissions_to_roles(roles):
             "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state"
+            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
+            "flag_admin"
         ],
         "editor": [
             # Permisos para gestionar contenido

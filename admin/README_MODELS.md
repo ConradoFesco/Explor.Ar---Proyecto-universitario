@@ -42,6 +42,7 @@ admin/
 6. **HistoricSite** - Sitios históricos
 7. **Tag** - Etiquetas para clasificar sitios
 8. **Event** - Eventos/acciones realizadas en sitios
+9. **Flag** - flags manejados por los sysadmins
 
 ### Entidades de Seguridad
 

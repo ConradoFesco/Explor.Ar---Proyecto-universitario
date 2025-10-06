@@ -107,6 +107,9 @@ def create_app(env="development", static_folder="../../static"):
     from .routes.event_routes import event_api
     app.register_blueprint(event_api, url_prefix="/api")
 
+    from src.web.routes.flag_routes import flag_api
+    app.register_blueprint(flag_api, url_prefix="/flags")
+
     from datetime import datetime
     @app.template_filter('format_date')
     def format_date(date_value):

@@ -181,6 +181,14 @@
                 <span class="font-medium">Gestión de Usuarios</span>
             </a>
 
+            <!-- Flags (solo para System Admin) -->
+            <a href="{{ url_for('flag_api.list_flags_page') }}" 
+                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 4a8 8 0 100 16 8 8 0 000-16z"></path>
+                </svg>
+                <span class="font-medium">Flags</span>
+            </a>
 
             {% endblock %}
         </nav>

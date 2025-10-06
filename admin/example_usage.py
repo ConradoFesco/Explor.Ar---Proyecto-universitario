@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash
 from src.web.models import (
     User, CategorySite, Province, City, StateSite, 
     HistoricSite, Tag, Event, Permission, RolUser,
-    PermissionRolUser, RolUserUser, TagHistoricSite
+    PermissionRolUser, RolUserUser, TagHistoricSite, Flag
 )
 
 def setup_database():
@@ -78,15 +78,15 @@ def create_sample_data(app):
         
         # 4. Crear usuarios
         users_to_create = [
-            {'mail': 'admin@historicos.com', 'first_name': 'Admin', 'last_name': 'Sistema', 'password': 'admin123', 'active': True},
-            {'mail': 'editor@historicos.com', 'first_name': 'Editor', 'last_name': 'Contenido', 'password': 'editor123', 'active': True}
+            {'mail': 'admin@historicos.com', 'name': 'Admin', 'last_name': 'Sistema', 'password': 'admin123', 'active': True},
+            {'mail': 'editor@historicos.com', 'name': 'Editor', 'last_name': 'Contenido', 'password': 'editor123', 'active': True}
         ]
 
         for user_data in users_to_create:
             if not User.query.filter_by(mail=user_data['mail']).first():
                 new_user = User(
                     mail=user_data['mail'],
-                    first_name=user_data['first_name'],
+                    name=user_data['name'],
                     last_name=user_data['last_name'],
                     active=user_data['active']
                 )
@@ -127,6 +127,29 @@ def create_sample_data(app):
         print("✅ Datos de ejemplo creados/verificados correctamente.")
 
 
+        #FLAG
+        flags_to_create = [
+            {"key": 1,"name": "admin_maintenance_mode", "description": "Deshabilita temporalmente el sitio de administración", "enabled": False, "message": "xd", "last_modified_by": "System Admin", "last_modified_at": datetime.now()},
+            {"key": 2, "name": "portal_maintenance_mode", "description": "Deshabilita temporalmente el portal público", "enabled": False, "message": "xd", "last_modified_by": "System Admin", "last_modified_at": datetime.now()},
+            {"key": 3, "name": "reviews_enabled", "description": "Permite o deshabilita la creación de reseñas", "enabled": True, "message": "xd", "last_modified_by": "System Admin", "last_modified_at": datetime.now()}
+        ]
+
+        for f in flags_to_create:
+            new_flag = Flag (
+                key=f['key'],
+                name=f['name'],
+                description=f['description'],
+                enabled=f['enabled'],
+                message=f['message'],
+                last_modified_at=f['last_modified_at'],
+                last_modified_by=f['last_modified_by']
+            )
+            db.session.add(new_flag)
+        db.session.commit()
+        print("✅ Flags creados correctamente")
+   
+
+
 def query_examples(app):
     """Ejemplos de consultas a la base de datos"""
     with app.app_context():
@@ -149,7 +172,7 @@ def query_examples(app):
         active_users = User.query.filter_by(active=True).all()
         print(f"👥 Usuarios activos: {len(active_users)}")
         for user in active_users:
-            print(f"  - {user.first_name} {user.last_name} ({user.mail})")
+            print(f"  - {user.name} {user.last_name} ({user.mail})")
 
 def main():
     """Función principal"""
