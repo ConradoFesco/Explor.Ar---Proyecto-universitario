@@ -28,6 +28,7 @@ def create_permissions():
         "add_tags",
         "update_tags",
         "get_filter_options",
+        "export_historic_sites",
         
         # Permisos para usuarios
         "create_user",
@@ -109,7 +110,7 @@ def assign_permissions_to_roles(roles):
             # Todos los permisos
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 
             "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options",
+            "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
             "create_user", "get_user", "get_all_users", "update_user", "delete_user",
             "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",

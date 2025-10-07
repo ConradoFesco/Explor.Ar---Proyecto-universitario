@@ -43,6 +43,12 @@
                     <i class="fas fa-filter"></i>
                     Filtros
                 </button>
+                
+                <!-- Botón de exportación CSV -->
+                <button id="export-csv-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+                    <i class="fas fa-download"></i>
+                    Exportar CSV
+                </button>
             </div>
 
             <!-- Panel de filtros (inicialmente oculto) -->
@@ -214,6 +220,11 @@
         document.getElementById('clear-filters').addEventListener('click', () => {
             clearFilters();
         });
+
+        // Botón de exportación CSV
+        document.getElementById('export-csv-btn').addEventListener('click', () => {
+            exportSitesToCSV();
+        });
     }
 
     function loadFilterOptions() {
@@ -357,6 +368,7 @@
         noSitesMessage.classList.add('hidden');
         paginationControls.classList.add('hidden');
         paginationInfo.classList.add('hidden');
+        document.getElementById('export-csv-btn').classList.add('hidden');
         
         const API_URL = buildApiUrl(page);
         
@@ -372,11 +384,13 @@
                 
                 if (data.sites.length === 0) {
                     noSitesMessage.classList.remove('hidden');
+                    document.getElementById('export-csv-btn').classList.add('hidden');
                     return;
                 }
                 
                 // Mostrar sitios
                 sitesList.classList.remove('hidden');
+                document.getElementById('export-csv-btn').classList.remove('hidden');
                 data.sites.forEach(site => {
                     const listItem = document.createElement('li');
                     listItem.className = 'py-4 flex justify-between items-center';
@@ -430,6 +444,7 @@
                 loadingMessage.textContent = 'Error al cargar los datos.';
                 loadingMessage.classList.remove('hidden');
                 sitesList.classList.add('hidden');
+                document.getElementById('export-csv-btn').classList.add('hidden');
             });
     }
 
@@ -1040,6 +1055,46 @@
         getSelectedTags() {
             return [...this.selectedTags];
         }
+    }
+
+    // Función para exportar sitios a CSV
+    function exportSitesToCSV() {
+        // Construir la URL con los filtros actuales
+        const params = new URLSearchParams({
+            sort_by: currentFilters.sort_by,
+            sort_order: currentFilters.sort_order
+        });
+
+        if (currentFilters.search) params.append('search', currentFilters.search);
+        if (currentFilters.city_id) params.append('city_id', currentFilters.city_id);
+        if (currentFilters.province_id) params.append('province_id', currentFilters.province_id);
+        if (currentFilters.state_id) params.append('state_id', currentFilters.state_id);
+        if (currentFilters.visible !== '') params.append('visible', currentFilters.visible === 'true' ? 'true' : 'false');
+        if (currentFilters.date_from) params.append('date_from', currentFilters.date_from);
+        if (currentFilters.date_to) params.append('date_to', currentFilters.date_to);
+        if (currentFilters.tag_ids.length > 0) params.append('tag_ids', currentFilters.tag_ids.join(','));
+
+        const exportUrl = `{{ url_for("site_api.export_sites_csv") }}?${params.toString()}`;
+        
+        // Mostrar indicador de carga
+        const exportBtn = document.getElementById('export-csv-btn');
+        const originalText = exportBtn.innerHTML;
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exportando...';
+        exportBtn.disabled = true;
+        
+        // Crear un enlace temporal para descargar el archivo
+        const link = document.createElement('a');
+        link.href = exportUrl;
+        link.download = ''; // El nombre del archivo se establecerá desde el servidor
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Restaurar el botón después de un breve delay
+        setTimeout(() => {
+            exportBtn.innerHTML = originalText;
+            exportBtn.disabled = false;
+        }, 2000);
     }
 </script>
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from src.web.services.HistoricSite_Service import historic_site_service
 from .. import exceptions as exc
 from flask import session
@@ -256,4 +256,79 @@ def get_filter_options():
         return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@site_api.route('/HistoricSite_Routes/export-csv', methods=['GET'])
+@permission_required("export_historic_sites")
+def export_sites_csv():
+    """Endpoint para exportar sitios históricos a CSV"""
+    try:
+        # Obtener los mismos parámetros de filtro que usa get_all_historic_sites
+        search_text = request.args.get('search', None)
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        
+        # Filtros
+        city_id = request.args.get('city_id', type=int)
+        province_id = request.args.get('province_id', type=int)
+        state_id = request.args.get('state_id', type=int)
+        visible_param = request.args.get('visible')
+        visible = None
+        if visible_param is not None:
+            visible = visible_param.lower() == 'true'
+        
+        # Filtro de tags (puede venir como lista separada por comas)
+        tag_ids = request.args.get('tag_ids', '')
+        if tag_ids:
+            try:
+                tag_ids = [int(tid.strip()) for tid in tag_ids.split(',') if tid.strip()]
+            except ValueError:
+                tag_ids = []
+        else:
+            tag_ids = []
+        
+        # Filtro de fechas
+        date_from = request.args.get('date_from', None)
+        date_to = request.args.get('date_to', None)
+        
+        # Validar sort_by
+        valid_sort_fields = ['name', 'city', 'created_at']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+        
+        # Validar sort_order
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
+        
+        # Llamar al servicio para generar el CSV
+        csv_content, filename = historic_site_service.export_sites_to_csv(
+            search_text=search_text,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            city_id=city_id,
+            province_id=province_id,
+            tag_ids=tag_ids,
+            state_id=state_id,
+            date_from=date_from,
+            date_to=date_to,
+            visible=visible
+        )
+        
+        # Crear respuesta con el archivo CSV
+        response = Response(
+            csv_content,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/csv; charset=utf-8'
+            }
+        )
+        
+        return response
+        
+    except exc.NotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except exc.DatabaseError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error inesperado al exportar: {str(e)}'}), 500
 
