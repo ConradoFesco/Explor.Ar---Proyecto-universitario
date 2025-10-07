@@ -368,6 +368,7 @@
         noSitesMessage.classList.add('hidden');
         paginationControls.classList.add('hidden');
         paginationInfo.classList.add('hidden');
+        document.getElementById('export-csv-btn').classList.add('hidden');
         
         const API_URL = buildApiUrl(page);
         
@@ -383,11 +384,13 @@
                 
                 if (data.sites.length === 0) {
                     noSitesMessage.classList.remove('hidden');
+                    document.getElementById('export-csv-btn').classList.add('hidden');
                     return;
                 }
                 
                 // Mostrar sitios
                 sitesList.classList.remove('hidden');
+                document.getElementById('export-csv-btn').classList.remove('hidden');
                 data.sites.forEach(site => {
                     const listItem = document.createElement('li');
                     listItem.className = 'py-4 flex justify-between items-center';
@@ -441,6 +444,7 @@
                 loadingMessage.textContent = 'Error al cargar los datos.';
                 loadingMessage.classList.remove('hidden');
                 sitesList.classList.add('hidden');
+                document.getElementById('export-csv-btn').classList.add('hidden');
             });
     }
 
