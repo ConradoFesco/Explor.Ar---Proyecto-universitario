@@ -39,3 +39,14 @@ class Flag(db.Model):
         else:
             self.last_modified_by = "Sistema/Desconocido"
         pass
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "key": self.key,
+            "name": self.name,
+            "description": self.description,
+            "enabled": self.enabled,
+            "message": self.message,
+            "last_modified_at": self.last_modified_at.isoformat() if self.last_modified_at else None,
+            "last_modified_by": self.last_modified_by
+        }

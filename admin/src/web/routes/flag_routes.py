@@ -1,6 +1,6 @@
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request,redirect,url_for
 from src.web.auth.decorators import permission_required
-from flask import session
+from flask import session,url_for
 from src.web.services.flag_service import flag_service
 from datetime import datetime
 from src.web.models.user import User
@@ -9,7 +9,7 @@ flag_api = Blueprint("flag_api", __name__, url_prefix="/flags")
 
 @flag_api.route("/<int:flag_id>/toggle", methods=["POST"])
 #@permission_required('flag_admin')
-def toggle_flag_route(self, flag_id):
+def toggle_flag_route(flag_id):
     """
     Endpoint para cambiar el estado de un flag.
     """
@@ -20,8 +20,7 @@ def toggle_flag_route(self, flag_id):
 
     flag = flag_service.toggle_flag(flag_id, user_id) # Pasamos el objeto User
 
-    return jsonify(flag)
-
+    return redirect(url_for('flag_api.list_flags_page'))
 # === Página principal de administración de flags ===
 @flag_api.route("/", methods=["GET"])
 #@permission_required('flag_admin') # <--- Usamos el permiso requerido

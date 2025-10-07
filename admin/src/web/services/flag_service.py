@@ -22,5 +22,15 @@ class FlagService:
         flag.set_enabled(flag.enabled, actor=actor, msg=message)
         db.session.commit()
         return flag
+    def is_maintenance_mode(self):
+        """Devuelve True si el modo mantenimiento está activado."""
+        flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
+        return flag.enabled if flag else False
+
+    # 🔹 NUEVA FUNCIÓN: obtener el mensaje de mantenimiento
+    def get_maintenance_message(self):
+        """Devuelve el mensaje del modo mantenimiento, si existe."""
+        flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
+        return flag.message if flag else None
 
 flag_service = FlagService()

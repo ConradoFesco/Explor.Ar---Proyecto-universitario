@@ -28,7 +28,7 @@ def create_sample_data(app):
     """Crear datos de ejemplo de forma segura (verificando si ya existen)"""
     with app.app_context():
         print("\n📝 Creando datos de ejemplo...")
-        User.query.delete()
+        
         db.session.commit()
         print("✅ Usuarios antiguos borrados")
         # 1. Crear categorías de sitios

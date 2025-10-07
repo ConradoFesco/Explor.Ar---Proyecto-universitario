@@ -45,8 +45,29 @@ def create_app(env="development", static_folder="../../static"):
     with app.app_context():
         from .models.user import User
         from .models.category_site import CategorySite
+        from .models.flag import Flag
+        from .models.user import User
 
+    @app.before_request
+    def check_admin_maintenance():
+        # Ignorar rutas públicas (login, static, etc.)
+        if request.endpoint in ['login_bp.login', 'index', 'static']:
+            return None
 
+        # Consultar el flag
+        admin_flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
+        if admin_flag and admin_flag.enabled:
+            user_id = session.get("user_id")
+            if not user_id:
+                return None  # no logueado, deja pasar (ver login)
+
+            permisos = user.get_user_roles() 
+            if permisos: 
+                # Redirige al template de mantenimiento
+                return render_template(
+                    "maintenance.html",
+                    message=admin_flag.message or "El sitio de administración está temporalmente inactivo."
+                )
     @app.route("/")
     def index():
         return render_template("login.html")
@@ -55,8 +76,8 @@ def create_app(env="development", static_folder="../../static"):
     def home():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        return render_template("home.html")
-
+        userd = User.query.get(session["user_id"])
+        return render_template("home.html", user=userd)
     @app.route("/logout")
     def logout():
         session.pop("user_id", None)
