@@ -7,6 +7,8 @@ from ..services.event_service import event_service
 from ..services.tag_service import tag_service
 from ..services.city_service import city_service
 from ..services.province_service import province_service
+import csv
+import io
 
 class HistoricSite_Service:
     def create_historic_site(self, data_site, data_user):
@@ -512,6 +514,142 @@ class HistoricSite_Service:
             }
         except Exception as e:
             raise exc.DatabaseError(f"Error al obtener opciones de filtro: {e}")
+
+    def export_sites_to_csv(self, search_text=None, sort_by='created_at', sort_order='desc',
+                           city_id=None, province_id=None, tag_ids=None, 
+                           state_id=None, date_from=None, date_to=None, 
+                           visible=None):
+        """
+        Exporta sitios históricos a CSV respetando los filtros aplicados.
+        
+        Retorna una tupla (csv_content, filename) donde csv_content es el contenido del CSV
+                   y filename es el nombre del archivo generado
+        """
+        from ..models import Tag
+        from sqlalchemy import and_, or_, desc, asc
+        
+        # Query base - similar al método get_all_historic_sites pero sin paginación
+        query = HistoricSite.query.join(City).join(Province).join(StateSite, isouter=True)
+        
+        # Filtro de eliminados (solo sitios no eliminados)
+        query = query.filter_by(deleted=False)
+        
+        # Filtro de búsqueda por texto (nombre o descripción breve)
+        if search_text:
+            search_filter = or_(
+                HistoricSite.name.ilike(f'%{search_text}%'),
+                HistoricSite.brief_description.ilike(f'%{search_text}%')
+            )
+            query = query.filter(search_filter)
+        
+        # Filtro por ciudad
+        if city_id:
+            query = query.filter(HistoricSite.id_ciudad == city_id)
+        
+        # Filtro por provincia
+        if province_id:
+            query = query.filter(City.id_province == province_id)
+        
+        # Filtro por tags (multiselección)
+        if tag_ids and len(tag_ids) > 0:
+            from ..models import TagHistoricSite
+            query = query.join(TagHistoricSite).filter(TagHistoricSite.Tag_id.in_(tag_ids))
+        
+        # Filtro por estado del sitio
+        if state_id:
+            query = query.filter(HistoricSite.id_estado == state_id)
+        
+        # Filtro por rango de fechas
+        if date_from:
+            query = query.filter(HistoricSite.created_at >= date_from)
+        if date_to:
+            query = query.filter(HistoricSite.created_at <= date_to)
+        
+        # Filtro por visibilidad
+        if visible is not None:
+            query = query.filter(HistoricSite.visible == visible)
+        
+        # Ordenamiento
+        if sort_by == 'name':
+            if sort_order == 'desc':
+                query = query.order_by(desc(HistoricSite.name))
+            else:
+                query = query.order_by(asc(HistoricSite.name))
+        elif sort_by == 'city':
+            if sort_order == 'desc':
+                query = query.order_by(desc(City.name))
+            else:
+                query = query.order_by(asc(City.name))
+        elif sort_by == 'created_at':
+            if sort_order == 'desc':
+                query = query.order_by(desc(HistoricSite.created_at))
+            else:
+                query = query.order_by(asc(HistoricSite.created_at))
+        else:
+            # Por defecto, ordenar por fecha de creación descendente
+            query = query.order_by(desc(HistoricSite.created_at))
+        
+        # Obtener todos los sitios (sin paginación)
+        sites = query.all()
+        
+        if not sites:
+            raise exc.NotFoundError("No hay datos para exportar")
+        
+        # Crear el contenido CSV
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        
+        # Escribir encabezados
+        headers = [
+            'ID del sitio',
+            'Nombre',
+            'Descripción breve',
+            'Ciudad',
+            'Provincia',
+            'Estado de conservación',
+            'Fecha de registro',
+            'Coordenadas de geolocalización',
+            'Tags asociados'
+        ]
+        writer.writerow(headers)
+        
+        # Escribir datos
+        for site in sites:
+            # Obtener tags del sitio
+            site_tags = []
+            for tag_relation in site.tag_historic_sites:
+                if not tag_relation.tag.deleted:
+                    site_tags.append(tag_relation.tag.name)
+            
+            # Formatear coordenadas
+            coordinates = f"{site.latitude},{site.longitude}"
+            
+            # Formatear fecha
+            date_str = site.created_at.strftime('%Y-%m-%d %H:%M:%S') if site.created_at else ''
+            
+            # Escribir fila
+            row = [
+                site.id,
+                site.name,
+                site.brief_description,
+                site.city.name if site.city else '',
+                site.city.province.name if site.city and site.city.province else '',
+                site.state_site.state if site.state_site else '',
+                date_str,
+                coordinates,
+                '; '.join(site_tags)  # Separar tags con punto y coma
+            ]
+            writer.writerow(row)
+        
+        # Obtener el contenido CSV
+        csv_content = output.getvalue()
+        output.close()
+        
+        # Generar nombre del archivo con timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+        filename = f'sitios_{timestamp}.csv'
+        
+        return csv_content, filename
 
 # instancia de la clase HistoricSite_Service
 historic_site_service = HistoricSite_Service()
