@@ -205,19 +205,6 @@ async function loadSiteData(siteId) {
         // Establecer el estado de visibilidad
         document.getElementById('visible').checked = site.visible === true;
         
-        // Mostrar información de debug en consola
-        console.log('Datos del sitio cargados:', {
-            name: site.name,
-            city_name: site.city_name,
-            province_name: site.province_name,
-            state_name: site.state_name,
-            category_name: site.category_name,
-            id_estado: site.id_estado,
-            id_category: site.id_category,
-            latitude: site.latitude,
-            longitude: site.longitude
-        });
-        
         // Establecer la ubicación en el mapa
         if (site.latitude && site.longitude) {
             setMapLocation(parseFloat(site.latitude), parseFloat(site.longitude));
@@ -247,21 +234,16 @@ function initializeMapForEdit() {
 
     // Función que se ejecuta cuando el usuario hace clic en el mapa
     const handleMapClick = function(coords) {
-        console.log("Coordenadas seleccionadas:", coords);
-        
         // Actualizar los campos del formulario con las coordenadas
         updateFormCoordinates(coords);
         
         // Actualizar el marcador en el mapa
         if (typeof mapHandler !== 'undefined' && mapHandler.map && mapHandler.marker) {
             mapHandler.marker.setLatLng([coords.lat, coords.lng]);
-            console.log("Marcador actualizado a nueva ubicación:", coords.lat, coords.lng);
         }
         
         // Obtener información de ubicación (ciudad y provincia) usando geocodificación inversa
         getLocationInfo(coords);
-        
-        console.log("Ubicación actualizada en el formulario");
     };
 
     // Obtener coordenadas actuales del formulario o usar coordenadas por defecto
@@ -299,8 +281,6 @@ function setMapLocation(lat, lng) {
                 // Si no hay marcador, crear uno
                 mapHandler.marker = L.marker([lat, lng]).addTo(mapHandler.map);
             }
-            
-            console.log('Mapa actualizado a ubicación:', lat, lng);
         }
     }, 500);
 }
@@ -312,11 +292,6 @@ function updateFormCoordinates(coords) {
     
     if (latInput) latInput.value = coords.lat.toFixed(6);
     if (lngInput) lngInput.value = coords.lng.toFixed(6);
-    
-    console.log('Coordenadas actualizadas en formulario:', {
-        lat: coords.lat.toFixed(6),
-        lng: coords.lng.toFixed(6)
-    });
 }
 
 // Función para obtener información de ubicación usando geocodificación inversa
@@ -327,8 +302,6 @@ function getLocationInfo(coords) {
     fetch(url)
         .then(response => response.json())
         .then(data => {
-            console.log('Datos de geocodificación:', data);
-            
             const ciudadInput = document.getElementById('ciudad');
             const provinciaInput = document.getElementById('provincia');
             
@@ -436,13 +409,6 @@ function setSelectedValues(site) {
             categoriaSelect.value = site.id_category;
         }
     }
-    
-    console.log('Valores establecidos:', {
-        id_estado: site.id_estado,
-        id_category: site.id_category,
-        estado_select_value: document.getElementById('estado').value,
-        categoria_select_value: document.getElementById('categoria').value
-    });
 }
 
 // Función para mostrar errores con SweetAlert

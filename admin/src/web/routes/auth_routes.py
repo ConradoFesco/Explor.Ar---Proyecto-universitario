@@ -12,10 +12,6 @@ def login():
     data = request.get_json()
     mail = data.get("mail")
     password = data.get("password")
-
-    print("Mail recibido:", mail)
-    print("Password recibido:", password)
-
     
     if not mail or not password:
         return jsonify({"error": "Complete todos los campos"}), 400
