@@ -4,19 +4,75 @@
 
 {% block content %}
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Buscador -->
-    <div class="mb-6">
-        <div class="relative max-w-md">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
+    <!-- Controles de búsqueda y filtrado -->
+    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <!-- Barra de búsqueda y ordenamiento -->
+        <div class="flex flex-wrap gap-4 mb-4">
+            <!-- Búsqueda por email -->
+            <div class="flex-1 min-w-64">
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="Buscar por email..." 
+                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                </div>
             </div>
-            <input type="text" id="searchInput"
-                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 
-                    focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Buscar usuario...">
+            
+            <!-- Ordenamiento -->
+            <div class="flex gap-2">
+                <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="created_at">Fecha de registro</option>
+                    <option value="name">Nombre</option>
+                </select>
+                <select id="sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="desc">Descendente</option>
+                    <option value="asc">Ascendente</option>
+                </select>
+            </div>
+            
+            <!-- Botón de filtros -->
+            <button id="toggle-filters" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+                <i class="fas fa-filter"></i>
+                Filtros
+            </button>
+        </div>
+
+        <!-- Panel de filtros (inicialmente oculto) -->
+        <div id="filters-panel" class="hidden border-t border-gray-200 pt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Filtro por estado activo -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                    <select id="filter-active" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Todos</option>
+                        <option value="si">Activo</option>
+                        <option value="no">Inactivo</option>
+                    </select>
+                </div>
+                
+                <!-- Filtro por rol -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                    <select id="filter-role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Todos los roles</option>
+                        <option value="usuario">Usuario</option>
+                        <option value="editor">Editor</option>
+                        <option value="admin">Administrador</option>
+                        <option value="superAdmin">Super Administrador</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Botones de acción -->
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+                <button id="clear-filters" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
+                    Limpiar filtros
+                </button>
+                <button id="apply-filters" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
+                    Aplicar filtros
+                </button>
+            </div>
         </div>
     </div>
 
@@ -85,16 +141,18 @@
 <script>
     let currentPage = 1;
     const perPage = 25;
+    let currentFilters = {
+        search: '',
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        activo: '',
+        rol: ''
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Siempre cargar usuarios frescos
         currentPage = 1;
         loadUsers(currentPage);
-
-        // Buscar mientras se escribe
-        document.getElementById('searchInput').addEventListener('input', () => {
-            loadUsers(1);
-        });
+        setupEventListeners();
     });
 
     // Recargar cuando la página vuelve a ser visible (volviendo del formulario de edición)
@@ -103,6 +161,93 @@
             loadUsers(currentPage);
         }
     });
+
+    function setupEventListeners() {
+        // Búsqueda
+        const searchInput = document.getElementById('search-input');
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentFilters.search = e.target.value;
+                currentPage = 1;
+                loadUsers(currentPage);
+            }, 500); // Debounce de 500ms
+        });
+
+        // Ordenamiento
+        document.getElementById('sort-by').addEventListener('change', (e) => {
+            currentFilters.sort_by = e.target.value;
+            currentPage = 1;
+            loadUsers(currentPage);
+        });
+
+        document.getElementById('sort-order').addEventListener('change', (e) => {
+            currentFilters.sort_order = e.target.value;
+            currentPage = 1;
+            loadUsers(currentPage);
+        });
+
+        // Toggle de filtros
+        document.getElementById('toggle-filters').addEventListener('click', () => {
+            const panel = document.getElementById('filters-panel');
+            panel.classList.toggle('hidden');
+        });
+
+        // Filtros
+        document.getElementById('filter-active').addEventListener('change', (e) => {
+            currentFilters.activo = e.target.value;
+        });
+
+        document.getElementById('filter-role').addEventListener('change', (e) => {
+            currentFilters.rol = e.target.value;
+        });
+
+        // Botones de filtros
+        document.getElementById('apply-filters').addEventListener('click', () => {
+            currentPage = 1;
+            loadUsers(currentPage);
+        });
+
+        document.getElementById('clear-filters').addEventListener('click', () => {
+            clearFilters();
+        });
+    }
+
+    function clearFilters() {
+        currentFilters = {
+            search: '',
+            sort_by: 'created_at',
+            sort_order: 'desc',
+            activo: '',
+            rol: ''
+        };
+
+        // Limpiar inputs
+        document.getElementById('search-input').value = '';
+        document.getElementById('sort-by').value = 'created_at';
+        document.getElementById('sort-order').value = 'desc';
+        document.getElementById('filter-active').value = '';
+        document.getElementById('filter-role').value = '';
+
+        currentPage = 1;
+        loadUsers(currentPage);
+    }
+
+    function buildApiUrl(page) {
+        const params = new URLSearchParams({
+            page: page,
+            per_page: perPage,
+            sort_by: currentFilters.sort_by,
+            sort_order: currentFilters.sort_order
+        });
+
+        if (currentFilters.search) params.append('email', currentFilters.search);
+        if (currentFilters.activo) params.append('activo', currentFilters.activo);
+        if (currentFilters.rol) params.append('rol', currentFilters.rol);
+
+        return `{{ url_for("user_api.list_users") }}?${params.toString()}`;
+    }
 
     function getInitials(name, lastName) {
         const firstInitial = name ? name.charAt(0).toUpperCase() : '';
@@ -128,7 +273,6 @@
         const noUsersMessage = document.getElementById('no-users-message');
         const paginationControls = document.getElementById('pagination-controls');
         const paginationInfo = document.getElementById('pagination-info');
-        const searchQuery = document.getElementById('searchInput').value.trim();
 
         // Limpiar contenido anterior
         usersList.innerHTML = '';
@@ -144,7 +288,7 @@
 
         // Agregar timestamp para evitar caché
         const timestamp = new Date().getTime();
-        const API_URL = `{{ url_for("user_api.list_users") }}?page=${page}&per_page=${perPage}&q=${searchQuery}&_=${timestamp}`;
+        const API_URL = buildApiUrl(page) + `&_=${timestamp}`;
 
         fetch(API_URL, {
             cache: 'no-store',
@@ -176,7 +320,11 @@
                     const avatarColor = getAvatarColor(index);
                     const activeStatus = user.active !== false;
                     const blockedStatus = user.blocked === true;
-                    const userRole = user.role || 'Usuario';
+                    
+                    // Generar texto de roles
+                    const userRoles = user.roles || [];
+                    const userRole = userRoles.length > 0 ? userRoles.join('/') : 'Sin roles';
+                    
                     const createdDate = user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '2024-01-15';
                     
                     listItem.innerHTML = `
@@ -231,55 +379,71 @@
     function renderPagination(pagination) {
         const paginationControls = document.getElementById('pagination-controls');
         const paginationInfo = document.getElementById('pagination-info');
-
-        if (pagination.pages <= 1) return;
-
-        // Info
+        
+        if (pagination.pages <= 1) {
+            return; // No mostrar controles si hay solo una página
+        }
+        
+        // Información de paginación
         const startItem = (pagination.page - 1) * pagination.per_page + 1;
         const endItem = Math.min(pagination.page * pagination.per_page, pagination.total);
         paginationInfo.innerHTML = `Mostrando ${startItem}-${endItem} de ${pagination.total} usuarios`;
         paginationInfo.classList.remove('hidden');
-
-        // Prev
+        
+        // Botón Anterior
         const prevButton = document.createElement('button');
         prevButton.innerHTML = '← Anterior';
-        prevButton.className = `px-4 py-2 text-sm font-medium rounded-lg transition duration-200 ${
-            pagination.has_prev 
-                ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50' 
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-        }`;
         prevButton.disabled = !pagination.has_prev;
         prevButton.onclick = () => loadUsers(pagination.prev_num);
         paginationControls.appendChild(prevButton);
-
-        // Pages
+        
+        // Números de página
         const startPage = Math.max(1, pagination.page - 2);
         const endPage = Math.min(pagination.pages, pagination.page + 2);
-
+        
+        if (startPage > 1) {
+            const firstButton = document.createElement('button');
+            firstButton.textContent = '1';
+            firstButton.onclick = () => loadUsers(1);
+            paginationControls.appendChild(firstButton);
+            
+            if (startPage > 2) {
+                const ellipsis = document.createElement('span');
+                ellipsis.textContent = '...';
+                ellipsis.className = 'px-2 text-gray-500';
+                paginationControls.appendChild(ellipsis);
+            }
+        }
+        
         for (let i = startPage; i <= endPage; i++) {
             const pageButton = document.createElement('button');
             pageButton.textContent = i;
-            pageButton.className = `px-4 py-2 text-sm font-medium rounded-lg transition duration-200 ${
-                i === pagination.page 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`;
+            pageButton.className = i === pagination.page ? 'active' : '';
             pageButton.onclick = () => loadUsers(i);
             paginationControls.appendChild(pageButton);
         }
-
-        // Next
+        
+        if (endPage < pagination.pages) {
+            if (endPage < pagination.pages - 1) {
+                const ellipsis = document.createElement('span');
+                ellipsis.textContent = '...';
+                ellipsis.className = 'px-2 text-gray-500';
+                paginationControls.appendChild(ellipsis);
+            }
+            
+            const lastButton = document.createElement('button');
+            lastButton.textContent = pagination.pages;
+            lastButton.onclick = () => loadUsers(pagination.pages);
+            paginationControls.appendChild(lastButton);
+        }
+        
+        // Botón Siguiente
         const nextButton = document.createElement('button');
         nextButton.innerHTML = 'Siguiente →';
-        nextButton.className = `px-4 py-2 text-sm font-medium rounded-lg transition duration-200 ${
-            pagination.has_next 
-                ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50' 
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-        }`;
         nextButton.disabled = !pagination.has_next;
         nextButton.onclick = () => loadUsers(pagination.next_num);
         paginationControls.appendChild(nextButton);
-
+        
         paginationControls.classList.remove('hidden');
     }
 

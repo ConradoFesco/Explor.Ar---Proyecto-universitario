@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Actualizar los campos del formulario con las coordenadas
         updateFormCoordinates(coords);
         
+        // Actualizar el marcador en el mapa
+        updateMapMarker(coords);
+        
         // Obtener información de ubicación (ciudad y provincia) usando geocodificación inversa
         getLocationInfo(coords);
         
@@ -60,6 +63,22 @@ document.addEventListener('DOMContentLoaded', function() {
             const lngError = document.getElementById('longitud-error');
             if (latError) latError.classList.remove('show');
             if (lngError) lngError.classList.remove('show');
+        }
+    }
+
+    // Función para actualizar el marcador en el mapa
+    function updateMapMarker(coords) {
+        // Verificar que mapHandler esté disponible y el mapa esté inicializado
+        if (typeof mapHandler !== 'undefined' && mapHandler.map) {
+            // Si ya existe un marcador, actualizar su posición
+            if (mapHandler.marker) {
+                mapHandler.marker.setLatLng([coords.lat, coords.lng]);
+                console.log("Marcador actualizado a nueva ubicación:", coords.lat, coords.lng);
+            } else {
+                // Si no hay marcador, crear uno nuevo
+                mapHandler.marker = L.marker([coords.lat, coords.lng]).addTo(mapHandler.map);
+                console.log("Marcador creado en ubicación:", coords.lat, coords.lng);
+            }
         }
     }
 
@@ -182,6 +201,24 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    // Función para cancelar la creación
+    window.cancelCreate = function() {
+        Swal.fire({
+            title: '¿Cancelar creación?',
+            text: '¿Estás seguro de que deseas cancelar? Los datos no guardados se perderán.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, cancelar',
+            cancelButtonText: 'No, continuar creando'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = '/sitios';
+            }
+        });
+    };
+
     // Función para limpiar el formulario
     window.clearForm = function() {
         const form = document.getElementById('site-form');
@@ -197,6 +234,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (lngInput) lngInput.value = '';
             if (ciudadInput) ciudadInput.value = '';
             if (provinciaInput) provinciaInput.value = '';
+            
+            // Limpiar el marcador del mapa
+            if (typeof mapHandler !== 'undefined' && mapHandler.marker) {
+                mapHandler.map.removeLayer(mapHandler.marker);
+                mapHandler.marker = null;
+                console.log("Marcador eliminado del mapa");
+            }
             
             // Limpiar errores visuales
             clearFieldErrors();
@@ -259,8 +303,11 @@ document.addEventListener('DOMContentLoaded', function() {
             title: '¡Sitio histórico creado!',
             text: 'El sitio histórico se ha creado exitosamente',
             confirmButtonColor: '#3B82F6',
-            timer: 3000,
+            timer: 2000,
             showConfirmButton: false
+        }).then(() => {
+            // Redirigir al listado de sitios históricos
+            window.location.href = '/sitios';
         });
     }
     
@@ -455,11 +502,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         async loadTags() {
             try {
-                const response = await fetch('/api/tag_routes');
+                const response = await fetch('/api/tags');
                 if (!response.ok) {
                     throw new Error('Error al cargar tags');
                 }
-                this.allTags = await response.json();
+                const data = await response.json();
+                // El endpoint devuelve un objeto con 'tags' y 'pagination', necesitamos solo los tags
+                this.allTags = data.tags || data;
             } catch (error) {
                 console.error('Error cargando tags:', error);
                 this.allTags = [];
