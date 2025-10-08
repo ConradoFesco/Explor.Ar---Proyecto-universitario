@@ -1,9 +1,7 @@
-# routes/tag_routes.py
-
 from flask import Blueprint, request, jsonify
 from src.web.services.tag_service import tag_service
-from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
+from .. import exceptions as exc
 
 tag_api = Blueprint('tag_api', __name__, url_prefix='/api')
 
@@ -14,9 +12,9 @@ def create_new_tag():
     data = request.json
     try:
         tag = tag_service.create_tag(data)
-    except ValidationError as e:
+    except exc.ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except DatabaseError as e:
+    except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 409
     return jsonify(tag), 201
 
@@ -46,9 +44,9 @@ def get_all_tags_route():
             include_deleted=include_deleted
         )
         return jsonify(result), 200
-    except ValidationError as e:
+    except exc.ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except DatabaseError as e:
+    except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': f'Error interno: {str(e)}'}), 500
@@ -66,7 +64,7 @@ def get_tag_by_id_or_slug_route(tag_id_or_slug):
             # Si no es un entero, intenta obtenerlo por slug
             tag = tag_service.get_tag_by_slug(tag_id_or_slug)
         return jsonify(tag), 200
-    except NotFoundError as e:
+    except exc.NotFoundError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': f'Error interno: {str(e)}'}), 500
@@ -78,9 +76,9 @@ def update_tag_route(tag_id):
     data = request.json
     try:
         updated_tag = tag_service.update_tag(tag_id, data)
-    except ValidationError as e:
+    except exc.ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except DatabaseError as e:
+    except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 409
     return jsonify(updated_tag), 200
 
@@ -91,9 +89,9 @@ def delete_tag_route(tag_id):
     try:
         success = tag_service.delete_tag(tag_id)
         return jsonify({'message': 'Tag eliminado exitosamente.'}), 200
-    except ValidationError as e:
+    except exc.ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except DatabaseError as e:
+    except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 409
 
 @tag_api.route('/tags/<int:site_id>/tags', methods=['GET'])
@@ -102,7 +100,7 @@ def get_tags_by_site_id_route(site_id):
     try:
         result = tag_service.get_tags_by_site_id(site_id)
         return jsonify(result), 200
-    except NotFoundError as e:
+    except exc.NotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    except DatabaseError as e:
+    except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 409

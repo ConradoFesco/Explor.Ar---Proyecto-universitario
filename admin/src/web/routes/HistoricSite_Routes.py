@@ -258,7 +258,7 @@ def get_filter_options():
         return jsonify({'error': str(e)}), 500
 
 @site_api.route('/HistoricSite_Routes/export-csv', methods=['GET'])
-@permission_required("export_historic_sites")
+# @permission_required("export_historic_sites")
 def export_sites_csv():
     """Endpoint para exportar sitios históricos a CSV"""
     try:

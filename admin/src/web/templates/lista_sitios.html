@@ -655,16 +655,42 @@
         }
     }
 
+    // Variables globales para el historial de eventos
+    let currentEventSiteId = null;
+    let currentEventPage = 1;
+    const eventsPerPage = 25;
+    let currentEventFilters = {
+        user_id: '',
+        type_action: '',
+        date_from: '',
+        date_to: ''
+    };
+
     // Función para ver el historial de eventos de un sitio histórico
     function viewEventsHistory(siteId) {
-        const eventsUrl = `{{ url_for("event_api.get_all_events", id=0) }}`.replace('0', siteId);
+        currentEventSiteId = siteId;
+        currentEventPage = 1;
+        currentEventFilters = {
+            user_id: '',
+            type_action: '',
+            date_from: '',
+            date_to: ''
+        };
+        
         const title = 'Historial de Eventos';
         
-        console.log('Cargando eventos para sitio ID:', siteId);
-        console.log('URL de eventos:', eventsUrl);
+        // Abrir modal con controles de filtros
+        const modal = document.getElementById('detail-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContentDiv = document.getElementById('modal-content');
         
-        // Usar la función genérica del layout para cargar el modal
-        loadModalContent(eventsUrl, title, renderEventsHistory, handleEventsError);
+        modalTitle.textContent = title;
+        modalContentDiv.innerHTML = createEventsFilterHTML();
+        modal.classList.remove('hidden');
+        
+        // Cargar opciones de filtros y eventos
+        loadEventFilterOptions(siteId);
+        loadEventsForSite(siteId, currentEventPage);
     }
 
     // Función para editar tags de un sitio histórico
@@ -705,39 +731,224 @@
         initializeTagsEditor(siteId);
     }
 
-    // Función para manejar errores específicos de eventos
-    function handleEventsError(error) {
-        console.error('Error al cargar eventos:', error);
+    // Función para crear el HTML de los filtros de eventos
+    function createEventsFilterHTML() {
         return `
-            <div class="text-red-600 text-center py-8">
-                <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
-                <p class="text-lg font-semibold mb-2">Error al cargar el historial de eventos</p>
-                <p class="text-sm">${error.message || 'Error desconocido'}</p>
-                <p class="text-xs mt-4 text-gray-500">Verifique que el sitio tenga eventos registrados</p>
+            <div class="space-y-4">
+                <!-- Botón para mostrar/ocultar filtros -->
+                <div class="flex justify-end">
+                    <button id="toggle-event-filters" 
+                            onclick="toggleEventFilters()"
+                            class="px-4 py-2 bg-gray-100 bg-opacity-70 hover:bg-gray-200 hover:bg-opacity-90 text-gray-600 hover:text-gray-700 border border-gray-300 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm shadow-sm hover:shadow">
+                        <i class="fas fa-filter text-xs"></i>
+                        Filtros
+                    </button>
+                </div>
+                
+                <!-- Panel de Filtros (inicialmente oculto) -->
+                <div id="event-filters-panel" class="hidden bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div class="mb-3">
+                        <h3 class="font-semibold text-gray-700">Filtros</h3>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <!-- Filtro por usuario -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                            <select id="event-filter-user" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                <option value="">Todos los usuarios</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro por tipo de acción -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de acción</label>
+                            <select id="event-filter-type" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                <option value="">Todas las acciones</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro por fecha desde -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha desde</label>
+                            <input type="date" id="event-filter-date-from" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        
+                        <!-- Filtro por fecha hasta -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha hasta</label>
+                            <input type="date" id="event-filter-date-to" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de acción -->
+                    <div class="mt-4 flex justify-end gap-3 pt-3 border-t border-gray-200">
+                        <button onclick="clearEventFilters()" 
+                                class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
+                            Limpiar filtros
+                        </button>
+                        <button onclick="applyEventFilters()" 
+                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
+                            Aplicar filtros
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Lista de eventos -->
+                <div id="events-list-container" class="min-h-[300px]">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
+                        <p>Cargando eventos...</p>
+                    </div>
+                </div>
+                
+                <!-- Paginación -->
+                <div id="events-pagination-container" class="hidden">
+                    <div id="events-pagination-info" class="text-sm text-gray-600 mb-2 text-center"></div>
+                    <div id="events-pagination-controls" class="pagination flex justify-center"></div>
+                </div>
             </div>
         `;
     }
 
-    // Función para renderizar el historial de eventos
-    function renderEventsHistory(data) {
-        console.log('Datos recibidos para renderizar eventos:', data);
+    // Función para mostrar/ocultar el panel de filtros de eventos
+    function toggleEventFilters() {
+        const panel = document.getElementById('event-filters-panel');
+        if (panel) {
+            panel.classList.toggle('hidden');
+        }
+    }
+
+    // Función para cargar opciones de filtros de eventos
+    async function loadEventFilterOptions(siteId) {
+        try {
+            // Cargar todos los eventos para obtener usuarios y tipos únicos
+            const response = await fetch(`{{ url_for("event_api.get_all_events", id=0) }}`.replace('0', siteId) + '?per_page=1000');
+            if (!response.ok) throw new Error('Error al cargar eventos');
+            
+            const data = await response.json();
+            const events = data.events || [];
+            
+            // Extraer usuarios únicos
+            const usersMap = new Map();
+            const typesSet = new Set();
+            
+            events.forEach(event => {
+                if (event.id_user && event.user_name) {
+                    usersMap.set(event.id_user, {
+                        id: event.id_user,
+                        name: `${event.user_name} ${event.user_last_name || ''}`.trim()
+                    });
+                }
+                if (event.type_Action) {
+                    typesSet.add(event.type_Action);
+                }
+            });
+            
+            // Poblar select de usuarios
+            const userSelect = document.getElementById('event-filter-user');
+            if (userSelect) {
+                usersMap.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    userSelect.appendChild(option);
+                });
+            }
+            
+            // Poblar select de tipos de acción
+            const typeSelect = document.getElementById('event-filter-type');
+            if (typeSelect) {
+                Array.from(typesSet).sort().forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    typeSelect.appendChild(option);
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error cargando opciones de filtros:', error);
+        }
+    }
+
+    // Función para cargar eventos de un sitio con filtros
+    async function loadEventsForSite(siteId, page = 1) {
+        const container = document.getElementById('events-list-container');
+        const paginationContainer = document.getElementById('events-pagination-container');
+        const paginationInfo = document.getElementById('events-pagination-info');
+        const paginationControls = document.getElementById('events-pagination-controls');
         
-        // La respuesta viene con paginación, necesitamos acceder a events
-        const events = data.events || [];
+        // Mostrar loading
+        container.innerHTML = `
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
+                <p>Cargando eventos...</p>
+            </div>
+        `;
         
-        console.log('Eventos extraídos:', events);
-        console.log('Cantidad de eventos:', events.length);
-        
-        if (!events || events.length === 0) {
-            return `
-                <div class="text-center text-gray-500 py-8">
-                    <i class="fas fa-calendar-times text-4xl mb-4"></i>
-                    <p>No hay eventos registrados para este sitio histórico.</p>
+        try {
+            // Construir URL con filtros
+            const params = new URLSearchParams({
+                page: page,
+                per_page: eventsPerPage
+            });
+            
+            if (currentEventFilters.user_id) params.append('user_id', currentEventFilters.user_id);
+            if (currentEventFilters.type_action) params.append('type_action', currentEventFilters.type_action);
+            if (currentEventFilters.date_from) params.append('date_from', currentEventFilters.date_from);
+            if (currentEventFilters.date_to) params.append('date_to', currentEventFilters.date_to);
+            
+            const url = `{{ url_for("event_api.get_all_events", id=0) }}`.replace('0', siteId) + '?' + params.toString();
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Error al cargar eventos');
+            
+            const data = await response.json();
+            const events = data.events || [];
+            const pagination = data.pagination || {};
+            
+            // Renderizar eventos
+            if (events.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-calendar-times text-4xl mb-4"></i>
+                        <p>No hay eventos que coincidan con los filtros seleccionados.</p>
+                    </div>
+                `;
+                paginationContainer.classList.add('hidden');
+            } else {
+                container.innerHTML = renderEventsList(events);
+                
+                // Renderizar paginación
+                if (pagination.pages > 1) {
+                    paginationContainer.classList.remove('hidden');
+                    renderEventsPagination(pagination);
+                } else {
+                    paginationContainer.classList.add('hidden');
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error cargando eventos:', error);
+            container.innerHTML = `
+                <div class="text-red-600 text-center py-8">
+                    <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                    <p class="text-lg font-semibold mb-2">Error al cargar eventos</p>
+                    <p class="text-sm">${error.message || 'Error desconocido'}</p>
                 </div>
             `;
+            paginationContainer.classList.add('hidden');
         }
+    }
 
-        let eventsHtml = '<div class="space-y-4">';
+    // Función para renderizar la lista de eventos
+    function renderEventsList(events) {
+        let html = '<div class="space-y-3">';
         
         events.forEach(event => {
             // Formatear la fecha
@@ -757,7 +968,7 @@
                 }
             }
             
-            eventsHtml += `
+            html += `
                 <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition duration-200">
                     <div class="flex justify-between items-start mb-2">
                         <h5 class="font-semibold text-gray-800">${event.type_Action || 'Acción sin especificar'}</h5>
@@ -771,8 +982,120 @@
             `;
         });
         
-        eventsHtml += '</div>';
-        return eventsHtml;
+        html += '</div>';
+        return html;
+    }
+
+    // Función para renderizar la paginación de eventos
+    function renderEventsPagination(pagination) {
+        const paginationInfo = document.getElementById('events-pagination-info');
+        const paginationControls = document.getElementById('events-pagination-controls');
+        
+        // Información de paginación
+        const startItem = (pagination.page - 1) * pagination.per_page + 1;
+        const endItem = Math.min(pagination.page * pagination.per_page, pagination.total);
+        paginationInfo.innerHTML = `Mostrando ${startItem}-${endItem} de ${pagination.total} eventos`;
+        
+        // Limpiar controles previos
+        paginationControls.innerHTML = '';
+        
+        // Botón Anterior
+        const prevButton = document.createElement('button');
+        prevButton.innerHTML = '← Anterior';
+        prevButton.disabled = !pagination.has_prev;
+        prevButton.onclick = () => {
+            currentEventPage = pagination.prev_num;
+            loadEventsForSite(currentEventSiteId, currentEventPage);
+        };
+        paginationControls.appendChild(prevButton);
+        
+        // Números de página
+        const startPage = Math.max(1, pagination.page - 2);
+        const endPage = Math.min(pagination.pages, pagination.page + 2);
+        
+        if (startPage > 1) {
+            const firstButton = document.createElement('button');
+            firstButton.textContent = '1';
+            firstButton.onclick = () => {
+                currentEventPage = 1;
+                loadEventsForSite(currentEventSiteId, 1);
+            };
+            paginationControls.appendChild(firstButton);
+            
+            if (startPage > 2) {
+                const ellipsis = document.createElement('span');
+                ellipsis.textContent = '...';
+                ellipsis.className = 'px-2 text-gray-500';
+                paginationControls.appendChild(ellipsis);
+            }
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.textContent = i;
+            pageButton.className = i === pagination.page ? 'active' : '';
+            pageButton.onclick = () => {
+                currentEventPage = i;
+                loadEventsForSite(currentEventSiteId, i);
+            };
+            paginationControls.appendChild(pageButton);
+        }
+        
+        if (endPage < pagination.pages) {
+            if (endPage < pagination.pages - 1) {
+                const ellipsis = document.createElement('span');
+                ellipsis.textContent = '...';
+                ellipsis.className = 'px-2 text-gray-500';
+                paginationControls.appendChild(ellipsis);
+            }
+            
+            const lastButton = document.createElement('button');
+            lastButton.textContent = pagination.pages;
+            lastButton.onclick = () => {
+                currentEventPage = pagination.pages;
+                loadEventsForSite(currentEventSiteId, pagination.pages);
+            };
+            paginationControls.appendChild(lastButton);
+        }
+        
+        // Botón Siguiente
+        const nextButton = document.createElement('button');
+        nextButton.innerHTML = 'Siguiente →';
+        nextButton.disabled = !pagination.has_next;
+        nextButton.onclick = () => {
+            currentEventPage = pagination.next_num;
+            loadEventsForSite(currentEventSiteId, currentEventPage);
+        };
+        paginationControls.appendChild(nextButton);
+    }
+
+    // Función para aplicar filtros de eventos
+    function applyEventFilters() {
+        currentEventFilters.user_id = document.getElementById('event-filter-user').value;
+        currentEventFilters.type_action = document.getElementById('event-filter-type').value;
+        currentEventFilters.date_from = document.getElementById('event-filter-date-from').value;
+        currentEventFilters.date_to = document.getElementById('event-filter-date-to').value;
+        
+        currentEventPage = 1;
+        loadEventsForSite(currentEventSiteId, currentEventPage);
+    }
+
+    // Función para limpiar filtros de eventos
+    function clearEventFilters() {
+        currentEventFilters = {
+            user_id: '',
+            type_action: '',
+            date_from: '',
+            date_to: ''
+        };
+        
+        document.getElementById('event-filter-user').value = '';
+        document.getElementById('event-filter-type').value = '';
+        document.getElementById('event-filter-date-from').value = '';
+        document.getElementById('event-filter-date-to').value = '';
+        
+        currentEventPage = 1;
+        loadEventsForSite(currentEventSiteId, currentEventPage);
     }
 
     // Variable global para el editor de tags
