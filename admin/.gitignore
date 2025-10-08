@@ -4,6 +4,10 @@ env/
 ENV/
 .venv/
 .ENV/
+.env
+
+# Flask Session
+flask_session/
 
 # Archivos compilados de Python
 __pycache__/
@@ -43,3 +47,4 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+.pytest_cache/

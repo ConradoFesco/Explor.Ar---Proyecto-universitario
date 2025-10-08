@@ -1,0 +1,184 @@
+{% extends "layout.html" %}
+
+{% block title %}Alta de Sitio Histórico{% endblock %}
+
+{% block content %}
+<!-- CSS de Leaflet (necesario para que el mapa se vea correctamente) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Alta de Sitio Histórico</h2>
+            <a href="{{ url_for('lista_sitios') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                ← Volver al Listado
+            </a>
+        </div>
+        
+        <div class="mb-6">
+            <p class="text-gray-600 mb-4">
+                Haga clic en el mapa para seleccionar la ubicación del nuevo sitio histórico.
+            </p>
+        </div>
+        
+        <!-- Div para mostrar el mapa -->
+        <div id="map-container" class="map-container mb-6" style="height: 500px; border: 2px solid #e5e7eb; border-radius: 8px;"></div>
+        
+
+        <!-- Formulario para agregar sitio histórico -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Información del Sitio Histórico</h3>
+            
+            <form id="site-form" class="space-y-4">
+                <!-- Primera fila: Nombre y Año de Inauguración -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                        <input type="text" id="nombre" name="nombre" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ingrese el nombre del sitio">
+                        <div class="error-message" id="nombre-error">El nombre es requerido</div>
+                    </div>
+                    <div>
+                        <label for="año_inauguración" class="block text-sm font-medium text-gray-700 mb-1">Año de Inauguración</label>
+                        <input type="number" id="año_inauguración" name="año_inauguración" min="1000" max="9999"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Ej: 1920">
+                    </div>
+                </div>
+
+                <!-- Segunda fila: Descripción breve -->
+                <div>
+                    <label for="descripcion_breve" class="block text-sm font-medium text-gray-700 mb-1">Descripción Breve *</label>
+                    <textarea id="descripcion_breve" name="descripcion_breve" required rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Descripción corta del sitio histórico"></textarea>
+                    <div class="error-message" id="descripcion_breve-error">La descripción breve es requerida</div>
+                </div>
+
+                <!-- Tercera fila: Descripción completa -->
+                <div>
+                    <label for="descripcion_completa" class="block text-sm font-medium text-gray-700 mb-1">Descripción Completa</label>
+                    <textarea id="descripcion_completa" name="descripcion_completa" rows="4"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Descripción detallada del sitio histórico"></textarea>
+                </div>
+
+                <!-- Cuarta fila: Coordenadas (generadas automáticamente) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="latitud" class="block text-sm font-medium text-gray-700 mb-1">Latitud</label>
+                        <input type="number" id="latitud" name="latitud" step="any" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                        <div class="error-message" id="latitud-error">Debe seleccionar una ubicación en el mapa</div>
+                    </div>
+                    <div>
+                        <label for="longitud" class="block text-sm font-medium text-gray-700 mb-1">Longitud</label>
+                        <input type="number" id="longitud" name="longitud" step="any" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                        <div class="error-message" id="longitud-error">Debe seleccionar una ubicación en el mapa</div>
+                    </div>
+                </div>
+
+                <!-- Quinta fila: Ubicación (generada automáticamente) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ciudad" class="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                        <input type="text" id="ciudad" name="ciudad" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                        <div class="error-message" id="ciudad-error">Debe seleccionar una ubicación en el mapa para obtener la ciudad</div>
+                    </div>
+                    <div>
+                        <label for="provincia" class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                        <input type="text" id="provincia" name="provincia" readonly
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                               placeholder="Se genera al seleccionar en el mapa">
+                        <div class="error-message" id="provincia-error">Debe seleccionar una ubicación en el mapa para obtener la provincia</div>
+                    </div>
+                </div>
+
+                <!-- Sexta fila: Estado y Categoría (seleccionables) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="estado" class="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
+                        <select id="estado" name="estado" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleccione un estado...</option>
+                        </select>
+                        <div class="error-message" id="estado-error">Debe seleccionar un estado</div>
+                    </div>
+                    <div>
+                        <label for="categoria" class="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
+                        <select id="categoria" name="categoria" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleccione una categoría...</option>
+                        </select>
+                        <div class="error-message" id="categoria-error">Debe seleccionar una categoría</div>
+                    </div>
+                </div>
+
+                <!-- Séptima fila: Selector de Tags -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tags (opcional)</label>
+                    <div id="tag-selector-container"></div>
+                    <small class="text-gray-500">Haga clic en "Agregar Tags" para seleccionar tags que describan este sitio histórico</small>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="cancelCreate()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200">
+                        Guardar Sitio Histórico
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Scripts necesarios para el mapa (en este orden) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
+<script src="{{ url_for('static', filename='js/create_site.js') }}"></script>
+
+<!-- Los datos del usuario se obtienen del backend a través de la sesión -->
+
+<script>
+// Solución para el problema de z-index del mapa con el menú
+document.addEventListener('DOMContentLoaded', function() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const body = document.body;
+    
+    // Interceptar el evento de toggle del menú
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function() {
+            // Pequeño delay para que se ejecute después del toggle original
+            setTimeout(() => {
+                if (sidebar.classList.contains('-translate-x-full')) {
+                    body.classList.remove('sidebar-open');
+                } else {
+                    body.classList.add('sidebar-open');
+                }
+            }, 10);
+        });
+    }
+    
+    // También interceptar el clic en el overlay
+    const overlay = document.getElementById('overlay');
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            body.classList.remove('sidebar-open');
+        });
+    }
+});
+</script>
+{% endblock %}

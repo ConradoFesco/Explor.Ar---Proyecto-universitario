@@ -2,12 +2,25 @@
 name = "web"
 version = "0.2.0"
 description = ""
+packages = [{include = "src"}]
 authors = ["Martina Colombo <martinanataliacolombo@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
 flask = "^3.1.2"
+flask-sqlalchemy = "^3.1.1"
+psycopg2-binary = "^2.9.10"
+flask-migrate = "^4.1.0"
+python-dotenv = "^1.1.1"
+python-slugify = "^8.0.4"
+flask-jwt-extended = "^4.7.1"
+argon2-cffi = "^25.1.0"
+flask-session = "^0.8.0"
+geoalchemy2 = "^0.18.0"
+shapely = "^2.1.2"
+dotenv = "^0.9.9"
+flask-login = "^0.6.3"
 
 
 [tool.poetry.group.test.dependencies]

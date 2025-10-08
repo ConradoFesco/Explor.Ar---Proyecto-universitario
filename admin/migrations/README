@@ -1,0 +1,7 @@
+Single-database configuration for Flask.
+
+ -- Para crear las tablas --
+ 1 - pararse en admin (una vez creado el archivo y configurado el .env)
+ 2 - flask db init
+ 3 - flask db migrate -m "initial migration"
+ 4 - flask db upgrade

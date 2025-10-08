@@ -1,0 +1,534 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de tags{% endblock %}
+
+{% block content %}
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Buscador y filtros -->
+    <div class="mb-6 flex flex-col lg:flex-row gap-4">
+        <div class="relative max-w-md">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <input type="text" id="searchInput"
+                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 
+                    focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Buscar tags...">
+        </div>
+        
+        <!-- Ordenamiento -->
+        <div class="flex gap-2">
+            <select id="sortBy" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="name">Ordenar por nombre</option>
+                <option value="created_at">Ordenar por fecha</option>
+            </select>
+            <select id="sortOrder" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="asc">Ascendente</option>
+                <option value="desc">Descendente</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Lista de tags -->
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Gestión de Tags</h2>
+            <button onclick="showCreateTagModal()" 
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Agregar Tag
+            </button>
+        </div>
+        <div id="loading-message" class="text-center text-gray-500 py-8">Cargando tags...</div>
+        <div id="tags-list" class="hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha de creación</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sitios asociados</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tags-table-body" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div id="no-tags-message" class="text-center text-gray-500 py-8 hidden">No hay tags para mostrar.</div>
+        
+        <!-- Controles de paginación -->
+        <div id="pagination-controls" class="pagination hidden mt-6 flex justify-center gap-2"></div>
+        <div id="pagination-info" class="pagination-info hidden mt-2 text-sm text-gray-600 text-center"></div>
+    </div>
+</main>
+
+<!-- Modal de creación/edición de tag -->
+<div id="tagModal" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="tagModalTitle" class="text-lg font-semibold text-gray-800">Agregar Tag</h3>
+            <button onclick="closeTagModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <form id="tagForm">
+            <div class="mb-4">
+                <label for="tagName" class="block text-sm font-medium text-gray-700 mb-2">Nombre del tag</label>
+                <input type="text" id="tagName" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Ej: Arquitectura Colonial">
+                <div id="tagNameError" class="text-red-500 text-sm mt-1 hidden">El nombre es requerido</div>
+            </div>
+            
+            <!-- Campo slug oculto para almacenar el valor generado -->
+            <input type="hidden" id="tagSlug">
+            
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeTagModal()" 
+                    class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                    Cancelar
+                </button>
+                <button type="submit" id="tagSubmitBtn"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de eliminación -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="flex justify-center mb-4">
+            <div class="bg-red-100 rounded-full p-3">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </div>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">Eliminar Tag</h3>
+        <p id="deleteMessage" class="text-gray-600 mb-6">¿Estás seguro de que deseas eliminar este tag?</p>
+        <div class="flex justify-end gap-3">
+            <button onclick="closeDeleteModal()" 
+                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                Cancelar
+            </button>
+            <button id="confirmDeleteBtn" 
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200">
+                Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} 
+<script>
+let currentPage = 1;
+let totalPages = 1;
+let currentSortBy = 'name';
+let currentSortOrder = 'asc';
+let currentSearch = '';
+let editingTagId = null;
+
+// Cargar tags al inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    loadTags();
+    
+    // Event listeners para búsqueda y ordenamiento
+    document.getElementById('searchInput').addEventListener('input', debounce(handleSearch, 300));
+    document.getElementById('sortBy').addEventListener('change', handleSortChange);
+    document.getElementById('sortOrder').addEventListener('change', handleSortChange);
+    
+    // Event listener para el formulario de tag
+    document.getElementById('tagForm').addEventListener('submit', handleTagSubmit);
+    
+    // Event listener para generar slug automáticamente
+    document.getElementById('tagName').addEventListener('input', generateSlug);
+});
+
+// Función para cargar tags
+async function loadTags() {
+    try {
+        showLoading(true);
+        
+        const params = new URLSearchParams({
+            page: currentPage,
+            per_page: 25,
+            sort_by: currentSortBy,
+            sort_order: currentSortOrder
+        });
+        
+        if (currentSearch) {
+            params.append('search', currentSearch);
+        }
+        
+        const response = await fetch(`/api/tags?${params}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayTags(data.tags);
+            updatePagination(data.pagination);
+        } else {
+            throw new Error(data.error || 'Error al cargar tags');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al cargar los tags: ' + error.message,
+            confirmButtonColor: '#dc2626'
+        });
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Función para mostrar/ocultar loading
+function showLoading(show) {
+    const loadingMessage = document.getElementById('loading-message');
+    const tagsList = document.getElementById('tags-list');
+    const noTagsMessage = document.getElementById('no-tags-message');
+    
+    if (show) {
+        loadingMessage.classList.remove('hidden');
+        tagsList.classList.add('hidden');
+        noTagsMessage.classList.add('hidden');
+    } else {
+        loadingMessage.classList.add('hidden');
+    }
+}
+
+// Función para mostrar tags en la tabla
+function displayTags(tags) {
+    const tbody = document.getElementById('tags-table-body');
+    const tagsList = document.getElementById('tags-list');
+    const noTagsMessage = document.getElementById('no-tags-message');
+    
+    if (tags.length === 0) {
+        tagsList.classList.add('hidden');
+        noTagsMessage.classList.remove('hidden');
+        return;
+    }
+    
+    tbody.innerHTML = tags.map(tag => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${tag.name}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">${tag.slug}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">${new Date(tag.created_at).toLocaleDateString()}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-500">${tag.sites_count || 0} sitios</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex items-center gap-2">
+                    <button onclick="editTag(${tag.id}, '${tag.name}', '${tag.slug}')" 
+                        class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition duration-200"
+                        title="Editar tag">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </button>
+                    <button onclick="showDeleteModal(${tag.id}, '${tag.name}', ${tag.sites_count || 0})" 
+                        class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition duration-200"
+                        title="Eliminar">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+    
+    tagsList.classList.remove('hidden');
+    noTagsMessage.classList.add('hidden');
+}
+
+// Función para actualizar paginación
+function updatePagination(pagination) {
+    const controls = document.getElementById('pagination-controls');
+    const info = document.getElementById('pagination-info');
+    
+    if (pagination.total_pages <= 1) {
+        controls.classList.add('hidden');
+        info.classList.add('hidden');
+        return;
+    }
+    
+    currentPage = pagination.current_page;
+    totalPages = pagination.total_pages;
+    
+    let html = '';
+    
+    // Botón anterior
+    if (pagination.has_prev) {
+        html += `<button onclick="changePage(${pagination.prev_page})" 
+            class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Anterior</button>`;
+    }
+    
+    // Números de página
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        html += `<button onclick="changePage(${i})" 
+            class="px-3 py-2 text-sm border border-gray-300 rounded-lg ${isActive ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50'}">${i}</button>`;
+    }
+    
+    // Botón siguiente
+    if (pagination.has_next) {
+        html += `<button onclick="changePage(${pagination.next_page})" 
+            class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Siguiente</button>`;
+    }
+    
+    controls.innerHTML = html;
+    controls.classList.remove('hidden');
+    
+    // Información de paginación
+    info.textContent = `Mostrando ${pagination.start} a ${pagination.end} de ${pagination.total} tags`;
+    info.classList.remove('hidden');
+}
+
+// Función para cambiar página
+function changePage(page) {
+    currentPage = page;
+    loadTags();
+}
+
+// Función para manejar búsqueda
+function handleSearch(event) {
+    currentSearch = event.target.value;
+    currentPage = 1;
+    loadTags();
+}
+
+// Función para manejar cambio de ordenamiento
+function handleSortChange() {
+    currentSortBy = document.getElementById('sortBy').value;
+    currentSortOrder = document.getElementById('sortOrder').value;
+    currentPage = 1;
+    loadTags();
+}
+
+// Función debounce para búsqueda
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Funciones del modal de tag
+function showCreateTagModal() {
+    editingTagId = null;
+    document.getElementById('tagModalTitle').textContent = 'Agregar Tag';
+    document.getElementById('tagSubmitBtn').textContent = 'Guardar';
+    document.getElementById('tagForm').reset();
+    clearErrors();
+    // Generar slug vacío inicialmente
+    document.getElementById('tagSlug').value = '';
+    document.getElementById('tagModal').classList.remove('hidden');
+}
+
+function editTag(id, name, slug) {
+    editingTagId = id;
+    document.getElementById('tagModalTitle').textContent = 'Editar Tag';
+    document.getElementById('tagSubmitBtn').textContent = 'Actualizar';
+    document.getElementById('tagName').value = name;
+    // Generar slug automáticamente desde el nombre al editar
+    generateSlug();
+    clearErrors();
+    document.getElementById('tagModal').classList.remove('hidden');
+}
+
+function closeTagModal() {
+    document.getElementById('tagModal').classList.add('hidden');
+    editingTagId = null;
+}
+
+function clearErrors() {
+    document.getElementById('tagNameError').classList.add('hidden');
+}
+
+function generateSlug() {
+    const name = document.getElementById('tagName').value;
+    const slug = document.getElementById('tagSlug');
+    
+    // Siempre generar el slug automáticamente desde el nombre
+    slug.value = name.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+}
+
+// Función para manejar envío del formulario
+async function handleTagSubmit(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('tagName').value.trim();
+    
+    if (!name) {
+        document.getElementById('tagNameError').classList.remove('hidden');
+        return;
+    }
+    
+    try {
+        const url = editingTagId ? `/api/tags/${editingTagId}` : '/api/tags';
+        const method = editingTagId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: name
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const wasEditing = !!editingTagId; // Guardar el estado antes de cerrar el modal
+            closeTagModal();
+            loadTags();
+            
+            Swal.fire({
+                icon: 'success',
+                title: wasEditing ? 'Tag actualizado' : 'Tag creado',
+                text: `"${data.name}" ha sido ${wasEditing ? 'actualizado' : 'creado'} correctamente`,
+                confirmButtonColor: '#16a34a',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al guardar el tag');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message,
+            confirmButtonColor: '#dc2626'
+        });
+    }
+}
+
+// Funciones del modal de eliminación
+let tagToDelete = null;
+
+function showDeleteModal(id, name, sitesCount) {
+    tagToDelete = id;
+    const message = sitesCount > 0 
+        ? `No se puede eliminar el tag "${name}" porque está asociado a ${sitesCount} sitio(s) histórico(s).`
+        : `¿Estás seguro de que deseas eliminar el tag "${name}"?`;
+    
+    document.getElementById('deleteMessage').textContent = message;
+    
+    if (sitesCount > 0) {
+        document.getElementById('confirmDeleteBtn').style.display = 'none';
+        document.querySelector('#deleteModal .flex.justify-end').innerHTML = `
+            <button onclick="closeDeleteModal()" 
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                Entendido
+            </button>
+        `;
+    } else {
+        document.getElementById('confirmDeleteBtn').style.display = 'block';
+        document.querySelector('#deleteModal .flex.justify-end').innerHTML = `
+            <button onclick="closeDeleteModal()" 
+                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
+                Cancelar
+            </button>
+            <button id="confirmDeleteBtn" 
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200">
+                Eliminar
+            </button>
+        `;
+        
+        // Re-agregar event listener
+        document.getElementById('confirmDeleteBtn').addEventListener('click', deleteTag);
+    }
+    
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+    tagToDelete = null;
+}
+
+async function deleteTag() {
+    if (!tagToDelete) return;
+    
+    try {
+        const response = await fetch(`/api/tags/${tagToDelete}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            closeDeleteModal();
+            loadTags();
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Tag eliminado',
+                text: 'El tag ha sido eliminado correctamente',
+                confirmButtonColor: '#16a34a',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al eliminar el tag');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message,
+            confirmButtonColor: '#dc2626'
+        });
+    }
+}
+</script>
+
+<style>
+.pagination button {
+    transition: all 0.2s;
+}
+
+.pagination button:hover {
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}

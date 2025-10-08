@@ -1,0 +1,91 @@
+from src.web.extensions import db
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+from sqlalchemy.orm import relationship
+
+class User(db.Model):
+    __tablename__ = 'User'
+
+    id = db.Column(db.Integer, primary_key=True)
+    mail = db.Column(db.String, nullable=False, unique=True)
+    name = db.Column(db.String, nullable=False)
+    last_name = db.Column(db.String, nullable=False)
+    password = db.Column(db.String, nullable=False)
+    active = db.Column(db.Boolean)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    blocked = db.Column(db.Boolean)
+    deleted = db.Column(db.Boolean, default=False)
+
+    # Relaciones
+    events = db.relationship('Event', backref='user', lazy=True)
+    user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
+
+    def __repr__(self):
+        return f'<User {self.name} {self.last_name}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'mail': self.mail,
+            'name': self.name,
+            'last_name': self.last_name,
+            'active': self.active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'blocked': self.blocked,
+            'deleted': self.deleted
+        }
+
+    # --- Métodos de password ---
+    def set_password(self, password_plain):
+        """Genera y guarda un hash seguro del password"""
+        self.password = generate_password_hash(password_plain)
+
+    def check_password(self, password_plain):
+        """Verifica si el password ingresado coincide con el hash guardado"""
+        return check_password_hash(self.password, password_plain)
+
+    # --- Permisos del usuario ---
+    @property
+    def permissions(self):
+        """Retorna lista con todos los permisos del usuario (para compatibilidad)"""
+        perms = []
+        for rol_rel in self.user_roles:   # recorre la relación User ↔ RolUser
+            rol = rol_rel.rol_user
+            for perm_rel in rol.permission_rol_users:  # accede a través de la relación
+                perm = perm_rel.permission
+                if perm.name not in perms:
+                    perms.append(perm.name)
+        return perms
+
+    def has_permission(self, permission_name):
+        """
+        Verifica si el usuario tiene un permiso específico de forma eficiente.
+        
+        Args:
+            permission_name (str): Nombre del permiso a verificar
+            
+        Returns:
+            bool: True si tiene el permiso, False en caso contrario
+        """
+        # 1. Chequeo de Super-Admin (llave maestra)
+        for rol_rel in self.user_roles:
+            if rol_rel.rol_user.name == 'superAdmin':
+                return True
+        
+        # 2. Chequeo normal - detiene búsqueda al encontrar el permiso
+        for rol_rel in self.user_roles:
+            rol = rol_rel.rol_user
+            for perm_rel in rol.permission_rol_users:
+                if perm_rel.permission.name == permission_name:
+                    return True  # Retorna inmediatamente al encontrarlo
+        
+        return False  # No se encontró el permiso
+
+    def get_user_roles(self):
+        """
+        Retorna los nombres de los roles del usuario.
+
+        """
+        return [rol_rel.rol_user.name for rol_rel in self.user_roles]
+    
+    
