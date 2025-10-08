@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mantenimiento{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Barlow', sans-serif;
+        }
+        .maintenance-animation {
+            animation: float 3s ease-in-out infinite;
+            padding-top: 30px; /* Espacio extra para evitar que se salga */
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); } /* Reducido de -20px a -15px */
+        }
+        .pulse-slow {
+            animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b border-gray-200">
+        <div class="flex items-center justify-center px-6 py-4">
+            <!-- Logo centrado -->
+            <div>
+                <img src="{{ url_for('static', filename='img/logo.png') }}" 
+                    alt="HeritageTech Logo" 
+                    class="h-24 w-24">
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido principal -->
+    <div class="flex items-center justify-center py-8" style="min-height: calc(100vh - 112px);">
+        <div class="w-full max-w-4xl px-4">
+            {% block content %}
+            <!-- El contenido se insertará aquí -->
+            {% endblock %}
+        </div>
+    </div>
+
+    <!-- Scripts opcionales -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+

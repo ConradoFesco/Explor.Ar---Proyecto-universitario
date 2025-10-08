@@ -26,10 +26,8 @@ def permission_required(permission_name):
             if not current_user.user_roles:
                 return jsonify({"error": "Usuario no tiene roles asignados"}), 403
                 
-            # Verificar si el usuario tiene el permiso requerido
-            user_permissions = current_user.permissions  # Usa la propiedad que ya tienes definida
-            
-            if permission_name not in user_permissions:
+            # Verificar si el usuario tiene el permiso requerido (método optimizado)
+            if not current_user.has_permission(permission_name):
                 return jsonify({"error": f"Acceso denegado. Se requiere el permiso: {permission_name}"}), 403
                 
             return f(*args, **kwargs)

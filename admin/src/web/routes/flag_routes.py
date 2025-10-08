@@ -8,7 +8,7 @@ from src.web.models.user import User
 flag_api = Blueprint("flag_api", __name__, url_prefix="/flags")
 
 @flag_api.route("/<int:flag_id>/toggle", methods=["POST"])
-#@permission_required('flag_admin')
+@permission_required('flag_admin')
 def toggle_flag_route(flag_id):
     """
     Endpoint para cambiar el estado de un flag.
@@ -18,12 +18,13 @@ def toggle_flag_route(flag_id):
     if not user_id:
         return jsonify({"error": "Sesión o usuario inválido"}), 401
 
-    flag = flag_service.toggle_flag(flag_id, user_id) # Pasamos el objeto User
+    flag = flag_service.toggle_flag(flag_id, user_id) # Pasamos el id del User
 
     return redirect(url_for('flag_api.list_flags_page'))
 # === Página principal de administración de flags ===
+
 @flag_api.route("/", methods=["GET"])
-#@permission_required('flag_admin') # <--- Usamos el permiso requerido
+@permission_required('flag_admin')
 def list_flags_page():
     """
     Muestra la página de Feature Flags en el panel de administración.
@@ -33,12 +34,18 @@ def list_flags_page():
 
 # === API: Actualizar mensaje de mantenimiento ===
 @flag_api.route("/<int:flag_id>/message", methods=["POST"])
-#@permission_required('flag_admin') # <--- Usamos el permiso requerido
+@permission_required('flag_admin')  # ✅ Corregido nombre del permiso
 def update_flag_message_route(flag_id):
     """
     Endpoint para actualizar el mensaje del flag (por ejemplo, modo mantenimiento).
+    Permite cambiar el mensaje sin modificar el estado del flag.
     """
+    # ✅ Obtener datos del JSON body
     data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No se recibieron datos"}), 400
+    
     message = data.get("message")
 
     if not message or len(message.strip()) == 0:
@@ -48,12 +55,12 @@ def update_flag_message_route(flag_id):
         return jsonify({"error": "El mensaje no puede superar los 255 caracteres"}), 400
 
     user_id = session.get('user_id')
-    current_user = User.query.get(user_id)
 
-    if not current_user:
-        return jsonify({"error": "Sesión o usuario inválido"}), 401 
+    if not user_id:
+        return jsonify({"error": "Sesión o usuario inválido"}), 401
 
-    flag = flag_service.update_flag_message(flag_id, message, actor=current_user)
+    # Pasar user_id al servicio (el servicio lo convierte a objeto User)
+    flag = flag_service.update_flag_message(flag_id, message, data_user=user_id)
 
     return jsonify({
         "success": True,

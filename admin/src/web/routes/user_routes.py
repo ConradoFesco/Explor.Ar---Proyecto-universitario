@@ -7,7 +7,7 @@ from flask import session
 user_api = Blueprint('user_api', __name__)
 
 @user_api.route('', methods=['POST'])
-#@permission_required("create_user")
+@permission_required("create_user")
 def create_user():
     try:
         # Obtener datos del usuario desde la sesión

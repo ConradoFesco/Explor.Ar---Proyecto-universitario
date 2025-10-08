@@ -28,8 +28,8 @@ class Flag(db.Model):
         self.last_modified_at = datetime.utcnow()
 
         if actor:
-            if hasattr(actor, "email"):
-                self.last_modified_by = actor.email
+            if hasattr(actor, "mail"):
+                self.last_modified_by = actor.mail
             elif hasattr(actor, "username"):
                 self.last_modified_by = actor.username
             elif hasattr(actor, "name"):
@@ -39,6 +39,7 @@ class Flag(db.Model):
         else:
             self.last_modified_by = "Sistema/Desconocido"
         pass
+
     def to_dict(self):
         return {
             "id": self.id,
