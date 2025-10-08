@@ -127,6 +127,26 @@ def create_app(env="development", static_folder="../../static"):
     def index():
         return render_template("login.html")
 
+    @app.context_processor
+    def inject_user():
+        """Inyecta el usuario actual en todos los templates"""
+        user_id = session.get("user_id")
+        if user_id:
+            try:
+                user = User.query.get(user_id)
+                if user:
+                    user_roles = user.get_user_roles()
+                    user_initials = f"{user.name[0]}{user.last_name[0]}".upper() if user.name and user.last_name else "U"
+                    return {
+                        'current_user': user,
+                        'user_roles': user_roles,
+                        'user_initials': user_initials,
+                        'is_admin': 'admin' in user_roles or 'superAdmin' in user_roles
+                    }
+            except Exception as e:
+                print(f"Error obteniendo usuario para template: {e}")
+        return {'current_user': None, 'user_roles': [], 'user_initials': '', 'is_admin': False}
+
     @app.route("/home")
     def home():
         if "user_id" not in session:

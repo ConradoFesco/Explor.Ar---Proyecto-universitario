@@ -415,13 +415,14 @@ async function handleTagSubmit(event) {
         
         if (response.ok) {
             const data = await response.json();
+            const wasEditing = !!editingTagId; // Guardar el estado antes de cerrar el modal
             closeTagModal();
             loadTags();
             
             Swal.fire({
                 icon: 'success',
-                title: editingTagId ? 'Tag actualizado' : 'Tag creado',
-                text: `"${data.name}" ha sido ${editingTagId ? 'actualizado' : 'creado'} correctamente`,
+                title: wasEditing ? 'Tag actualizado' : 'Tag creado',
+                text: `"${data.name}" ha sido ${wasEditing ? 'actualizado' : 'creado'} correctamente`,
                 confirmButtonColor: '#16a34a',
                 timer: 2000,
                 showConfirmButton: false

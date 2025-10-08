@@ -46,7 +46,8 @@ def list_users():
 
     filters = {
         "email": request.args.get('email') or request.args.get('search'),
-        "activo": request.args.get('activo')
+        "activo": request.args.get('activo'),
+        "rol": request.args.get('rol')
     }
     filters = {k: v for k, v in filters.items() if v}
     
@@ -64,7 +65,7 @@ def list_users():
         sort_order = 'desc'
     
     try:
-        result = user_service.list_users(page=page, per_page=per_page)
+        result = user_service.list_users(filters=filters, page=page, per_page=per_page, sort_by=sort_by, sort_order=sort_order)
         
         # Me aseguro que siempre tenga formato JSON con users + pagination
         return jsonify({

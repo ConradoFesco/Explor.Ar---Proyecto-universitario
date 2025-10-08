@@ -138,8 +138,8 @@ class HistoricSite_Service:
         # Filtro de búsqueda por texto (nombre o descripción breve)
         if search_text:
             search_filter = or_(
-                HistoricSite.name.ilike(f'%{search_text}%'),
-                HistoricSite.brief_description.ilike(f'%{search_text}%')
+                HistoricSite.name.ilike(f'{search_text}%'),
+                HistoricSite.brief_description.ilike(f'{search_text}%')
             )
             query = query.filter(search_filter)
         

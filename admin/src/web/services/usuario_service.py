@@ -176,9 +176,11 @@ class UserService:
             if filters.get('activo'):
                 active_value = filters['activo'].lower() in ['si', 'sí', 'true', '1']
                 query = query.filter_by(active=active_value)
-            # Filtro de rol deshabilitado - no se modifica el modelo de BDD
-            # if filters.get('rol'):
-            #     query = query.filter(User.role.ilike(f"%{filters['rol']}%"))
+            if filters.get('rol'):
+                # Filtrar por rol usando la relación many-to-many
+                from src.web.models.rol_user_user import RolUserUser
+                from src.web.models.rol_user import RolUser
+                query = query.join(RolUserUser).join(RolUser).filter(RolUser.name.ilike(f"%{filters['rol']}%"))
         
         # Aplicar ordenamiento
         if sort_by == 'created_at':
@@ -200,8 +202,15 @@ class UserService:
         )
         users = pagination.items
         
+        # Agregar información de roles a cada usuario
+        users_with_roles = []
+        for user in users:
+            user_dict = user.to_dict()
+            user_dict['roles'] = user.get_user_roles()
+            users_with_roles.append(user_dict)
+        
         return {
-            'users': [user.to_dict() for user in users],
+            'users': users_with_roles,
             'pagination': {
                 'page': pagination.page,
                 'pages': pagination.pages,
@@ -316,9 +325,10 @@ class UserService:
         return roles
 
     def get_available_roles(self):
-        """Obtiene todos los roles disponibles en el sistema"""
+        """Obtiene todos los roles disponibles en el sistema (excluye superAdmin)"""
         roles = RolUser.query.filter_by(deleted=False).all()
-        return [role.to_dict() for role in roles]
+        # Filtrar para excluir superAdmin ya que no se pueden dar de alta superAdmins
+        return [role.to_dict() for role in roles if role.name != 'superAdmin']
 
     def _is_admin_user(self, user):
         """Verifica si un usuario es administrador basándose en sus permisos"""
