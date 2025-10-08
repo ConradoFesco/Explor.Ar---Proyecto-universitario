@@ -11,17 +11,29 @@ def get_all_events(id):
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
+    
+    # Filtros
+    user_id = request.args.get('user_id', type=int)
+    type_action = request.args.get('type_action', None)
+    date_from = request.args.get('date_from', None)
+    date_to = request.args.get('date_to', None)
+    
     # Validar parámetros
     if page < 1:
         page = 1
     if per_page < 1 or per_page > 25:  # Límite máximo de 25 por página
         per_page = 25
+    
     try:
         result = event_service.get_all_events(
             id=id,
             include_deleted=include_deleted, 
             page=page, 
-            per_page=per_page
+            per_page=per_page,
+            user_id=user_id,
+            type_action=type_action,
+            date_from=date_from,
+            date_to=date_to
         )
         # si todo sale bien, devuelve el objeto y un código 200
         return jsonify(result), 200
