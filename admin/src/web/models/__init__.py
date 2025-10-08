@@ -13,6 +13,7 @@ from .rol_user import RolUser
 from .permission_rol_user import PermissionRolUser
 from .rol_user_user import RolUserUser
 from .tag_historic_site import TagHistoricSite
+from .flag import Flag
 
 __all__ = [
     'User',
@@ -22,6 +23,7 @@ __all__ = [
     'StateSite',
     'HistoricSite',
     'Tag',
+    'Flag',
     'Event',
     'Permission',
     'RolUser',

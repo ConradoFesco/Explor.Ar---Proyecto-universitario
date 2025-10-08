@@ -45,8 +45,84 @@ def create_app(env="development", static_folder="../../static"):
     with app.app_context():
         from .models.user import User
         from .models.category_site import CategorySite
+        from .models.flag import Flag
+        from .models.user import User
 
-
+    @app.before_request
+    def check_admin_maintenance():
+        """
+        Verifica antes de cada petición si el modo mantenimiento está activo.
+        Solo los superAdmin pueden acceder cuando está activo.
+        """
+        # Ignorar rutas públicas (login, static, logout, archivos estáticos)
+        public_endpoints = [
+            'login_bp.login',      # POST /api/login
+            'login_bp.logout',     # GET/POST /api/logout
+            'index',               # GET /
+            'static',              # Archivos estáticos
+            None                   # Peticiones sin endpoint definido
+        ]
+        
+        if request.endpoint in public_endpoints:
+            return None
+        
+        # Ignorar todas las peticiones a /static/
+        if request.path and request.path.startswith('/static/'):
+            return None
+        
+        # Consultar el flag de mantenimiento
+        try:
+            admin_flag = Flag.query.filter_by(name="admin_maintenance_mode").first()
+        except Exception as e:
+            # Si hay error al consultar la BD, permitir acceso
+            print(f"Error consultando flag de mantenimiento: {e}")
+            return None
+        
+        # Si el flag NO existe o está desactivado, continuar normalmente
+        if not admin_flag or not admin_flag.enabled:
+            return None
+        
+        # Flag activo: verificar si el usuario es superAdmin
+        user_id = session.get("user_id")
+        
+        # Si no está logueado, permitir acceso (otras rutas lo redirigen)
+        if not user_id:
+            return None
+        
+        # Obtener el usuario completo
+        try:
+            user = User.query.get(user_id)
+        except Exception as e:
+            # Error en BD, limpiar sesión
+            print(f"Error obteniendo usuario: {e}")
+            session.clear()
+            return redirect(url_for('index'))
+        
+        # Si no se encuentra el usuario, cerrar sesión y redirigir
+        if not user:
+            session.clear()
+            return redirect(url_for('index'))
+        
+        # Verificar si es superAdmin
+        try:
+            user_roles = user.get_user_roles()
+            print(f"DEBUG: Usuario {user.mail} tiene roles: {user_roles}")
+            
+            if 'superAdmin' in user_roles:
+                # SuperAdmin puede acceder siempre
+                print(f"DEBUG: SuperAdmin detectado, permitiendo acceso")
+                return None
+        except Exception as e:
+            # Error al obtener roles, asumir no es superAdmin
+            print(f"Error obteniendo roles: {e}")
+            pass
+        
+        # Usuario normal: mostrar página de mantenimiento
+        print(f"DEBUG: Usuario bloqueado por mantenimiento")
+        return render_template(
+            "mantenimiento.html",
+            message=admin_flag.message or "El sitio de administración está temporalmente inactivo."
+        )
     @app.route("/")
     def index():
         return render_template("login.html")
@@ -55,8 +131,8 @@ def create_app(env="development", static_folder="../../static"):
     def home():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        return render_template("home.html")
-
+        userd = User.query.get(session["user_id"])
+        return render_template("home.html", user=userd)
     @app.route("/logout")
     def logout():
         session.pop("user_id", None)
@@ -106,6 +182,9 @@ def create_app(env="development", static_folder="../../static"):
 
     from .routes.event_routes import event_api
     app.register_blueprint(event_api, url_prefix="/api")
+
+    from src.web.routes.flag_routes import flag_api
+    app.register_blueprint(flag_api, url_prefix="/flags")
 
     from datetime import datetime
     @app.template_filter('format_date')

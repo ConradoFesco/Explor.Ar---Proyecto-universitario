@@ -64,6 +64,18 @@ def create_permissions():
         "get_all_states",
         "update_state",
         "delete_state",
+
+        # Permisos para flags
+        "flag_admin",
+        
+        # Permisos para exportación
+        "export_historic_sites",
+        
+        # Permisos para perfil de usuario
+        "view_profile",
+        "update_password",
+        
+
     ]
     
     created_permissions = []
@@ -82,6 +94,7 @@ def create_permissions():
 def create_roles():
     """Crear los roles del sistema"""
     roles = {
+        "superAdmin": "Super Administrador - acceso total al sistema incluyendo gestión de flags",
         "admin": "Administrador del sistema - acceso completo",
         "editor": "Editor - puede crear, editar y eliminar contenido",
         "usuario": "Usuario autenticado - solo puede ver contenido"
@@ -106,8 +119,8 @@ def assign_permissions_to_roles(roles):
     
     # Definir qué permisos tiene cada rol
     role_permissions = {
-        "admin": [
-            # Todos los permisos
+        "superAdmin": [
+            # TODOS los permisos del sistema
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 
             "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
             "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
@@ -115,7 +128,20 @@ def assign_permissions_to_roles(roles):
             "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state"
+            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
+            "flag_admin", "view_profile", "update_password"
+        ],
+        "admin": [
+            # Todos los permisos excepto gestión de flags
+            "create_historic_site", "get_historic_site", "get_all_historic_sites", 
+            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
+            "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
+            "create_user", "get_user", "get_all_users", "update_user", "delete_user",
+            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
+            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
+            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
+            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
+            "view_profile", "update_password"
         ],
         "editor": [
             # Permisos para gestionar contenido
@@ -125,8 +151,16 @@ def assign_permissions_to_roles(roles):
             "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state"
+            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
+            "view_profile", "update_password"
         ],
+        "usuario": [
+            # Permisos básicos para usuarios autenticados
+            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
+            "get_category", "get_all_categories", "get_tag", "get_all_tags",
+            "get_state", "get_all_states", "get_event", "get_all_events",
+            "view_profile", "update_password"
+        ]
 
     }
     

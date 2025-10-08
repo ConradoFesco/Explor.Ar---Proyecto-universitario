@@ -256,7 +256,7 @@ def get_user_roles(user_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/roles', methods=['GET'])
-@permission_required("get_all_users")
+#@permission_required("get_all_users")
 def get_available_roles():
     """Obtiene todos los roles disponibles en el sistema"""
     try:

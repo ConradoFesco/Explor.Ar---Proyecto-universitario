@@ -4,7 +4,7 @@ from ..models.user import User
 from ..extensions import db   # importa tu instancia SQLAlchemy
 from .. import exceptions as exc
 from ..services.auth_service import auth_service
-
+from ..models.flag import Flag
 login_bp = Blueprint("login_bp", __name__)
 
 @login_bp.route("/login", methods=["POST"])
@@ -16,6 +16,7 @@ def login():
     print("Mail recibido:", mail)
     print("Password recibido:", password)
 
+    
     if not mail or not password:
         return jsonify({"error": "Complete todos los campos"}), 400
 

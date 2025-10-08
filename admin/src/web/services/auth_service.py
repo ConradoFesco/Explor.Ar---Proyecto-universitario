@@ -16,6 +16,10 @@ class AuthService:
             raise exc.ValidationError("Usted ha sido bloqueado")
         
         return user
-    
+    def find_user_by_email(self, mail):
+        """
+        Devuelve el usuario sin validar contraseña.
+        """
+        return User.query.filter_by(mail=mail, deleted=False).first()
 
 auth_service = AuthService()

@@ -6,6 +6,7 @@
     
     <title>{% block title %} Mi Página {% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         .sidebar-transition {
             transition: transform 0.3s ease-in-out;
@@ -81,9 +82,12 @@
                 </div>
             </button>
 
-            <!-- Title -->
-            <h1 class="text-xl font-bold text-gray-800">{% block header_title %}Poner logo{% endblock %}</h1>
-
+            <!-- Logo centrado -->
+            <div class="absolute left-1/2 transform -translate-x-1/2">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" 
+                    alt="HeritageTech Logo" 
+                    class="h-24 w-24">
+            </div>
             <!-- User Profile -->
             <div class="relative">
                 <button id="userMenuToggle" 
@@ -177,6 +181,14 @@
                 <span class="font-medium">Gestión de Usuarios</span>
             </a>
 
+            <!-- Flags (solo para System Admin) -->
+            <a href="{{ url_for('flag_api.list_flags_page') }}" 
+                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 4a8 8 0 100 16 8 8 0 000-16z"></path>
+                </svg>
+                <span class="font-medium">Flags</span>
+            </a>
 
             {% endblock %}
         </nav>

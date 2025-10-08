@@ -1,8 +1,9 @@
 body {
-    font-family: Barlow;
+    font-family: 'Barlow', 'Inter', 'Helvetica Neue', Arial, sans-serif !important;
     margin: 0;
     padding: 0;
 }
+
 /* ======= MENU DESPLEGABLE ======= */
 .menu-container {
   display: flex;
@@ -615,4 +616,8 @@ body.sidebar-open .map-container {
     color: #374151;
     cursor: pointer;
     user-select: none;
+}
+
+*{
+    font-family: 'Barlow', 'Inter', 'Helvetica Neue', Arial, sans-serif !important;
 }
