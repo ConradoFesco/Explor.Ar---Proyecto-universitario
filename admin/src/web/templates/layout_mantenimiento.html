@@ -30,12 +30,26 @@
     
     <!-- Header -->
     <header class="bg-white shadow-lg border-b border-gray-200">
-        <div class="flex items-center justify-center px-6 py-4">
+        <div class="flex items-center justify-between px-6 py-4">
+            <!-- Espacio vacío para balancear el diseño -->
+            <div class="flex-shrink-0 w-32"></div>
+            
             <!-- Logo centrado -->
-            <div>
+            <div class="flex-1 flex justify-center">
                 <img src="{{ url_for('static', filename='img/logo.png') }}" 
                     alt="HeritageTech Logo" 
-                    class="h-24 w-24">
+                    class="h-20 w-20">
+            </div>
+            
+            <!-- Botón de acceso al login -->
+            <div class="flex-shrink-0">
+                <a href="{{ url_for('index') }}" 
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                </a>
             </div>
         </div>
     </header>

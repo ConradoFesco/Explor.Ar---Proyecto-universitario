@@ -131,6 +131,9 @@ class HistoricSite_Service:
         # Query base
         query = HistoricSite.query
         
+        # Variable para controlar si ya se hizo join con City
+        city_joined = False
+        
         # Filtro de eliminados
         if not include_deleted:
             query = query.filter_by(deleted=False)
@@ -149,7 +152,9 @@ class HistoricSite_Service:
         
         # Filtro por provincia (a través de la relación con ciudad)
         if province_id:
-            query = query.join(City).filter(City.id_province == province_id)
+            query = query.join(City)
+            city_joined = True
+            query = query.filter(City.id_province == province_id)
         
         # Filtro por tags (multiselección)
         if tag_ids and len(tag_ids) > 0:
@@ -178,10 +183,13 @@ class HistoricSite_Service:
             else:
                 query = query.order_by(asc(HistoricSite.name))
         elif sort_by == 'city':
+            # Solo hacer join si no se hizo antes
+            if not city_joined:
+                query = query.join(City)
             if sort_order == 'desc':
-                query = query.join(City).order_by(desc(City.name))
+                query = query.order_by(desc(City.name))
             else:
-                query = query.join(City).order_by(asc(City.name))
+                query = query.order_by(asc(City.name))
         elif sort_by == 'created_at':
             if sort_order == 'desc':
                 query = query.order_by(desc(HistoricSite.created_at))

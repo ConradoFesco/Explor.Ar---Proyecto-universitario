@@ -78,13 +78,8 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    loginMsg.textContent = "¡Bienvenido!";
-                    loginMsg.classList.remove("hidden");
-                    loginMsg.classList.remove("text-red-500");
-                    loginMsg.classList.add("text-green-500");
-
-                    // Redirigir luego de 1.5s
-                    setTimeout(() => window.location.href = "/home", 1500);
+                    // Redirigir inmediatamente sin mostrar mensaje
+                    window.location.href = "/home";
                 } else {
                     loginMsg.textContent = data.error;
                     loginMsg.classList.remove("hidden");

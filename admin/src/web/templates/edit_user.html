@@ -67,20 +67,20 @@
                     Email
                 </label>
                 <input type="email" 
-                       id="maizzl" 
+                       id="mail" 
                        name="mail" 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             </div>
 
-            <!-- Rol -->
+            <!-- Roles -->
             <div>
-                <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
-                    Rol
+                <label for="roles" class="block text-sm font-medium text-gray-700 mb-1">
+                    Roles
                 </label>
-                <select id="role" name="role"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="">Cargando roles...</option>
-                </select>
+                <div id="roles-container" class="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
+                    <div class="text-sm text-gray-500">Cargando roles...</div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Selecciona uno o más roles para el usuario</p>
             </div>
 
             <!-- Estado Activo -->
@@ -195,16 +195,37 @@
             document.getElementById('user-created-at').textContent = 'N/A';
         }
         
-        // Llenar roles disponibles
-        populateRoles(userData.available_roles || [], userData.role || '');
+        // Llenar roles disponibles con los roles actuales del usuario
+        populateRoles(userData.available_roles || [], userData.current_roles || []);
     }
 
-    // Función para poblar el select de roles
-    function populateRoles(availableRoles, currentRole) {
-        const roleSelect = document.getElementById('role');
-        roleSelect.innerHTML = availableRoles.length > 0 
-            ? availableRoles.map(role => `<option value="${role.name}" ${role.name === currentRole ? 'selected' : ''}>${role.name}</option>`).join('')
-            : '<option value="">No hay roles disponibles</option>';
+    // Función para poblar los checkboxes de roles
+    function populateRoles(availableRoles, currentRoles) {
+        const rolesContainer = document.getElementById('roles-container');
+        
+        if (availableRoles.length > 0) {
+            rolesContainer.innerHTML = '';
+            const currentRoleIds = currentRoles.map(role => role.id);
+            
+            availableRoles.forEach(role => {
+                const roleDiv = document.createElement('div');
+                roleDiv.className = 'flex items-center mb-2';
+                const isChecked = currentRoleIds.includes(role.id);
+                roleDiv.innerHTML = `
+                    <input type="checkbox" 
+                           id="role_${role.id}" 
+                           value="${role.id}" 
+                           ${isChecked ? 'checked' : ''}
+                           class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="role_${role.id}" class="ml-2 text-sm text-gray-700">
+                        ${role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                    </label>
+                `;
+                rolesContainer.appendChild(roleDiv);
+            });
+        } else {
+            rolesContainer.innerHTML = '<div class="text-sm text-red-500">No hay roles disponibles</div>';
+        }
     }
 
     // Función para mostrar error
@@ -219,7 +240,7 @@
         const name = document.getElementById('name').value.trim();
         const lastName = document.getElementById('last_name').value.trim();
         const email = document.getElementById('mail').value.trim();
-        const role = document.getElementById('role').value;
+        const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked'));
         const isBlocked = document.getElementById('blocked').checked;
 
         if (!name) {
@@ -238,7 +259,18 @@
             return false;
         }
 
-        if (role === 'Administrador' && isBlocked) {
+        if (selectedRoles.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'Roles requeridos', text: 'Debe seleccionar al menos un rol', confirmButtonColor: '#3B82F6' });
+            return false;
+        }
+
+        // Verificar si tiene rol de administrador y está bloqueado
+        const hasAdminRole = selectedRoles.some(role => {
+            const roleLabel = role.nextElementSibling.textContent.toLowerCase();
+            return roleLabel.includes('administrador') || roleLabel.includes('admin');
+        });
+
+        if (hasAdminRole && isBlocked) {
             Swal.fire({ icon: 'error', title: 'Acción no permitida', text: 'No se puede bloquear a un usuario con rol de Administrador', confirmButtonColor: '#3B82F6' });
             return false;
         }
@@ -257,12 +289,14 @@
             name: document.getElementById('name').value,
             last_name: document.getElementById('last_name').value,
             mail: document.getElementById('mail').value,
-            role: document.getElementById('role').value,
             active: document.getElementById('active').checked,
             blocked: document.getElementById('blocked').checked
         };
 
-        // Solo incluir campos que cambiaron
+        // Obtener roles seleccionados
+        const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked')).map(cb => parseInt(cb.value));
+
+        // Solo incluir campos que cambiaron (excepto roles)
         const changedFields = Object.keys(currentData).reduce((acc, key) => {
             if (currentData[key] !== originalUserData[key]) {
                 acc[key] = currentData[key];
@@ -270,35 +304,59 @@
             return acc;
         }, {});
 
-        if (Object.keys(changedFields).length === 0) {
+        // Verificar si los roles cambiaron
+        const originalRoleIds = (originalUserData.current_roles || []).map(role => role.id).sort();
+        const currentRoleIds = selectedRoles.sort();
+        const rolesChanged = JSON.stringify(originalRoleIds) !== JSON.stringify(currentRoleIds);
+
+        if (Object.keys(changedFields).length === 0 && !rolesChanged) {
             Swal.fire({ icon: 'info', title: 'Sin cambios', text: 'No hay cambios para guardar', confirmButtonColor: '#3B82F6' });
             return;
         }
 
         try {
-            const response = await fetch(`/api/users/${userId}`, {
-                method: "PUT",
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    data_user: { id: 2 }, // TODO: Obtener ID del admin logueado
-                    data_new: changedFields
-                })
-            });
+            // Actualizar datos básicos si hay cambios
+            if (Object.keys(changedFields).length > 0) {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: "PUT",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data_user: { id: 2 }, // TODO: Obtener ID del admin logueado
+                        data_new: changedFields
+                    })
+                });
 
-            const data = await response.json();
-            
-            if (response.ok) {
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Actualizado!',
-                    text: 'Usuario actualizado correctamente',
-                    confirmButtonColor: '#3B82F6',
-                    timer: 2000,
-                    showConfirmButton: false
-                }).then(() => window.location.replace("/users"));
-            } else {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo actualizar el usuario', confirmButtonColor: '#3B82F6' });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Error al actualizar usuario');
+                }
             }
+
+            // Actualizar roles si cambiaron
+            if (rolesChanged) {
+                const response = await fetch(`/api/users/${userId}/roles`, {
+                    method: "PUT",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data_user: { id: 2 }, // TODO: Obtener ID del admin logueado
+                        role_ids: selectedRoles
+                    })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Error al actualizar roles');
+                }
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: '¡Actualizado!',
+                text: 'Usuario actualizado correctamente',
+                confirmButtonColor: '#3B82F6',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => window.location.replace("/users"));
         } catch (err) {
             Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#3B82F6' });
         }

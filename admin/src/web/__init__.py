@@ -75,7 +75,6 @@ def create_app(env="development", static_folder="../../static"):
             admin_flag = Flag.query.filter_by(name="admin_maintenance_mode").first()
         except Exception as e:
             # Si hay error al consultar la BD, permitir acceso
-            print(f"Error consultando flag de mantenimiento: {e}")
             return None
         
         # Si el flag NO existe o está desactivado, continuar normalmente
@@ -94,7 +93,6 @@ def create_app(env="development", static_folder="../../static"):
             user = User.query.get(user_id)
         except Exception as e:
             # Error en BD, limpiar sesión
-            print(f"Error obteniendo usuario: {e}")
             session.clear()
             return redirect(url_for('index'))
         
@@ -106,19 +104,15 @@ def create_app(env="development", static_folder="../../static"):
         # Verificar si es superAdmin
         try:
             user_roles = user.get_user_roles()
-            print(f"DEBUG: Usuario {user.mail} tiene roles: {user_roles}")
             
             if 'superAdmin' in user_roles:
                 # SuperAdmin puede acceder siempre
-                print(f"DEBUG: SuperAdmin detectado, permitiendo acceso")
                 return None
         except Exception as e:
             # Error al obtener roles, asumir no es superAdmin
-            print(f"Error obteniendo roles: {e}")
             pass
         
         # Usuario normal: mostrar página de mantenimiento
-        print(f"DEBUG: Usuario bloqueado por mantenimiento")
         return render_template(
             "mantenimiento.html",
             message=admin_flag.message or "El sitio de administración está temporalmente inactivo."
@@ -126,6 +120,26 @@ def create_app(env="development", static_folder="../../static"):
     @app.route("/")
     def index():
         return render_template("login.html")
+
+    @app.context_processor
+    def inject_user():
+        """Inyecta el usuario actual en todos los templates"""
+        user_id = session.get("user_id")
+        if user_id:
+            try:
+                user = User.query.get(user_id)
+                if user:
+                    user_roles = user.get_user_roles()
+                    user_initials = f"{user.name[0]}{user.last_name[0]}".upper() if user.name and user.last_name else "U"
+                    return {
+                        'current_user': user,
+                        'user_roles': user_roles,
+                        'user_initials': user_initials,
+                        'is_admin': 'admin' in user_roles or 'superAdmin' in user_roles
+                    }
+            except Exception as e:
+                pass
+        return {'current_user': None, 'user_roles': [], 'user_initials': '', 'is_admin': False}
 
     @app.route("/home")
     def home():

@@ -133,7 +133,7 @@
 {% block scripts %}
 {{ super() }} <script>
     let currentPage = 1;
-    const perPage = 5;
+    const perPage = 25;
     let filterOptions = null;
     let currentFilters = {
         search: '',
@@ -1112,11 +1112,13 @@
             const siteData = await siteResponse.json();
             
             // Obtener todos los tags disponibles
-            const tagsResponse = await fetch('{{ url_for("tag_api.get_all_tags_route") }}');
+            const tagsResponse = await fetch('/api/tags');
             if (!tagsResponse.ok) {
                 throw new Error('Error al cargar los tags disponibles');
             }
-            const allTags = await tagsResponse.json();
+            const tagsData = await tagsResponse.json();
+            // El endpoint devuelve un objeto con 'tags' y 'pagination', necesitamos solo los tags
+            const allTags = tagsData.tags || tagsData;
             
             // Crear el selector de tags
             tagsEditor = new TagEditor('tags-editor-container', allTags, siteData.tags || []);
@@ -1155,15 +1157,29 @@
             }
             
             const result = await response.json();
-            alert(result.message || 'Tags actualizados correctamente');
             
-            // Cerrar el modal y recargar la lista
-            closeModal();
-            loadSites(currentPage);
+            // Mostrar mensaje de éxito con SweetAlert2
+            Swal.fire({
+                icon: 'success',
+                title: '¡Tags actualizados!',
+                text: result.message || 'Los tags se han actualizado correctamente',
+                confirmButtonColor: '#3B82F6',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                // Cerrar el modal y recargar la lista
+                closeModal();
+                loadSites(currentPage);
+            });
             
         } catch (error) {
             console.error('Error guardando tags:', error);
-            alert('Error al guardar los tags: ' + error.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al guardar los tags: ' + error.message,
+                confirmButtonColor: '#dc2626'
+            });
         }
     }
 
