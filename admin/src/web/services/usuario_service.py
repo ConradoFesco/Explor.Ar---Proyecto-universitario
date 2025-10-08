@@ -23,7 +23,7 @@ class UserService:
         last_name = data_new_user['last_name']
         active = data_new_user.get('active', True)
         blocked = data_new_user.get('blocked', False)
-        role_id = data_new_user.get('role')  # ID del rol seleccionado
+        role_ids = data_new_user.get('roles', [])  # Lista de IDs de roles seleccionados
         deleted = False
         created_at = datetime.now()
 
@@ -38,13 +38,14 @@ class UserService:
             created_at=created_at,
         )
         
-        # Asignar el rol seleccionado si se proporciona
-        if role_id:
-            # Verificar que el rol existe
-            role = RolUser.query.get(role_id)
-            if not role:
-                raise ValidationError(f"Rol con ID {role_id} no encontrado")
-            user.user_roles.append(RolUserUser(Rol_User_id=role_id))
+        # Asignar los roles seleccionados si se proporcionan
+        if role_ids and len(role_ids) > 0:
+            for role_id in role_ids:
+                # Verificar que el rol existe
+                role = RolUser.query.get(role_id)
+                if not role:
+                    raise ValidationError(f"Rol con ID {role_id} no encontrado")
+                user.user_roles.append(RolUserUser(Rol_User_id=role_id))
         else:
             # Rol por defecto si no se especifica (usuario básico)
             default_role = RolUser.query.filter_by(name='usuario').first()
@@ -65,7 +66,11 @@ class UserService:
         user = User.query.filter_by(id=user_id, deleted=False).first()
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        return user.to_dict()
+        
+        user_dict = user.to_dict()
+        # Agregar información de roles actuales
+        user_dict['current_roles'] = self.get_user_roles(user_id)
+        return user_dict
 
     def update_user(self, user_id, changed_fields, commit=True):
         """Actualiza un usuario existente"""
@@ -226,9 +231,9 @@ class UserService:
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
         
-        # Verificar que el usuario objetivo no es administrador
-        if self._is_admin_user(target_user):
-            raise ValidationError("No se pueden asignar roles a otros administradores")
+        # Verificar que el administrador tiene permisos para asignar roles a administradores
+        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
+            raise ValidationError("Solo los administradores pueden asignar roles a otros administradores")
         
         # Verificar que el rol no está ya asignado
         existing_assignment = RolUserUser.query.filter_by(
@@ -271,9 +276,9 @@ class UserService:
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
         
-        # Verificar que el usuario objetivo no es administrador
-        if self._is_admin_user(target_user):
-            raise ValidationError("No se pueden revocar roles de otros administradores")
+        # Verificar que el administrador tiene permisos para revocar roles de administradores
+        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
+            raise ValidationError("Solo los administradores pueden revocar roles de otros administradores")
         
         # Buscar la asignación existente
         role_assignment = RolUserUser.query.filter_by(
@@ -323,6 +328,47 @@ class UserService:
             if role.name.lower() in ['administrador', 'admin']:
                 return True
         return False
+
+    def update_user_roles(self, user_id, role_ids, admin_user_id, commit=True):
+        """Actualiza los roles de un usuario (reemplaza todos los roles existentes)"""
+        # Verificar que el usuario administrador existe
+        admin_user = User.query.get(admin_user_id)
+        if not admin_user:
+            raise NotFoundError("Usuario administrador no encontrado")
+        
+        # Verificar que el usuario objetivo existe
+        target_user = User.query.get(user_id)
+        if not target_user:
+            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+        
+        # Verificar que el administrador tiene permisos para modificar roles de administradores
+        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
+            raise ValidationError("Solo los administradores pueden modificar roles de otros administradores")
+        
+        try:
+            # Eliminar todos los roles actuales del usuario
+            RolUserUser.query.filter_by(User_id=user_id).delete()
+            
+            # Agregar los nuevos roles
+            for role_id in role_ids:
+                # Verificar que el rol existe
+                role = RolUser.query.get(role_id)
+                if not role:
+                    raise ValidationError(f"Rol con id {role_id} no encontrado")
+                
+                # Crear la nueva asignación
+                role_assignment = RolUserUser(
+                    User_id=user_id,
+                    Rol_User_id=role_id
+                )
+                db.session.add(role_assignment)
+            
+            if commit:
+                db.session.commit()
+            return {"message": "Roles actualizados correctamente"}
+        except IntegrityError as e:
+            db.session.rollback()
+            raise DatabaseError(f"Error al actualizar roles: {e}")
 
     def block_user(self, user_id, admin_user_id, commit=True):
         """Bloquea un usuario (solo usuarios con permiso user_block pueden hacerlo)"""

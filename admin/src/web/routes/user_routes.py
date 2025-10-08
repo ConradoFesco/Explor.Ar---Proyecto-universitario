@@ -317,6 +317,36 @@ def revoke_role_from_user(user_id, role_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@user_api.route('/<int:user_id>/roles', methods=['PUT'])
+@permission_required("update_user")
+def update_user_roles(user_id):
+    """Actualiza los roles de un usuario (reemplaza todos los roles existentes)"""
+    try:
+        json_content = request.get_json()
+        if not json_content:
+            return jsonify({'error': 'No se recibieron datos'}), 400
+        
+        data_user = json_content.get('data_user')
+        if not data_user:
+            return jsonify({'error': 'Faltan datos de usuario administrador'}), 400
+        
+        admin_user_id = data_user.get('id')
+        if not admin_user_id:
+            return jsonify({'error': 'Es necesario especificar el ID del usuario administrador'}), 400
+        
+        role_ids = json_content.get('role_ids', [])
+        if not isinstance(role_ids, list):
+            return jsonify({'error': 'role_ids debe ser una lista'}), 400
+        
+        result = user_service.update_user_roles(user_id, role_ids, admin_user_id)
+        return jsonify(result), 200
+    except (ValidationError, NotFoundError) as e:
+        return jsonify({"error": str(e)}), 400
+    except DatabaseError as e:
+        return jsonify({"error": str(e)}), 409
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @user_api.route('/page', methods=['GET'])
 def list_users_page():
     return render_template("list_users.html")
