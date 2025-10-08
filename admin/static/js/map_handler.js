@@ -55,8 +55,6 @@ window.mapHandler = {
             sites.forEach(site => {
                 this.createSiteMarker(site);
             });
-            
-            console.log(`${sites.length} sitios históricos cargados en el mapa`);
         } catch (error) {
             console.error('Error cargando sitios históricos:', error);
         }

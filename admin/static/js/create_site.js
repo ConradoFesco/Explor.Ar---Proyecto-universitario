@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const handleMapClick = function(coords) {
         // coords es un objeto que contiene las coordenadas del clic
         // coords.lat = latitud, coords.lng = longitud
-        console.log("Coordenadas seleccionadas:", coords);
 
         // Actualizar los campos del formulario con las coordenadas
         updateFormCoordinates(coords);
@@ -21,9 +20,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Obtener información de ubicación (ciudad y provincia) usando geocodificación inversa
         getLocationInfo(coords);
-        
-        // Mostrar mensaje de confirmación en consola (sin modal)
-        console.log("Ubicación actualizada en el formulario");
     };
 
 
@@ -73,11 +69,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Si ya existe un marcador, actualizar su posición
             if (mapHandler.marker) {
                 mapHandler.marker.setLatLng([coords.lat, coords.lng]);
-                console.log("Marcador actualizado a nueva ubicación:", coords.lat, coords.lng);
             } else {
                 // Si no hay marcador, crear uno nuevo
                 mapHandler.marker = L.marker([coords.lat, coords.lng]).addTo(mapHandler.map);
-                console.log("Marcador creado en ubicación:", coords.lat, coords.lng);
             }
         }
     }
@@ -90,8 +84,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                console.log('Datos de geocodificación:', data);
-                
                 const ciudadInput = document.getElementById('ciudad');
                 const provinciaInput = document.getElementById('provincia');
                 
@@ -239,7 +231,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof mapHandler !== 'undefined' && mapHandler.marker) {
                 mapHandler.map.removeLayer(mapHandler.marker);
                 mapHandler.marker = null;
-                console.log("Marcador eliminado del mapa");
             }
             
             // Limpiar errores visuales
@@ -329,8 +320,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(event.target);
         const data = Object.fromEntries(formData.entries());
         
-        console.log('Datos del formulario:', data);
-        
         // Obtener tags seleccionados
         const selectedTags = window.tagSelector ? window.tagSelector.getSelectedTags() : [];
         
@@ -349,8 +338,6 @@ document.addEventListener('DOMContentLoaded', function() {
             name_province: data.provincia, // Enviar el nombre de la provincia como string
             tag_ids: selectedTags.map(tag => tag.id) // Agregar IDs de tags seleccionados
         };
-        
-        console.log('Datos preparados para el backend:', requestData);
         
         // Enviar datos al backend
         sendDataToBackend(requestData);
@@ -381,7 +368,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(result => {
-            console.log('Sitio histórico creado exitosamente:', result);
             showSuccessMessage();
             
             // Agregar el nuevo sitio al mapa
@@ -410,7 +396,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function addNewSiteToMap(siteData) {
         // Verificar que mapHandler esté disponible y el mapa esté inicializado
         if (typeof mapHandler === 'undefined' || !mapHandler.map) {
-            console.warn('mapHandler no está disponible o el mapa no está inicializado');
             return;
         }
         
@@ -419,8 +404,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Centrar el mapa en el nuevo sitio para que el usuario lo vea
         mapHandler.centerOnSite(siteData);
-        
-        console.log('Nuevo sitio agregado al mapa:', siteData.name);
     }
 
     // Función para mostrar mensaje de error
