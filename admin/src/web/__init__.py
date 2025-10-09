@@ -10,6 +10,8 @@ from .extensions import db, migrate, session_ext
 from flask_session import Session
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
+from config import get_current_config
+
 import os
 
 load_dotenv()
@@ -18,25 +20,28 @@ jwt = JWTManager()
 def create_app(env="development", static_folder="../../static"):
     app = Flask(__name__, static_folder=static_folder)
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')
+    current_config = get_current_config(env)
+    app.config.from_object(current_config)
+
+    #app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+    #app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    #app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+   # app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')
 
 
-    app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés
-    app.config['SESSION_PERMANENT'] = True
-    app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora
-    app.config['SESSION_COOKIE_SECURE'] = False # solo HTTPS
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=1)
+    #app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés
+    ##app.config['SESSION_PERMANENT'] = True
+    ##app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora
+    #app.config['SESSION_COOKIE_SECURE'] = False # solo HTTPS
+    #app.config['SESSION_COOKIE_HTTPONLY'] = True
+    #app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    #app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=1)
 
     session_ext = Session()
     session_ext.init_app(app)
 
    
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')  # mejor tomarlo de .env
+    #app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')  # mejor tomarlo de .env
     jwt.init_app(app)
     
     db.init_app(app)
