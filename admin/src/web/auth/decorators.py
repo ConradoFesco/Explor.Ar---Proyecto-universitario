@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import jsonify, session
-from src.web.models.user import User
+from src.core.models.user import User
 
 def permission_required(permission_name):
     """

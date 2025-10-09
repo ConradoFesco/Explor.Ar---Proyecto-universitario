@@ -75,9 +75,9 @@ Este script te permite:
 ### Asignar Rol Programáticamente
 
 ```python
-from src.web.models.user import User
-from src.web.models.rol_user import RolUser
-from src.web.models.rol_user_user import RolUserUser
+from src.core.models.user import User
+from src.core.models.rol_user import RolUser
+from src.core.models.rol_user_user import RolUserUser
 
 # Obtener usuario y rol
 user = User.query.filter_by(mail="usuario@ejemplo.com").first()

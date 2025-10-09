@@ -1,12 +1,17 @@
-from ..models import HistoricSite, Tag, TagHistoricSite, City, Province, StateSite
-from .. import exceptions as exc
+from src.core.models.historic_site import HistoricSite
+from src.core.models.tag import Tag
+from src.core.models.tag_historic_site import TagHistoricSite
+from src.core.models.city import City
+from src.core.models.province import Province
+from src.core.models.state_site import StateSite
+from src.web import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from ..extensions import db
-from ..services.event_service import event_service
-from ..services.tag_service import tag_service
-from ..services.city_service import city_service
-from ..services.province_service import province_service
+from src.web.extensions import db
+from src.core.services.event_service import event_service
+from src.core.services.tag_service import tag_service
+from src.core.services.city_service import city_service
+from src.core.services.province_service import province_service
 import csv
 import io
 
@@ -84,7 +89,7 @@ class HistoricSite_Service:
         return historic_site
 
     def get_historic_site(self, id):
-        from ..models import City, Province, StateSite, CategorySite
+        from src.core.models.category_site import CategorySite
         
         # Hacer join para obtener datos de relaciones
         site = HistoricSite.query.join(City, HistoricSite.id_ciudad == City.id)\
@@ -125,7 +130,6 @@ class HistoricSite_Service:
                               state_id=None, date_from=None, date_to=None, 
                               visible=None): 
         """Obtiene todos los sitios históricos con paginación, filtros y ordenamiento."""
-        from ..models import Tag, City, Province, StateSite
         from sqlalchemy import and_, or_, desc, asc
         
         # Query base
@@ -158,7 +162,6 @@ class HistoricSite_Service:
         
         # Filtro por tags (multiselección)
         if tag_ids and len(tag_ids) > 0:
-            from ..models import TagHistoricSite
             # Filtrar sitios que tengan al menos uno de los tags especificados
             query = query.join(TagHistoricSite).filter(TagHistoricSite.Tag_id.in_(tag_ids))
         
@@ -446,7 +449,6 @@ class HistoricSite_Service:
 
     def get_all_sites_for_map(self, include_deleted=False, page=1, per_page=25): 
         """Obtiene todos los sitios históricos con información para el mapa, incluyendo paginación."""
-        from ..models import Tag
         query = HistoricSite.query
         if not include_deleted:
             query = query.filter_by(deleted=False)
@@ -533,7 +535,6 @@ class HistoricSite_Service:
         Retorna una tupla (csv_content, filename) donde csv_content es el contenido del CSV
                    y filename es el nombre del archivo generado
         """
-        from ..models import Tag
         from sqlalchemy import and_, or_, desc, asc
         
         # Query base - similar al método get_all_historic_sites pero sin paginación
@@ -560,7 +561,6 @@ class HistoricSite_Service:
         
         # Filtro por tags (multiselección)
         if tag_ids and len(tag_ids) > 0:
-            from ..models import TagHistoricSite
             query = query.join(TagHistoricSite).filter(TagHistoricSite.Tag_id.in_(tag_ids))
         
         # Filtro por estado del sitio

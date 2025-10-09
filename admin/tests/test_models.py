@@ -1,12 +1,21 @@
 import pytest
 import os
 from datetime import datetime
-from src.web import create_app, db
-from src.web.models import (
-    User, CategorySite, Province, City, StateSite, 
-    HistoricSite, Tag, Event, Permission, RolUser,
-    PermissionRolUser, RolUserUser, TagHistoricSite
-)
+from src.web import create_app
+from src.web.extensions import db
+from src.core.models.user import User
+from src.core.models.category_site import CategorySite
+from src.core.models.province import Province
+from src.core.models.city import City
+from src.core.models.state_site import StateSite
+from src.core.models.historic_site import HistoricSite
+from src.core.models.tag import Tag
+from src.core.models.event import Event
+from src.core.models.permission import Permission
+from src.core.models.rol_user import RolUser
+from src.core.models.permission_rol_user import PermissionRolUser
+from src.core.models.rol_user_user import RolUserUser
+from src.core.models.tag_historic_site import TagHistoricSite
 
 @pytest.fixture
 def app():

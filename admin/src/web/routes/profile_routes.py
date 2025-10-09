@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from src.web.models.user import User
+from src.core.models.user import User
 from src.web.extensions import db
 from werkzeug.security import generate_password_hash,check_password_hash
-from src.web.services.usuario_service import user_service
+from src.core.services.usuario_service import user_service
 
 profile_bp = Blueprint("profile_bp", __name__)
 
@@ -17,7 +17,7 @@ def view_profile():
         return redirect(url_for("index"))
 
     # Pasamos el diccionario completo al template
-    return render_template("profile.html", user=user)
+    return render_template("users/profile.html", user=user)
 
 @profile_bp.route("/profile/update_password", methods=["POST"])
 def update_password():

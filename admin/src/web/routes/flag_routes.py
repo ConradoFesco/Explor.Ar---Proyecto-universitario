@@ -1,9 +1,9 @@
 from flask import Blueprint, jsonify, render_template, request,redirect,url_for
 from src.web.auth.decorators import permission_required
 from flask import session,url_for
-from src.web.services.flag_service import flag_service
+from src.core.services.flag_service import flag_service
 from datetime import datetime
-from src.web.models.user import User
+from src.core.models.user import User
 
 flag_api = Blueprint("flag_api", __name__, url_prefix="/flags")
 
@@ -30,7 +30,7 @@ def list_flags_page():
     Muestra la página de Feature Flags en el panel de administración.
     """
     flags = flag_service.get_all_flags()
-    return render_template("list_flags.html", flags=flags)
+    return render_template("flags/list_flags.html", flags=flags)
 
 # === API: Actualizar mensaje de mantenimiento ===
 @flag_api.route("/<int:flag_id>/message", methods=["POST"])

@@ -1,12 +1,12 @@
 # services/tag_service.py
 
-from src.web.models.tag import Tag
-from src.web.models.tag_historic_site import TagHistoricSite
-from ..extensions import db
+from src.core.models.tag import Tag
+from src.core.models.tag_historic_site import TagHistoricSite
+from src.web.extensions import db
 from slugify import slugify
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
-from src.web.models.historic_site import HistoricSite
+from src.core.models.historic_site import HistoricSite
 
 class TagService:
     def create_tag(self, data): 

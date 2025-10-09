@@ -9,9 +9,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.web import create_app
 from src.web.extensions import db
-from src.web.models.user import User
-from src.web.models.rol_user import RolUser
-from src.web.models.rol_user_user import RolUserUser
+from src.core.models.user import User
+from src.core.models.rol_user import RolUser
+from src.core.models.rol_user_user import RolUserUser
 
 def list_users():
     """Listar todos los usuarios disponibles"""

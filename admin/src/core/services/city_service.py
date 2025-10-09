@@ -1,6 +1,6 @@
-from ..models import City
-from ..extensions import db
-from .. import exceptions as exc
+from src.core.models.city import City
+from src.web.extensions import db
+from src.web import exceptions as exc
 
 class CityService:
     def find_or_create(self, name, province_obj):

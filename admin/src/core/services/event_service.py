@@ -1,6 +1,6 @@
-from src.web.models.event import Event
-from ..extensions import db
-from .. import exceptions as exc
+from src.core.models.event import Event
+from src.web.extensions import db
+from src.web import exceptions as exc
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
@@ -32,7 +32,7 @@ class EventService:
     
     def get_all_events(self, id, include_deleted=False, page=1, per_page=25, 
                        user_id=None, type_action=None, date_from=None, date_to=None):
-        from src.web.models.user import User
+        from src.core.models.user import User
         
         query = Event.query.filter_by(id_site=id)
         if not include_deleted:

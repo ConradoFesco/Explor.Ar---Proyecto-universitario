@@ -1,6 +1,6 @@
-from src.web.models.user import User
-from src.web.models.rol_user import RolUser
-from src.web.models.rol_user_user import RolUserUser
+from src.core.models.user import User
+from src.core.models.rol_user import RolUser
+from src.core.models.rol_user_user import RolUserUser
 from src.web.extensions import db
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
@@ -72,11 +72,17 @@ class UserService:
         user_dict['current_roles'] = self.get_user_roles(user_id)
         return user_dict
 
-    def update_user(self, user_id, changed_fields, commit=True):
+    def update_user(self, user_id, changed_fields, admin_user_id=None, commit=True):
         """Actualiza un usuario existente"""
         user = User.query.get(user_id)
         if user is None:
             raise NotFoundError(f"Usuario no encontrado")
+        
+        # Verificar si el usuario a editar es SuperAdmin
+        if self._is_super_admin(user):
+            # Solo puede editarse a sí mismo
+            if admin_user_id and user_id != admin_user_id:
+                raise ValidationError("No se puede editar un SuperAdmin desde el listado de usuarios")
         
         # Actualizar solo los campos que vienen en changed_fields
         if "name" in changed_fields:
@@ -129,6 +135,14 @@ class UserService:
         # Obtener el ID del administrador desde los datos de sesión
         admin_id = admin_user_data if isinstance(admin_user_data, int) else admin_user_data.get('id', 1)
         
+        # Verificar que el administrador no intente eliminarse a sí mismo
+        if user_id == admin_id:
+            raise ValidationError("No puedes eliminarte a ti mismo")
+        
+        # Verificar si el usuario a eliminar es superAdmin
+        if self._is_super_admin(user):
+            raise ValidationError("No se puede eliminar un usuario con rol de SuperAdmin")
+        
         # Marcar como eliminado con información adicional
         user.active = False
         user.deleted = True
@@ -178,8 +192,8 @@ class UserService:
                 query = query.filter_by(active=active_value)
             if filters.get('rol'):
                 # Filtrar por rol usando la relación many-to-many
-                from src.web.models.rol_user_user import RolUserUser
-                from src.web.models.rol_user import RolUser
+                from src.core.models.rol_user_user import RolUserUser
+                from src.core.models.rol_user import RolUser
                 query = query.join(RolUserUser).join(RolUser).filter(RolUser.name.ilike(f"%{filters['rol']}%"))
         
         # Aplicar ordenamiento
@@ -331,11 +345,19 @@ class UserService:
         return [role.to_dict() for role in roles if role.name != 'superAdmin']
 
     def _is_admin_user(self, user):
-        """Verifica si un usuario es administrador basándose en sus permisos"""
-        # Verificar si tiene el rol de administrador
+        """Verifica si un usuario es administrador o superadmin basándose en sus permisos"""
+        # Verificar si tiene el rol de admin o superadmin
         for role_rel in user.user_roles:
             role = role_rel.rol_user
-            if role.name.lower() in ['administrador', 'admin']:
+            if role.name.lower() in ['admin', 'superadmin']:
+                return True
+        return False
+    
+    def _is_super_admin(self, user):
+        """Verifica si un usuario es superadmin"""
+        for role_rel in user.user_roles:
+            role = role_rel.rol_user
+            if role.name.lower() == 'superadmin':
                 return True
         return False
 
@@ -350,6 +372,19 @@ class UserService:
         target_user = User.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+        
+        # Verificar si el usuario a editar es SuperAdmin
+        if self._is_super_admin(target_user):
+            # Solo puede editarse a sí mismo
+            if user_id != admin_user_id:
+                raise ValidationError("No se puede modificar los roles de un SuperAdmin")
+            
+            # Si es SuperAdmin editándose a sí mismo, preservar el rol de SuperAdmin
+            # Obtener el ID del rol superAdmin
+            superadmin_role = RolUser.query.filter_by(name='superAdmin').first()
+            if superadmin_role and superadmin_role.id not in role_ids:
+                # Agregar el rol de SuperAdmin a los roles que se van a asignar
+                role_ids = list(role_ids) + [superadmin_role.id]
         
         # Verificar que el administrador tiene permisos para modificar roles de administradores
         if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):

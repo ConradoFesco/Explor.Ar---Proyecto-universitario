@@ -11,7 +11,8 @@ from flask_session import Session
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
 from config import get_current_config
-from src.web.models import User, Flag
+from src.core.models.user import User
+from src.core.models.flag import Flag
 import os
 
 load_dotenv()
@@ -123,12 +124,12 @@ def create_app(env="development", static_folder="../../static"):
         
         # Usuario normal: mostrar página de mantenimiento
         return render_template(
-            "mantenimiento.html",
+            "auth/mantenimiento.html",
             message=admin_flag.message or "El sitio de administración está temporalmente inactivo."
         )
     @app.route("/")
     def index():
-        return render_template("login.html")
+        return render_template("auth/login.html")
 
     @app.context_processor
     def inject_user():
@@ -155,7 +156,7 @@ def create_app(env="development", static_folder="../../static"):
         if "user_id" not in session:
             return redirect(url_for("index"))
         userd = User.query.get(session["user_id"])
-        return render_template("home.html", user=userd)
+        return render_template("shared/home.html", user=userd)
     @app.route("/logout")
     def logout():
         session.pop("user_id", None)
@@ -165,25 +166,25 @@ def create_app(env="development", static_folder="../../static"):
     def lista_sitios():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        return render_template("lista_sitios.html")
+        return render_template("sites/lista_sitios.html")
 
     @app.route("/alta-sitios")
     def alta_sitios():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        return render_template("alta_sitios.html")
+        return render_template("sites/alta_sitios.html")
 
     @app.route("/modificar-sitios")
     def modificar_sitios():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        return render_template("modificar_sitios.html")
+        return render_template("sites/modificar_sitios.html")
 
     @app.route("/tags")
     def lista_tags():
         if "user_id" not in session:
             return redirect(url_for("index"))
-        return render_template("list_tags.html")
+        return render_template("tags/list_tags.html")
 
     from .routes.auth_routes import login_bp
     app.register_blueprint(login_bp, url_prefix="/api")
@@ -230,15 +231,15 @@ def create_app(env="development", static_folder="../../static"):
 
     @app.route("/users")
     def list_users():
-        return render_template('list_users.html')
+        return render_template('users/list_users.html')
 
     @app.route("/users/<int:user_id>/editar")
     def edit_user(user_id):
-        return render_template('edit_user.html', user_id=user_id)
+        return render_template('users/edit_user.html', user_id=user_id)
     
     @app.route('/users/nuevo')
     def create_user_form():
-        return render_template('create_user.html')
+        return render_template('users/create_user.html')
 
     from src.web.handlers import error
     
@@ -246,7 +247,8 @@ def create_app(env="development", static_folder="../../static"):
     app.register_error_handler(401, error.unauthorized)
     app.register_error_handler(500, error.internal_server_error)
 
-    from . import models
+    # Importar modelos para que SQLAlchemy los registre
+    from src.core import models
 
     
     from .routes.user_routes import user_api

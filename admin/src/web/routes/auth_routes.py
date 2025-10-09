@@ -1,10 +1,10 @@
 # src/web/routes/login_routes.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
-from ..models.user import User
+from src.core.models.user import User
 from ..extensions import db   # importa tu instancia SQLAlchemy
 from .. import exceptions as exc
-from ..services.auth_service import auth_service
-from ..models.flag import Flag
+from src.core.services.auth_service import auth_service
+from src.core.models.flag import Flag
 login_bp = Blueprint("login_bp", __name__)
 
 @login_bp.route("/login", methods=["POST"])
