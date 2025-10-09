@@ -49,7 +49,7 @@ def create_app(env="development", static_folder="../../static"):
     jwt.init_app(app)
     with app.app_context():
         if env == "production":
-            from src.web.commands.seeds import seed_data as seed_db
+            from src.web.commands.seeds import main as seed_db
             # Borra y crea la base de datos
             db.drop_all()
             db.create_all()
