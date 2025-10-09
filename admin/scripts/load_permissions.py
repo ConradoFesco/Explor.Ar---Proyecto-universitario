@@ -119,18 +119,7 @@ def assign_permissions_to_roles(roles):
     
     # Definir qué permisos tiene cada rol
     role_permissions = {
-        "superAdmin": [
-            # TODOS los permisos del sistema
-            "create_historic_site", "get_historic_site", "get_all_historic_sites", 
-            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
-            "create_user", "get_user", "get_all_users", "update_user", "delete_user",
-            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
-            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
-            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "flag_admin", "view_profile", "update_password"
-        ],
+        
         "admin": [
             # Todos los permisos excepto gestión de flags
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 

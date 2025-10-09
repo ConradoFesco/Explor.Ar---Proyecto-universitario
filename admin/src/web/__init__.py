@@ -11,7 +11,7 @@ from flask_session import Session
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
 from config import get_current_config
-
+from src.web.models import User, Flag
 import os
 
 load_dotenv()
@@ -48,10 +48,14 @@ def create_app(env="development", static_folder="../../static"):
     migrate.init_app(app, db)
     jwt.init_app(app)
     with app.app_context():
-        from .models.user import User
-        from .models.category_site import CategorySite
-        from .models.flag import Flag
-        from .models.user import User
+        if env == "production":
+            from src.web.commands.seeds import seed_data as seed_db
+            # Borra y crea la base de datos
+            db.drop_all()
+            db.create_all()
+            # Corre los seeds
+            seed_db()
+        
 
     @app.before_request
     def check_admin_maintenance():
