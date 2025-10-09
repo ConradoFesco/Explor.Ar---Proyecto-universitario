@@ -1,4 +1,4 @@
-{% extends "layout.html" %}
+{% extends "shared/layout.html" %}
 
 {% block title %}Editar Usuario{% endblock %}
 
@@ -137,6 +137,7 @@
     // Variable global para almacenar los datos originales del usuario
     let originalUserData = null;
     const userId = {{ user_id }};
+    const currentUserId = {{ current_user.id if current_user else 'null' }};
 
     // Función para cargar los datos del usuario
     async function loadUserData() {
@@ -321,7 +322,7 @@
                     method: "PUT",
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data_user: { id: 2 }, // TODO: Obtener ID del admin logueado
+                        data_user: { id: currentUserId },
                         data_new: changedFields
                     })
                 });
@@ -338,7 +339,7 @@
                     method: "PUT",
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data_user: { id: 2 }, // TODO: Obtener ID del admin logueado
+                        data_user: { id: currentUserId },
                         role_ids: selectedRoles
                     })
                 });

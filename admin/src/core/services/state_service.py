@@ -1,5 +1,5 @@
-from src.web.models.state_site import StateSite
-from ..extensions import db
+from src.core.models.state_site import StateSite
+from src.web.extensions import db
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 

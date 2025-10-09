@@ -1,6 +1,6 @@
 from src.web import create_app
 from src.web.extensions import db
-from src.web.models.user import User
+from src.core.models.user import User
 from werkzeug.security import generate_password_hash
 
 app = create_app()

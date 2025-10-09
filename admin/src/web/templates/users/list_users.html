@@ -1,4 +1,4 @@
-{% extends "layout.html" %}
+{% extends "shared/layout.html" %}
 
 {% block title %}Gestión de usuarios{% endblock %}
 
@@ -141,6 +141,7 @@
 <script>
     let currentPage = 1;
     const perPage = 25;
+    const currentUserId = {{ current_user.id if current_user else 'null' }};
     let currentFilters = {
         search: '',
         sort_by: 'created_at',
@@ -327,6 +328,51 @@
                     
                     const createdDate = user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '2024-01-15';
                     
+                    // Verificar si el usuario puede ser editado o eliminado
+                    const isSuperAdmin = userRoles.some(role => role.toLowerCase() === 'superadmin');
+                    const isCurrentUser = user.id === currentUserId;
+                    // Un SuperAdmin solo puede ser editado por sí mismo
+                    const canEdit = !isSuperAdmin || isCurrentUser;
+                    const canDelete = !isSuperAdmin && !isCurrentUser;
+                    
+                    // Generar botón de editar condicionalmente
+                    const editButton = canEdit ? `
+                        <button onclick="window.location.href='/users/${user.id}/editar'" 
+                            class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition duration-200"
+                            title="Editar usuario">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                    ` : `
+                        <button disabled
+                            class="text-gray-300 p-2 cursor-not-allowed rounded transition duration-200"
+                            title="No puedes editar a otro SuperAdmin">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                    `;
+                    
+                    // Generar botón de eliminar condicionalmente
+                    const deleteButton = canDelete ? `
+                        <button onclick="openDeleteModal(${user.id}, '${user.name} ${user.last_name}')" 
+                            class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition duration-200"
+                            title="Eliminar">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    ` : `
+                        <button disabled
+                            class="text-gray-300 p-2 cursor-not-allowed rounded transition duration-200"
+                            title="${isSuperAdmin ? 'No se puede eliminar SuperAdmin' : 'No puedes eliminarte a ti mismo'}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    `;
+                    
                     listItem.innerHTML = `
                         <div class="flex items-center gap-4 flex-1">
                             <div class="w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center font-semibold text-lg flex-shrink-0">
@@ -343,23 +389,11 @@
                                 <p class="text-xs text-gray-500">${createdDate}</p>
                             </div>
                             <span class="px-3 py-1 text-xs font-semibold rounded-full ${activeStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                                ${activeStatus ? 'Activo' : 'Inactivo'}
+${activeStatus ? 'Activo' : 'Inactivo'}
                             </span>
                             <div class="flex items-center gap-2">
-                                <button onclick="window.location.href='/users/${user.id}/editar'" 
-                                    class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition duration-200"
-                                    title="Editar usuario">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                    </svg>
-                                </button>
-                                <button onclick="openDeleteModal(${user.id}, '${user.name} ${user.last_name}')" 
-                                    class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition duration-200"
-                                    title="Eliminar">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                    </svg>
-                                </button>
+                                ${editButton}
+                                ${deleteButton}
                             </div>
                         </div>
                     `;
@@ -468,7 +502,7 @@
         try {
             const deletePayload = {
                 data_user: {
-                    id: 2, // NOTA: Reemplazar con el id del admin
+                    id: currentUserId
                 },
                 reason: reason
             };
@@ -489,14 +523,31 @@
                     data = await response.json();
                 }
 
-                alert(data.message || "Usuario eliminado correctamente.");
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Eliminado!',
+                    text: data.message || 'Usuario eliminado correctamente',
+                    confirmButtonColor: '#3B82F6',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
                 loadUsers(currentPage); // Recargar la lista actual
             } else {
                 const error = await response.json();
-                alert('Error al eliminar usuario: ' + (error.error || 'Error desconocido'));
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.error || 'Error al eliminar usuario',
+                    confirmButtonColor: '#dc2626'
+                });
             }
         } catch (error) {
-            alert('Error de conexión: ' + error.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión',
+                text: error.message,
+                confirmButtonColor: '#dc2626'
+            });
         }
 
         closeDeleteModal();

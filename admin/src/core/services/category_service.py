@@ -1,5 +1,5 @@
-from src.web.models.category_site import CategorySite
-from ..extensions import db
+from src.core.models.category_site import CategorySite
+from src.web.extensions import db
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 

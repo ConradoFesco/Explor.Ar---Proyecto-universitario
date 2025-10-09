@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, Response
-from src.web.services.HistoricSite_Service import historic_site_service
+from src.core.services.HistoricSite_Service import historic_site_service
 from .. import exceptions as exc
 from flask import session
 from src.web.auth.decorators import permission_required

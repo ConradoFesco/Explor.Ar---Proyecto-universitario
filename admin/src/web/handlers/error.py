@@ -15,7 +15,7 @@ def not_found(error):
         description="La página que estás buscando no existe."
     )
 
-    return render_template('error.html', error=error), 404
+    return render_template('shared/error.html', error=error), 404
 
 def unauthorized(error):
     error = HTTPError(
@@ -24,7 +24,7 @@ def unauthorized(error):
         description="No tenés permisos para acceder a este recurso."
     )
 
-    return render_template('error.html', error=error), 401
+    return render_template('shared/error.html', error=error), 401
 
 def internal_server_error(error):
     error = HTTPError(
@@ -33,4 +33,4 @@ def internal_server_error(error):
         description="Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo más tarde."
     )
 
-    return render_template('error.html', error=error), 500
+    return render_template('shared/error.html', error=error), 500

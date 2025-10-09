@@ -1,6 +1,6 @@
-from ..models import Province
-from ..extensions import db
-from .. import exceptions as exc
+from src.core.models.province import Province
+from src.web.extensions import db
+from src.web import exceptions as exc
 
 class ProvinceService:
     def find_or_create(self, name):

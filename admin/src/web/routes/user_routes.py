@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template
-from src.web.services.usuario_service import user_service
+from src.core.services.usuario_service import user_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
 from flask import session
@@ -116,8 +116,8 @@ def get_user(user_id):
 def update_user(user_id):
     try:
         # Obtener datos del usuario desde la sesión
-        user_data = session.get('user_id')
-        if not user_data:
+        admin_user_id = session.get('user_id')
+        if not admin_user_id:
             return jsonify({'error': 'Usuario no autenticado'}), 401
         
         # Obtener datos del JSON
@@ -131,7 +131,7 @@ def update_user(user_id):
             return jsonify({'error': 'No se proporcionaron campos para actualizar'}), 400
         
         # Llamar al servicio para actualizar el usuario
-        result = user_service.update_user(user_id, changed_fields)
+        result = user_service.update_user(user_id, changed_fields, admin_user_id)
         
         return jsonify({
             "message": "Usuario actualizado correctamente",
@@ -350,5 +350,5 @@ def update_user_roles(user_id):
 
 @user_api.route('/page', methods=['GET'])
 def list_users_page():
-    return render_template("list_users.html")
+    return render_template("users/list_users.html")
 

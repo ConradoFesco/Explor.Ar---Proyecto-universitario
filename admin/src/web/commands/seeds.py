@@ -9,14 +9,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from src.web import create_app
 from src.web.extensions import db
-from src.web.models.permission import Permission
-from src.web.models.rol_user import RolUser
-from src.web.models.permission_rol_user import PermissionRolUser
-from src.web.models.rol_user_user import RolUserUser
-from src.web.models.user import User
-from src.web.models.category_site import CategorySite
-from src.web.models.state_site import StateSite
-from src.web.models.flag import Flag
+from src.core.models.permission import Permission
+from src.core.models.rol_user import RolUser
+from src.core.models.permission_rol_user import PermissionRolUser
+from src.core.models.rol_user_user import RolUserUser
+from src.core.models.user import User
+from src.core.models.category_site import CategorySite
+from src.core.models.state_site import StateSite
+from src.core.models.flag import Flag
 
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""

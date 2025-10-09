@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from src.web.services.tag_service import tag_service
+from src.core.services.tag_service import tag_service
 from src.web.auth.decorators import permission_required
 from .. import exceptions as exc
 

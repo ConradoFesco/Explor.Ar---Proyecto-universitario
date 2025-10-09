@@ -1,7 +1,7 @@
-from src.web.models.user import User
+from src.core.models.user import User
 from werkzeug.security import generate_password_hash, check_password_hash
-from .. import exceptions as exc
-from ..extensions import db
+from src.web import exceptions as exc
+from src.web.extensions import db
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 

@@ -1,4 +1,4 @@
-{% extends 'layout.html' %}
+{% extends 'shared/layout.html' %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
@@ -573,22 +573,22 @@
                 
                 <!-- Información de relaciones -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    ${site.id_ciudad ? `
+                    ${site.city_name ? `
                         <div class="text-center p-2 bg-blue-50 rounded">
-                            <span class="font-medium text-blue-700">Ciudad ID</span>
-                            <p class="text-blue-600">${site.id_ciudad}</p>
+                            <span class="font-medium text-blue-700">Ciudad</span>
+                            <p class="text-blue-600">${site.city_name}</p>
                         </div>
                     ` : ''}
-                    ${site.id_estado ? `
+                    ${site.state_name ? `
                         <div class="text-center p-2 bg-green-50 rounded">
-                            <span class="font-medium text-green-700">Estado ID</span>
-                            <p class="text-green-600">${site.id_estado}</p>
+                            <span class="font-medium text-green-700">Estado</span>
+                            <p class="text-green-600">${site.state_name}</p>
                         </div>
                     ` : ''}
-                    ${site.id_category ? `
+                    ${site.category_name ? `
                         <div class="text-center p-2 bg-purple-50 rounded">
-                            <span class="font-medium text-purple-700">Categoría ID</span>
-                            <p class="text-purple-600">${site.id_category}</p>
+                            <span class="font-medium text-purple-700">Categoría</span>
+                            <p class="text-purple-600">${site.category_name}</p>
                         </div>
                     ` : ''}
                 </div>

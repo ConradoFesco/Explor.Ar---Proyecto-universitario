@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from src.web.services.event_service import event_service
+from src.core.services.event_service import event_service
 from .. import exceptions as exc
 from src.web.auth.decorators import permission_required
 

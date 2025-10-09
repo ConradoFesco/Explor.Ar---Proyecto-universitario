@@ -1,6 +1,6 @@
 from datetime import datetime
-from src.web.models.flag import Flag
-from src.web.models.user import User
+from src.core.models.flag import Flag
+from src.core.models.user import User
 from src.web.extensions import db
 
 class FlagService:

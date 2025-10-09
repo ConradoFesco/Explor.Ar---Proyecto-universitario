@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from src.web.services.category_service import category_service
+from src.core.services.category_service import category_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
 

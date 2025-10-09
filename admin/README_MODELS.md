@@ -108,8 +108,11 @@ flask db upgrade
 ### Ejemplo Básico
 
 ```python
-from src.web import create_app, db
-from src.web.models import User, HistoricSite, CategorySite
+from src.web import create_app
+from src.web.extensions import db
+from src.core.models.user import User
+from src.core.models.historic_site import HistoricSite
+from src.core.models.category_site import CategorySite
 
 app = create_app()
 
@@ -254,9 +257,11 @@ user_data = user.to_dict()
 ### Error de Importación
 
 ```python
-# Asegúrate de importar correctamente
-from src.web.models import User, HistoricSite
+# Asegúrate de importar correctamente desde src.core.models
+from src.core.models.user import User
+from src.core.models.historic_site import HistoricSite
 # No uses: from models import User
+# No uses: from src.web.models import User (estructura antigua)
 ```
 
 ### Error de Migraciones
