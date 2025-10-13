@@ -34,4 +34,4 @@ def logout():
     session.pop("user_id", None)
     if request.is_json:
         return jsonify({"message": "Sesión cerrada correctamente"})
-    return redirect(url_for("index"))
+    return redirect(url_for("main.index"))

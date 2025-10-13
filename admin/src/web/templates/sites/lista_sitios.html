@@ -5,7 +5,7 @@
     <div class="bg-white rounded-xl shadow-lg p-8">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-gray-800">Listado de Sitios Históricos</h2>
-            <a href="{{ url_for('alta_sitios') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+            <a href="{{ url_for('main.alta_sitios') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200">
                 + Agregar Sitio Histórico
             </a>
         </div>
@@ -622,7 +622,7 @@
         closeModal();
         
         // Redirigir a la página de edición
-        window.location.href = `{{ url_for('modificar_sitios') }}?edit=${siteId}`;
+        window.location.href = `{{ url_for('main.modificar_sitios') }}?edit=${siteId}`;
     }
 
     // Función para eliminar un sitio histórico

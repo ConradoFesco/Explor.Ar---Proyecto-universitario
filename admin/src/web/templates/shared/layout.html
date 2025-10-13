@@ -84,7 +84,7 @@
 
             <!-- Logo centrado -->
             <div class="absolute left-1/2 transform -translate-x-1/2">
-                <a href="{{ url_for('home') }}" class="cursor-pointer">
+                <a href="{{ url_for('main.home') }}" class="cursor-pointer">
                     <img src="{{ url_for('static', filename='img/logo.png') }}" 
                         alt="HeritageTech Logo" 
                         class="h-24 w-24 hover:opacity-80 transition-opacity duration-200">
@@ -135,7 +135,7 @@
             {% block sidebar %}
             <!-- Sitios Históricos (NO accesible para usuario común) -->
             {% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
-            <a href="{{ url_for('lista_sitios') }}" 
+            <a href="{{ url_for('main.lista_sitios') }}" 
                 class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
                 <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
@@ -167,7 +167,7 @@
 
             <!-- Gestión de Tags (NO accesible para usuario común) -->
             {% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
-            <a href="{{ url_for('lista_tags') }}" 
+            <a href="{{ url_for('main.lista_tags') }}" 
                 class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
                 <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 

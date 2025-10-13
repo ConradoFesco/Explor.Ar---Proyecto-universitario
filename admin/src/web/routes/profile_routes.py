@@ -9,12 +9,12 @@ profile_bp = Blueprint("profile_bp", __name__)
 @profile_bp.route("/profile", methods=["GET"])
 def view_profile():
     if "user_id" not in session:
-        return redirect(url_for("index"))
+        return redirect(url_for("main.index"))
     
     try:
         user = user_service.get_user(session["user_id"])  # trae un dict
     except Exception:
-        return redirect(url_for("index"))
+        return redirect(url_for("main.index"))
 
     # Pasamos el diccionario completo al template
     return render_template("users/profile.html", user=user)

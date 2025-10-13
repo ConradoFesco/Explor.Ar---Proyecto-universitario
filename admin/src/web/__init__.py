@@ -1,257 +1,190 @@
-from flask import Flask, request, session, redirect, url_for
-from flask import render_template
-from src.web.handlers import error
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from dotenv import load_dotenv
-from werkzeug.security import generate_password_hash, check_password_hash
-from .routes.auth_routes import login_bp
-from .extensions import db, migrate, session_ext
-from flask_session import Session
-from flask_jwt_extended import JWTManager
-from datetime import timedelta
-from config import get_current_config
-from src.core.models.user import User
-from src.core.models.flag import Flag
+"""
+Aplicación Flask - Admin de Sitios Históricos
+Factory para crear y configurar la aplicación Flask.
+"""
 import os
+from flask import Flask
+from dotenv import load_dotenv
+from sqlalchemy import inspect
 
+from config import get_current_config
+from .extensions import db, migrate, session_ext
+
+# Cargar variables de entorno
 load_dotenv()
 
-jwt = JWTManager() 
 def create_app(env="development", static_folder="../../static"):
+    """
+    Factory para crear y configurar la aplicación Flask.
+    
+    Args:
+        env (str): Ambiente de ejecución ('development', 'production', 'testing')
+        static_folder (str): Ruta a la carpeta de archivos estáticos
+        
+    Returns:
+        Flask: Aplicación Flask configurada
+    """
     app = Flask(__name__, static_folder=static_folder)
 
+    # Cargar configuración
+    configure_app(app, env)
+    
+    # Inicializar extensiones
+    initialize_extensions(app)
+    
+    # Registrar blueprints
+    register_blueprints(app)
+    
+    # Registrar hooks (before_request, context_processor)
+    register_hooks(app)
+    
+    # Registrar filtros de templates
+    register_filters(app)
+    
+    # Registrar manejadores de errores
+    register_error_handlers(app)
+    
+    # Registrar comandos CLI
+    register_commands(app)
+    
+    # Importar modelos para que SQLAlchemy los registre
+    with app.app_context():
+        from src.core import models
+    
+    return app
+
+
+def configure_app(app, env):
+    """
+    Carga la configuración de la aplicación.
+    
+    Args:
+        app: Instancia de la aplicación Flask
+        env (str): Ambiente de ejecución
+    """
     current_config = get_current_config(env)
     app.config.from_object(current_config)
 
-    #app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-    #app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    #app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
-   # app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')
-
-
-    #app.config['SESSION_TYPE'] = 'filesystem'  # o 'redis' si tenés
-    ##app.config['SESSION_PERMANENT'] = True
-    ##app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hora
-    #app.config['SESSION_COOKIE_SECURE'] = False # solo HTTPS
-    #app.config['SESSION_COOKIE_HTTPONLY'] = True
-    #app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    #app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=1)
-
-    session_ext = Session()
-    session_ext.init_app(app)
-
    
-    #app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'super-secret')  # mejor tomarlo de .env
-    jwt.init_app(app)
+def initialize_extensions(app):
+    """
+    Inicializa todas las extensiones de Flask.
     
+    Args:
+        app: Instancia de la aplicación Flask
+    """
     db.init_app(app)
     migrate.init_app(app, db)
-    jwt.init_app(app)
+    session_ext.init_app(app)
+    
+    # Inicialización automática de BD en producción (solo si no existe)
+    initialize_database_if_needed(app)
+
+
+def register_blueprints(app):
+    """
+    Registra todos los blueprints de la aplicación.
+    
+    Args:
+        app: Instancia de la aplicación Flask
+    """
+    from .blueprints import register_blueprints as _register_blueprints
+    _register_blueprints(app)
+
+
+def register_hooks(app):
+    """
+    Registra hooks (before_request, context_processor, etc.).
+    
+    Args:
+        app: Instancia de la aplicación Flask
+    """
+    from .hooks import register_hooks as _register_hooks
+    _register_hooks(app)
+
+
+def register_filters(app):
+    """
+    Registra filtros personalizados de templates.
+    
+    Args:
+        app: Instancia de la aplicación Flask
+    """
+    from .template_filters import register_filters as _register_filters
+    _register_filters(app)
+
+
+def register_error_handlers(app):
+    """
+    Registra manejadores de errores HTTP.
+    
+    Args:
+        app: Instancia de la aplicación Flask
+    """
+    from .handlers.error import register_error_handlers as _register_error_handlers
+    _register_error_handlers(app)
+
+
+def register_commands(app):
+    """
+    Registra comandos CLI personalizados.
+    
+    Args:
+        app: Instancia de la aplicación Flask
+    """
+    from .commands.cli import register_commands as _register_commands
+    _register_commands(app)
+
+
+def initialize_database_if_needed(app):
+    """
+    Inicializa la base de datos automáticamente si es necesario.
+    
+    Esta función detecta si la base de datos está vacía (sin tablas) y,
+    de ser así, crea las tablas y ejecuta los seeds iniciales.
+    
+    Es segura para producción porque:
+    - Solo actúa si NO existen tablas (primer deploy)
+    - En deploys posteriores, no hace nada
+    - Puede deshabilitarse con variable de entorno
+    
+    Args:
+        app: Instancia de la aplicación Flask
+    """
+    # Permitir deshabilitar la inicialización automática
+    auto_init = os.getenv("AUTO_INIT_DB", "true").lower() == "true"
+    
+    if not auto_init:
+        return
+    
     with app.app_context():
-        if env == "production":
-            from src.web.commands.seeds import main as seed_db
-            # Borra y crea la base de datos
-            db.drop_all()
-            db.create_all()
-            # Corre los seeds
-            seed_db()
-        
-
-    @app.before_request
-    def check_admin_maintenance():
-        """
-        Verifica antes de cada petición si el modo mantenimiento está activo.
-        Solo los superAdmin pueden acceder cuando está activo.
-        """
-        # Ignorar rutas públicas (login, static, logout, archivos estáticos)
-        public_endpoints = [
-            'login_bp.login',      # POST /api/login
-            'login_bp.logout',     # GET/POST /api/logout
-            'index',               # GET /
-            'static',              # Archivos estáticos
-            None                   # Peticiones sin endpoint definido
-        ]
-        
-        if request.endpoint in public_endpoints:
-            return None
-        
-        # Ignorar todas las peticiones a /static/
-        if request.path and request.path.startswith('/static/'):
-            return None
-        
-        # Consultar el flag de mantenimiento
         try:
-            admin_flag = Flag.query.filter_by(name="admin_maintenance_mode").first()
-        except Exception as e:
-            # Si hay error al consultar la BD, permitir acceso
-            return None
-        
-        # Si el flag NO existe o está desactivado, continuar normalmente
-        if not admin_flag or not admin_flag.enabled:
-            return None
-        
-        # Flag activo: verificar si el usuario es superAdmin
-        user_id = session.get("user_id")
-        
-        # Si no está logueado, permitir acceso (otras rutas lo redirigen)
-        if not user_id:
-            return None
-        
-        # Obtener el usuario completo
-        try:
-            user = User.query.get(user_id)
-        except Exception as e:
-            # Error en BD, limpiar sesión
-            session.clear()
-            return redirect(url_for('index'))
-        
-        # Si no se encuentra el usuario, cerrar sesión y redirigir
-        if not user:
-            session.clear()
-            return redirect(url_for('index'))
-        
-        # Verificar si es superAdmin
-        try:
-            user_roles = user.get_user_roles()
+            # Verificar si existen tablas en la base de datos
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
             
-            if 'superAdmin' in user_roles:
-                # SuperAdmin puede acceder siempre
-                return None
+            # Si no hay tablas, es el primer deploy
+            if not tables:
+                app.logger.info("🔧 Base de datos vacía detectada. Inicializando...")
+                
+                # Importar modelos
+                from src.core import models
+                
+                # Crear todas las tablas
+                db.create_all()
+                app.logger.info("✅ Tablas creadas correctamente")
+                
+                # Ejecutar seeds
+                try:
+                    from src.web.commands.seeds import main as seed_db
+                    seed_db()
+                    app.logger.info("✅ Seeds ejecutados correctamente")
+                except Exception as e:
+                    app.logger.error(f"❌ Error al ejecutar seeds: {e}")
+                    # No fallar si los seeds fallan, la BD ya está creada
+            else:
+                app.logger.info(f"✅ Base de datos ya inicializada ({len(tables)} tablas encontradas)")
+                
         except Exception as e:
-            # Error al obtener roles, asumir no es superAdmin
-            pass
-        
-        # Usuario normal: mostrar página de mantenimiento
-        return render_template(
-            "auth/mantenimiento.html",
-            message=admin_flag.message or "El sitio de administración está temporalmente inactivo."
-        )
-    @app.route("/")
-    def index():
-        return render_template("auth/login.html")
-
-    @app.context_processor
-    def inject_user():
-        """Inyecta el usuario actual en todos los templates"""
-        user_id = session.get("user_id")
-        if user_id:
-            try:
-                user = User.query.get(user_id)
-                if user:
-                    user_roles = user.get_user_roles()
-                    user_initials = f"{user.name[0]}{user.last_name[0]}".upper() if user.name and user.last_name else "U"
-                    return {
-                        'current_user': user,
-                        'user_roles': user_roles,
-                        'user_initials': user_initials,
-                        'is_admin': 'admin' in user_roles or 'superAdmin' in user_roles
-                    }
-            except Exception as e:
-                pass
-        return {'current_user': None, 'user_roles': [], 'user_initials': '', 'is_admin': False}
-
-    @app.route("/home")
-    def home():
-        if "user_id" not in session:
-            return redirect(url_for("index"))
-        userd = User.query.get(session["user_id"])
-        return render_template("shared/home.html", user=userd)
-    @app.route("/logout")
-    def logout():
-        session.pop("user_id", None)
-        return redirect(url_for("index"))
-
-    @app.route("/sitios")
-    def lista_sitios():
-        if "user_id" not in session:
-            return redirect(url_for("index"))
-        return render_template("sites/lista_sitios.html")
-
-    @app.route("/alta-sitios")
-    def alta_sitios():
-        if "user_id" not in session:
-            return redirect(url_for("index"))
-        return render_template("sites/alta_sitios.html")
-
-    @app.route("/modificar-sitios")
-    def modificar_sitios():
-        if "user_id" not in session:
-            return redirect(url_for("index"))
-        return render_template("sites/modificar_sitios.html")
-
-    @app.route("/tags")
-    def lista_tags():
-        if "user_id" not in session:
-            return redirect(url_for("index"))
-        return render_template("tags/list_tags.html")
-
-    from .routes.auth_routes import login_bp
-    app.register_blueprint(login_bp, url_prefix="/api")
-
-    from .routes.profile_routes import profile_bp
-    app.register_blueprint(profile_bp)
-
-    from .routes.tag_routes import tag_api
-    app.register_blueprint(tag_api, url_prefix="/api")
-
-    from .routes.HistoricSite_Routes import site_api
-    app.register_blueprint(site_api, url_prefix="/api")
-    
-    from .routes.state_routes import state_api
-    app.register_blueprint(state_api, url_prefix="/api")
-    
-    from .routes.category_routes import category_api
-    app.register_blueprint(category_api, url_prefix="/api")
-
-    from .routes.event_routes import event_api
-    app.register_blueprint(event_api, url_prefix="/api")
-
-    from src.web.routes.flag_routes import flag_api
-    app.register_blueprint(flag_api, url_prefix="/flags")
-
-    from datetime import datetime
-    @app.template_filter('format_date')
-    def format_date(date_value):
-        if not date_value:
-            return 'Sin fecha'
-
-        if isinstance(date_value, datetime):
-            return date_value.strftime("%d/%m/%Y")
-
-        # Si es un string, intentar convertirlo
-        if isinstance(date_value, str):
-            try:
-                date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
-                return date_obj.strftime("%d/%m/%Y")
-            except:
-                return date_value
-
-        return 'Sin fecha'
-
-    @app.route("/users")
-    def list_users():
-        return render_template('users/list_users.html')
-
-    @app.route("/users/<int:user_id>/editar")
-    def edit_user(user_id):
-        return render_template('users/edit_user.html', user_id=user_id)
-    
-    @app.route('/users/nuevo')
-    def create_user_form():
-        return render_template('users/create_user.html')
-
-    from src.web.handlers import error
-    
-    app.register_error_handler(404, error.not_found)
-    app.register_error_handler(401, error.unauthorized)
-    app.register_error_handler(500, error.internal_server_error)
-
-    # Importar modelos para que SQLAlchemy los registre
-    from src.core import models
-
-    
-    from .routes.user_routes import user_api
-    app.register_blueprint(user_api, url_prefix='/api/users')
-
-    return app
+            app.logger.error(f"❌ Error al verificar/inicializar base de datos: {e}")
+            # No fallar la aplicación si hay error en la verificación
