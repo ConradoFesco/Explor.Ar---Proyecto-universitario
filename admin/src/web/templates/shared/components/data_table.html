@@ -1,0 +1,124 @@
+{# Componente de tabla de datos reutilizable #}
+{% macro render_data_table(table_config, data, pagination=None) %}
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">{{ table_config.title }}</h2>
+            {% if table_config.add_button %}
+                <a href="{{ table_config.add_button.url }}" 
+                   class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200 flex items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    {{ table_config.add_button.text }}
+                </a>
+            {% endif %}
+        </div>
+        
+        <div id="loading-message" class="text-center text-gray-500 py-8 hidden">
+            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+            <p>Cargando datos...</p>
+        </div>
+        
+        <div id="data-container" class="hidden">
+            {% if table_config.type == 'table' %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                {% for column in table_config.columns %}
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        {{ column.label }}
+                                    </th>
+                                {% endfor %}
+                                {% if table_config.actions %}
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Acciones
+                                    </th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body" class="bg-white divide-y divide-gray-200">
+                            {% for item in data %}
+                                <tr class="hover:bg-gray-50">
+                                    {% for column in table_config.columns %}
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if column.type == 'text' %}
+                                                <div class="text-sm font-medium text-gray-900">{{ item[column.field] }}</div>
+                                            {% elif column.type == 'badge' %}
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ column.badge_class or 'bg-blue-100 text-blue-800' }}">
+                                                    {{ item[column.field] }}
+                                                </span>
+                                            {% elif column.type == 'date' %}
+                                                <div class="text-sm text-gray-500">{{ item[column.field] | format_date if item[column.field] else '-' }}</div>
+                                            {% elif column.type == 'custom' %}
+                                                {{ column.render(item) | safe }}
+                                            {% else %}
+                                                <div class="text-sm text-gray-900">{{ item[column.field] or '-' }}</div>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    {% if table_config.actions %}
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex items-center gap-2">
+                                                {% for action in table_config.actions %}
+                                                    {% if action.condition is not defined or action.condition(item) %}
+                                                        <button onclick="{{ action.onclick }}({{ item.id }})" 
+                                                                class="text-{{ action.color }}-600 hover:text-{{ action.color }}-800 p-2 hover:bg-{{ action.color }}-50 rounded transition duration-200"
+                                                                title="{{ action.title }}">
+                                                            <i class="fas fa-{{ action.icon }}"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% elif table_config.type == 'list' %}
+                <ul id="data-list" class="divide-y divide-gray-200">
+                    {% for item in data %}
+                        <li class="py-4 flex justify-between items-center">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-medium text-gray-900">{{ item[table_config.title_field] }}</h3>
+                                {% if table_config.subtitle_field %}
+                                    <p class="text-sm text-gray-500">{{ item[table_config.subtitle_field] }}</p>
+                                {% endif %}
+                                {% if table_config.tags_field and item[table_config.tags_field] %}
+                                    <div class="flex flex-wrap gap-1 mt-2">
+                                        {% for tag in item[table_config.tags_field] %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                {{ tag.name }}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% if table_config.actions %}
+                                <div class="flex items-center gap-2">
+                                    {% for action in table_config.actions %}
+                                        <button onclick="{{ action.onclick }}({{ item.id }})" 
+                                                class="bg-{{ action.color }}-500 hover:bg-{{ action.color }}-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                                            {{ action.text }}
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+        
+        <div id="no-data-message" class="text-center text-gray-500 py-8 hidden">
+            <i class="fas fa-inbox text-4xl mb-4"></i>
+            <p>No hay datos para mostrar.</p>
+        </div>
+        
+        {% if pagination %}
+            <div id="pagination-container" class="mt-6">
+                {{ render_pagination(pagination) }}
+            </div>
+        {% endif %}
+    </div>
+{% endmacro %}

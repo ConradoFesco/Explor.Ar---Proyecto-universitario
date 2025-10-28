@@ -1,0 +1,83 @@
+{# Componente de filtros de búsqueda reutilizable #}
+{% macro render_search_filters(filters_config) %}
+    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <!-- Barra de búsqueda y ordenamiento -->
+        <div class="flex flex-wrap gap-4 mb-4">
+            <!-- Búsqueda por texto -->
+            <div class="flex-1 min-w-64">
+                <div class="relative">
+                    <input type="text" 
+                           id="search-input" 
+                           placeholder="{{ filters_config.search_placeholder or 'Buscar...' }}" 
+                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ordenamiento -->
+            <div class="flex gap-2">
+                <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {% for option in filters_config.sort_options %}
+                        <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+                <select id="sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="desc">Descendente</option>
+                    <option value="asc">Ascendente</option>
+                </select>
+            </div>
+            
+            <!-- Botón de filtros -->
+            <button id="toggle-filters" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+                <i class="fas fa-filter"></i>
+                Filtros
+            </button>
+            
+            {% if filters_config.export_button %}
+                <button id="export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+                    <i class="fas fa-download"></i>
+                    {{ filters_config.export_button.text or 'Exportar' }}
+                </button>
+            {% endif %}
+        </div>
+
+        <!-- Panel de filtros (inicialmente oculto) -->
+        <div id="filters-panel" class="hidden border-t border-gray-200 pt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for filter in filters_config.filters %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ filter.label }}</label>
+                        {% if filter.type == 'select' %}
+                            <select id="filter-{{ filter.name }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">{{ filter.placeholder or 'Todos' }}</option>
+                                {% for option in filter.options %}
+                                    <option value="{{ option.value }}">{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                        {% elif filter.type == 'date' %}
+                            <input type="date" 
+                                   id="filter-{{ filter.name }}" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        {% elif filter.type == 'checkbox' %}
+                            <div id="filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
+                                <!-- Los checkboxes se cargarán dinámicamente -->
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Botones de acción -->
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+                <button id="clear-filters" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
+                    Limpiar filtros
+                </button>
+                <button id="apply-filters" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
+                    Aplicar filtros
+                </button>
+            </div>
+        </div>
+    </div>
+{% endmacro %}
