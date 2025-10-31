@@ -57,44 +57,7 @@
         </div>
     </div>
 
-    <script>
-        const loginForm = document.getElementById("loginForm");
-        const loginMsg = document.getElementById("loginMsg");
-
-        loginForm.addEventListener("submit", async (e) => {
-            e.preventDefault(); 
-            const mail = document.getElementById("mail").value;
-            const password = document.getElementById("password").value;
-
-            loginMsg.classList.add("hidden"); // reset
-
-            try {
-                const res = await fetch("/api/login", { 
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ mail, password })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    // Redirigir inmediatamente sin mostrar mensaje
-                    window.location.href = "/home";
-                } else {
-                    loginMsg.textContent = data.error;
-                    loginMsg.classList.remove("hidden");
-                    loginMsg.classList.remove("text-green-500");
-                    loginMsg.classList.add("text-red-500");
-                }
-            } catch (err) {
-                loginMsg.textContent = "Ocurrió un error al conectar con el servidor";
-                loginMsg.classList.remove("hidden");
-                loginMsg.classList.remove("text-green-500");
-                loginMsg.classList.add("text-red-500");
-            }
-        });
-
-    </script>
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 
 </body>
 </html>

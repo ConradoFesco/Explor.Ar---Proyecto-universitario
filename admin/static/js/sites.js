@@ -1,4 +1,3 @@
-// SSR Sites module. Requires window.SITES_CONFIG set by template
 (function(){
   const cfg = window.SITES_CONFIG || {};
   const perPage = cfg.perPage || 25;

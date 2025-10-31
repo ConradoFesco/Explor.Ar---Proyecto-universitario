@@ -94,41 +94,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// Confirmación antes de cambiar el estado
-document.querySelectorAll('form button[type="submit"]').forEach(button => {
-    button.closest('form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const form = this;
-        const flagName = this.closest('tr').querySelector('td:first-child span').textContent;
-        const currentStatus = button.textContent.trim();
-        const newStatus = currentStatus === 'ON' ? 'OFF' : 'ON';
-        
-        Swal.fire({
-            title: '¿Confirmar cambio?',
-            html: `¿Deseas cambiar el estado de <strong>${flagName}</strong> a <strong>${newStatus}</strong>?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3B82F6',
-            cancelButtonColor: '#6B7280',
-            confirmButtonText: 'Sí, cambiar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Mostrar loading
-                Swal.fire({
-                    title: 'Actualizando...',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                // Enviar el formulario
-                form.submit();
-            }
-        });
-    });
-});
-</script>
+<script src="{{ url_for('static', filename='js/flags.js') }}"></script>
 {% endblock %}

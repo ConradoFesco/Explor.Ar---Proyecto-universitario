@@ -12,7 +12,8 @@
             {'label': 'Editar', 'current': True}
         ]) }}
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Editar Usuario</h3>
+            {% from 'components/page_header.html.jinja' import render_page_header %}
+            {% call render_page_header('Editar Usuario') %}{% endcall %}
         </div>
 
         <!-- Loading state -->
@@ -37,46 +38,11 @@
             </div>
         </div>
 
-        <!-- Formulario sin action directo, lo manejamos con JS para llamar al API -->
         <form id="editUserForm" class="p-6 space-y-6 hidden">
-            <!-- Nombre -->
-    <div>
-        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-            Nombre <span class="text-red-500">*</span>
-        </label>
-        <input type="text" 
-                id="name" 
-                name="name" 
-                required
-                minlength="1"
-                placeholder="Ingresa el nombre"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-    </div>
-
-    <!-- Apellido -->
-    <div>
-        <label for="last_name" class="block text-sm font-medium text-gray-700 mb-1">
-            Apellido <span class="text-red-500">*</span>
-        </label>
-        <input type="text" 
-            id="last_name" 
-            name="last_name" 
-            required
-            minlength="1"
-            placeholder="Ingresa el apellido"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-    </div>
-
-            <!-- Email -->
-            <div>
-                <label for="mail" class="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                </label>
-                <input type="email" 
-                       id="mail" 
-                       name="mail" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            </div>
+            {% import 'components/fields.html.jinja' as f %}
+            {{ f.render_text_input('name','Nombre', True, 'Ingresa el nombre') }}
+            {{ f.render_text_input('last_name','Apellido', True, 'Ingresa el apellido') }}
+            {{ f.render_email_input('mail','Email', True, '') }}
 
             <!-- Roles -->
             <div>
@@ -89,42 +55,17 @@
                 <p class="text-xs text-gray-500 mt-1">Selecciona uno o más roles para el usuario</p>
             </div>
 
-            <!-- Estado Activo -->
-            <div class="flex items-center">
-                <input type="checkbox"
-                       id="active"
-                       name="active"
-                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                <label for="active" class="ml-2 block text-sm text-gray-700">
-                    Usuario activo
-                </label>
-            </div>
+            {{ f.render_checkbox('active','Usuario activo') }}
+            {{ f.render_checkbox('blocked','Usuario bloqueado') }}
 
-            <!-- Estado Bloqueado -->
-            <div class="flex items-center">
-                <input type="checkbox" 
-                       id="blocked" 
-                       name="blocked" 
-                       class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
-                <label for="blocked" class="ml-2 block text-sm text-gray-700">
-                    Usuario bloqueado
-                </label>
-            </div>
-
-            <!-- Info adicional -->
             <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                <p class="text-sm text-gray-600">
-                    <span class="font-medium">ID:</span> <span id="user-id">-</span>
-                </p>
-                <p class="text-sm text-gray-600">
-                    <span class="font-medium">Fecha de creación:</span> 
-                    <span id="user-created-at">-</span>
-                </p>
+                {{ f.render_info_row('ID','user-id') }}
+                {{ f.render_info_row('Fecha de creación','user-created-at') }}
             </div>
 
             <!-- Botones -->
             <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
-                <a href="/users" 
+                <a href="{{ url_for('users_web.list_users_page') }}" 
                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                     Cancelar
                 </a>
@@ -139,239 +80,12 @@
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
-    // Variable global para almacenar los datos originales del usuario
-    let originalUserData = null;
-    const userId = {{ user_id }};
-    const currentUserId = {{ current_user.id if current_user else 'null' }};
-
-    // Función para cargar los datos del usuario
-    async function loadUserData() {
-        try {
-            const response = await fetch(`/api/users/${userId}`);
-            
-            if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
-            }
-            
-            const userData = await response.json();
-            originalUserData = userData;
-            
-            // Llenar el formulario con los datos del usuario
-            populateForm(userData);
-            
-            // Mostrar el formulario y ocultar el loading
-            document.getElementById('loading-state').classList.add('hidden');
-            document.getElementById('editUserForm').classList.remove('hidden');
-            
-        } catch (error) {
-            console.error('Error cargando datos del usuario:', error);
-            showError(error.message);
-        }
-    }
-
-    // Función para poblar el formulario con los datos del usuario
-    function populateForm(userData) {
-        // Campos básicos
-        document.getElementById('name').value = userData.name || '';
-        document.getElementById('last_name').value = userData.last_name || '';
-        document.getElementById('mail').value = userData.mail || '';
-        
-        // Estados booleanos
-        document.getElementById('active').checked = userData.active || false;
-        document.getElementById('blocked').checked = userData.blocked || false;
-        
-        // Información adicional
-        document.getElementById('user-id').textContent = userData.id || '-';
-        
-        if (userData.created_at) {
-            try {
-                const date = new Date(userData.created_at);
-                document.getElementById('user-created-at').textContent = 
-                    date.toLocaleString('es-ES', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-            } catch (e) {
-                document.getElementById('user-created-at').textContent = userData.created_at;
-            }
-        } else {
-            document.getElementById('user-created-at').textContent = 'N/A';
-        }
-        
-        // Llenar roles disponibles con los roles actuales del usuario
-        populateRoles(userData.available_roles || [], userData.current_roles || []);
-    }
-
-    // Función para poblar los checkboxes de roles
-    function populateRoles(availableRoles, currentRoles) {
-        const rolesContainer = document.getElementById('roles-container');
-        
-        if (availableRoles.length > 0) {
-            rolesContainer.innerHTML = '';
-            const currentRoleIds = currentRoles.map(role => role.id);
-            
-            availableRoles.forEach(role => {
-                const roleDiv = document.createElement('div');
-                roleDiv.className = 'flex items-center mb-2';
-                const isChecked = currentRoleIds.includes(role.id);
-                roleDiv.innerHTML = `
-                    <input type="checkbox" 
-                           id="role_${role.id}" 
-                           value="${role.id}" 
-                           ${isChecked ? 'checked' : ''}
-                           class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="role_${role.id}" class="ml-2 text-sm text-gray-700">
-                        ${role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                    </label>
-                `;
-                rolesContainer.appendChild(roleDiv);
-            });
-        } else {
-            rolesContainer.innerHTML = '<div class="text-sm text-red-500">No hay roles disponibles</div>';
-        }
-    }
-
-    // Función para mostrar error
-    function showError(message) {
-        document.getElementById('loading-state').classList.add('hidden');
-        document.getElementById('error-state').classList.remove('hidden');
-        document.getElementById('error-message').textContent = message;
-    }
-
-    // Función para validar el formulario
-    function validateForm() {
-        const name = document.getElementById('name').value.trim();
-        const lastName = document.getElementById('last_name').value.trim();
-        const email = document.getElementById('mail').value.trim();
-        const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked'));
-        const isBlocked = document.getElementById('blocked').checked;
-
-        if (!name) {
-            Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'El nombre no puede estar vacío', confirmButtonColor: '#3B82F6' });
-            return false;
-        }
-
-        if (!lastName) {
-            Swal.fire({ icon: 'warning', title: 'Apellido requerido', text: 'El apellido no puede estar vacío', confirmButtonColor: '#3B82F6' });
-            return false;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email || !emailRegex.test(email)) {
-            Swal.fire({ icon: 'warning', title: 'Email inválido', text: 'Por favor ingresa un email válido', confirmButtonColor: '#3B82F6' });
-            return false;
-        }
-
-        if (selectedRoles.length === 0) {
-            Swal.fire({ icon: 'warning', title: 'Roles requeridos', text: 'Debe seleccionar al menos un rol', confirmButtonColor: '#3B82F6' });
-            return false;
-        }
-
-        // Verificar si tiene rol de administrador y está bloqueado
-        const hasAdminRole = selectedRoles.some(role => {
-            const roleLabel = role.nextElementSibling.textContent.toLowerCase();
-            return roleLabel.includes('administrador') || roleLabel.includes('admin');
-        });
-
-        if (hasAdminRole && isBlocked) {
-            Swal.fire({ icon: 'error', title: 'Acción no permitida', text: 'No se puede bloquear a un usuario con rol de Administrador', confirmButtonColor: '#3B82F6' });
-            return false;
-        }
-
-        return true;
-    }
-
-    // Función para manejar el envío del formulario
-    document.getElementById("editUserForm").addEventListener("submit", async function(e) {
-        e.preventDefault();
-
-        if (!validateForm()) return;
-
-        // Obtener datos actuales del formulario
-        const currentData = {
-            name: document.getElementById('name').value,
-            last_name: document.getElementById('last_name').value,
-            mail: document.getElementById('mail').value,
-            active: document.getElementById('active').checked,
-            blocked: document.getElementById('blocked').checked
-        };
-
-        // Obtener roles seleccionados
-        const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked')).map(cb => parseInt(cb.value));
-
-        // Solo incluir campos que cambiaron (excepto roles)
-        const changedFields = Object.keys(currentData).reduce((acc, key) => {
-            if (currentData[key] !== originalUserData[key]) {
-                acc[key] = currentData[key];
-            }
-            return acc;
-        }, {});
-
-        // Verificar si los roles cambiaron
-        const originalRoleIds = (originalUserData.current_roles || []).map(role => role.id).sort();
-        const currentRoleIds = selectedRoles.sort();
-        const rolesChanged = JSON.stringify(originalRoleIds) !== JSON.stringify(currentRoleIds);
-
-        if (Object.keys(changedFields).length === 0 && !rolesChanged) {
-            Swal.fire({ icon: 'info', title: 'Sin cambios', text: 'No hay cambios para guardar', confirmButtonColor: '#3B82F6' });
-            return;
-        }
-
-        try {
-            // Actualizar datos básicos si hay cambios
-            if (Object.keys(changedFields).length > 0) {
-                const response = await fetch(`/api/users/${userId}`, {
-                    method: "PUT",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data_user: { id: currentUserId },
-                        data_new: changedFields
-                    })
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Error al actualizar usuario');
-                }
-            }
-
-            // Actualizar roles si cambiaron
-            if (rolesChanged) {
-                const response = await fetch(`/api/users/${userId}/roles`, {
-                    method: "PUT",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data_user: { id: currentUserId },
-                        role_ids: selectedRoles
-                    })
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Error al actualizar roles');
-                }
-            }
-
-            Swal.fire({
-                icon: 'success',
-                title: '¡Actualizado!',
-                text: 'Usuario actualizado correctamente',
-                confirmButtonColor: '#3B82F6',
-                timer: 2000,
-                showConfirmButton: false
-            }).then(() => window.location.replace("/users"));
-        } catch (err) {
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#3B82F6' });
-        }
-    });
-
-    // Cargar datos cuando se carga la página
-    document.addEventListener('DOMContentLoaded', function() {
-        loadUserData();
-    });
+  window.USER_EDIT_CONFIG = {
+    userId: {{ (user_id)|tojson }},
+    currentUserId: {{ (current_user.id if current_user else None)|tojson }}
+  };
 </script>
+<script src="{{ url_for('static', filename='js/user_edit.js') }}"></script>
 {% endblock %}

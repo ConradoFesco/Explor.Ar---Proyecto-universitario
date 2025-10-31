@@ -28,99 +28,25 @@
             <input type="password" id="passwordField" 
                    value="********" disabled
                    class="w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed">
-            
-            <button type="button" id="openModal" class="ml-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+            <button type="button" id="openPwdModal" class="ml-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
                 Cambiar
             </button>
         </div>
     </div>
 </div>
-<div id="passwordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl p-6 w-96">
-        <h2 class="text-xl font-bold mb-4">Cambiar contraseña</h2>
-        <input type="password" id="newPassword" placeholder="Nueva contraseña"
-               class="w-full p-2 border rounded mb-2">
-        <p id="passwordMsg" class="text-red-500 text-sm mb-2 hidden"></p>
-        <div class="flex justify-end gap-2 mt-4">
-            <button id="cancelModal" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
-            <button id="savePassword" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                Guardar
-            </button>
-        </div>
+{% from 'shared/components/modal.html' import render_modal_content %}
+{% import 'components/fields.html.jinja' as f %}
+{% call render_modal_content('passwordModal','Cambiar contraseña','sm') %}
+    {{ f.render_password_input('newPassword','Nueva contraseña', True, '') }}
+    <p id="passwordMsg" class="text-red-500 text-sm mb-2 hidden"></p>
+    <div class="flex justify-end gap-2 mt-4">
+        <button id="cancelModal" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
+        <button id="savePassword" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Guardar</button>
     </div>
-</div>
+{% endcall %}
+{% endblock %}
 
-<script>// Mostrar/ocultar contraseña
-const passwordField = document.getElementById("passwordField");
-
-
-// Modal
-const modal = document.getElementById("passwordModal");
-const openModalBtn = document.getElementById("openModal");
-const cancelModal = document.getElementById("cancelModal");
-const savePassword = document.getElementById("savePassword");
-const passwordMsg = document.getElementById("passwordMsg");
-const newPasswordInput = document.getElementById("newPassword");
-
-function closeModal() {
-    modal.classList.add("hidden");
-    newPasswordInput.value = "";
-    passwordMsg.classList.add("hidden");
-}
-
-// Abrir modal
-openModalBtn.addEventListener("click", () => {
-    newPasswordInput.value = "";
-    passwordMsg.classList.add("hidden");
-    modal.classList.remove("hidden");
-});
-
-// Cancelar modal
-cancelModal.addEventListener("click", closeModal);
-
-// Guardar nueva contraseña
-savePassword.addEventListener("click", async () => {
-    const newPassword = newPasswordInput.value.trim();
-    if (!newPassword || newPassword.length < 6) {
-        passwordMsg.textContent = "La contraseña debe tener al menos 6 caracteres";
-        passwordMsg.classList.remove("hidden");
-        passwordMsg.classList.remove("text-green-500");
-        passwordMsg.classList.add("text-red-500");
-        return;
-    }
-
-    try {
-        const res = await fetch("/profile/update_password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ new_password: newPassword })
-        });
-        const data = await res.json();
-
-        if (res.ok || data.message) {
-            passwordMsg.textContent = data.message;
-            passwordMsg.classList.remove("hidden");
-            passwordMsg.classList.remove("text-red-500");
-            passwordMsg.classList.add("text-green-500");
-
-            setTimeout(() => {
-                window.location.href = "/profile";
-            }, 1500);
-        } else if (data.error) {
-            passwordMsg.textContent = data.error;
-            passwordMsg.classList.remove("hidden");
-            passwordMsg.classList.remove("text-green-500");
-            passwordMsg.classList.add("text-red-500");
-        }
-    } catch (err) {
-        passwordMsg.textContent = "Error al actualizar contraseña";
-        passwordMsg.classList.remove("hidden");
-        passwordMsg.classList.remove("text-green-500");
-        passwordMsg.classList.add("text-red-500");
-    }
-});
-
-</script>
-
-
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/user_profile.js') }}"></script>
 {% endblock %}

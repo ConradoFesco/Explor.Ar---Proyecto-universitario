@@ -49,3 +49,22 @@
         </div>
     </div>
 {% endmacro %}
+
+{# Modal con contenido proveído por caller #}
+{% macro render_modal_content(modal_id, title, size='md') %}
+    <div id="{{ modal_id }}" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full mx-4 {{ 'max-w-md' if size == 'sm' else 'max-w-2xl' if size == 'md' else 'max-w-4xl' }}">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">{{ title }}</h3>
+                <button onclick="closeModal('{{ modal_id }}')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="{{ modal_id }}-content">
+                {{ caller() }}
+            </div>
+        </div>
+    </div>
+{% endmacro %}
