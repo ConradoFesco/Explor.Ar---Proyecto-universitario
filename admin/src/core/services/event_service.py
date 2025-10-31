@@ -30,17 +30,23 @@ class EventService:
             db.session.rollback()
             raise DatabaseError(f"Error al crear el evento: {e}")
     
-    def get_all_events(self, id, include_deleted=False, page=1, per_page=25, 
-                       user_id=None, type_action=None, date_from=None, date_to=None):
+    def get_all_events(self, id, include_deleted=False, page=1, per_page=25,
+                       user_id=None, user_email=None, type_action=None, date_from=None, date_to=None):
         from src.core.models.user import User
-        
+
         query = Event.query.filter_by(id_site=id)
         if not include_deleted:
             query = query.filter_by(deleted=False)
         
+        # Join con User para filtros por usuario
+        query = query.join(User, Event.id_user == User.id)
+
         # Aplicar filtros
         if user_id is not None:
             query = query.filter(Event.id_user == user_id)
+
+        if user_email is not None and user_email.strip():
+            query = query.filter(User.mail.ilike(f"{user_email.strip()}%"))
         
         if type_action is not None and type_action.strip():
             query = query.filter(Event.type_Action == type_action)
@@ -65,9 +71,6 @@ class EventService:
             except ValueError:
                 pass  # Si el formato es inválido, ignorar el filtro
         
-        # Hacer join con User para obtener información del usuario
-        query = query.join(User, Event.id_user == User.id)
-        
         # Ordenar por fecha cronológicamente (más reciente primero)
         query = query.order_by(Event.date_time.desc())
         
@@ -84,8 +87,7 @@ class EventService:
                 'id_user': event.id_user, 
                 'date_time': event.date_time, 
                 'type_Action': event.type_Action,
-                'user_name': event.user.name if event.user else 'Usuario desconocido',
-                'user_last_name': event.user.last_name if event.user else ''
+                'user_email': event.user.mail if event.user else ''
             } for event in events],
             'pagination': {
                 'page': pagination.page,

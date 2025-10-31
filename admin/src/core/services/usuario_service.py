@@ -186,7 +186,9 @@ class UserService:
         # Aplicar filtros
         if filters:
             if filters.get('email'):
-                query = query.filter(User.mail.ilike(f"%{filters['email']}%"))
+                search_text = (filters['email'] or '').strip()
+                if search_text:
+                    query = query.filter(User.mail.ilike(f"{search_text}%"))
             if filters.get('activo'):
                 active_value = filters['activo'].lower() in ['si', 'sí', 'true', '1']
                 query = query.filter_by(active=active_value)

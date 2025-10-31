@@ -1,85 +1,40 @@
-{% extends "shared/layout.html" %}
+{% extends "layouts/app.html.jinja" %}
 
 {% block title %}Gestión de usuarios{% endblock %}
 
 {% block content %}
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Controles de búsqueda y filtrado -->
-    <div class="bg-gray-50 rounded-lg p-4 mb-6">
-        <!-- Barra de búsqueda y ordenamiento -->
-        <div class="flex flex-wrap gap-4 mb-4">
-            <!-- Búsqueda por email -->
-            <div class="flex-1 min-w-64">
-                <div class="relative">
-                    <input type="text" id="search-input" placeholder="Buscar por email..." 
-                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Ordenamiento -->
-            <div class="flex gap-2">
-                <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="created_at">Fecha de registro</option>
-                    <option value="name">Nombre</option>
-                </select>
-                <select id="sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="desc">Descendente</option>
-                    <option value="asc">Ascendente</option>
-                </select>
-            </div>
-            
-            <!-- Botón de filtros -->
-            <button id="toggle-filters" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
-                <i class="fas fa-filter"></i>
-                Filtros
-            </button>
-        </div>
-
-        <!-- Panel de filtros (inicialmente oculto) -->
-        <div id="filters-panel" class="hidden border-t border-gray-200 pt-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Filtro por estado activo -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                    <select id="filter-active" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Todos</option>
-                        <option value="si">Activo</option>
-                        <option value="no">Inactivo</option>
-                    </select>
-                </div>
-                
-                <!-- Filtro por rol -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                    <select id="filter-role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Todos los roles</option>
-                        <option value="usuario">Usuario</option>
-                        <option value="editor">Editor</option>
-                        <option value="admin">Administrador</option>
-                        <option value="superAdmin">Super Administrador</option>
-                    </select>
-                </div>
-            </div>
-            
-            <!-- Botones de acción -->
-            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
-                <button id="clear-filters" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
-                    Limpiar filtros
-                </button>
-                <button id="apply-filters" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
-                    Aplicar filtros
-                </button>
-            </div>
-        </div>
-    </div>
+    {% from 'shared/components/search_filters.html' import render_search_filters %}
+    {{ render_search_filters({
+        'search_placeholder': 'Buscar por email...',
+        'sort_options': [
+            {'value': 'created_at', 'label': 'Fecha de registro'},
+            {'value': 'name', 'label': 'Nombre'}
+        ],
+        'filters': [
+            {'name': 'activo', 'label': 'Estado', 'type': 'select', 'placeholder': 'Todos', 'options': [
+                {'value': 'si', 'label': 'Activo'},
+                {'value': 'no', 'label': 'Inactivo'}
+            ]},
+            {'name': 'rol', 'label': 'Rol', 'type': 'select', 'placeholder': 'Todos los roles', 'options': [
+                {'value': 'usuario', 'label': 'Usuario'},
+                {'value': 'editor', 'label': 'Editor'},
+                {'value': 'admin', 'label': 'Administrador'},
+                {'value': 'superAdmin', 'label': 'Super Administrador'}
+            ]}
+        ]
+    }) }}
 
     <!-- Lista de usuarios -->
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-800">Usuarios registrados</h2>
+        {% import 'components/breadcrumbs.html.jinja' as bc %}
+        {{ bc.render_breadcrumbs([
+            {'label': 'Inicio', 'url': url_for('main.home')},
+            {'label': 'Usuarios', 'current': True}
+        ]) }}
+        {% from 'components/page_header.html.jinja' import render_page_header %}
+        {% call render_page_header('Usuarios registrados') %}
             <button onclick="window.location.href='/users/nuevo'" 
                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,51 +42,14 @@
                 </svg>
                 Agregar Usuario
             </button>
+        {% endcall %}
+        <div id="ssr-list-container">
+            {% include 'features/users/_list_fragment.html.jinja' %}
         </div>
-        <div id="loading-message" class="text-center text-gray-500 py-8">Cargando usuarios...</div>
-        <ul id="users-list" class="divide-y divide-gray-200 hidden"></ul>
-        <div id="no-users-message" class="text-center text-gray-500 py-8 hidden">No hay usuarios para mostrar.</div>
-        
-        <!-- Controles de paginación -->
-        <div id="pagination-controls" class="pagination hidden mt-6 flex justify-center gap-2"></div>
-        <div id="pagination-info" class="pagination-info hidden mt-2 text-sm text-gray-600 text-center"></div>
     </div>
 </main>
 
-<!-- Modal de eliminación -->
-<div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div class="flex justify-center mb-4">
-            <div class="bg-red-100 rounded-full p-3">
-                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
-            </div>
-        </div>
-        <h3 class="text-xl font-bold text-center text-gray-800 mb-2">Eliminar usuario</h3>
-        <p class="text-center text-gray-600 mb-4">
-            ¿Estás seguro de que deseas eliminar a <strong id="userName"></strong>? Esta acción no se puede deshacer.
-        </p>
-        <div class="mb-4">
-            <label for="deleteReason" class="block text-sm font-medium text-gray-700 mb-2">
-                Motivo de eliminación (opcional)
-            </label>
-            <textarea id="deleteReason" rows="3" 
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Ingresa el motivo..."></textarea>
-        </div>
-        <div class="flex gap-3">
-            <button id="confirmDelete" 
-                class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
-                Eliminar
-            </button>
-            <button id="cancelDelete" 
-                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">
-                Cancelar
-            </button>
-        </div>
-    </div>
-</div>
+{# Modal de eliminación eliminado: usamos SweetAlert #}
 {% endblock %}
 
 {% block scripts %}
@@ -139,9 +57,10 @@
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    const SERVER_RENDERED = {{ 'true' if users is defined else 'false' }};
     let currentPage = 1;
     const perPage = 25;
-    const currentUserId = {{ current_user.id if current_user else 'null' }};
+    const currentUserId = {{ session.get('user_id') | tojson }};
     let currentFilters = {
         search: '',
         sort_by: 'created_at',
@@ -151,103 +70,148 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-        currentPage = 1;
-        loadUsers(currentPage);
-        setupEventListeners();
+        // Modo SSR con fragmento dinámico
+        setupUsersSSRListeners();
     });
 
-    // Recargar cuando la página vuelve a ser visible (volviendo del formulario de edición)
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            loadUsers(currentPage);
-        }
-    });
+    // Setear valores iniciales desde la query
+    setFiltersFromQuery();
 
     function setupEventListeners() {
-        // Búsqueda
         const searchInput = document.getElementById('search-input');
-        let searchTimeout;
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                currentFilters.search = e.target.value;
-                currentPage = 1;
-                loadUsers(currentPage);
-            }, 500); // Debounce de 500ms
-        });
+        const sortByEl = document.getElementById('sort-by');
+        const sortOrderEl = document.getElementById('sort-order');
+        const toggleFiltersBtn = document.getElementById('toggle-filters');
+        const filterActiveEl = document.getElementById('filter-activo');
+        const filterRoleEl = document.getElementById('filter-rol');
+        const applyBtn = document.getElementById('apply-filters');
+        const clearBtn = document.getElementById('clear-filters');
 
-        // Ordenamiento
-        document.getElementById('sort-by').addEventListener('change', (e) => {
-            currentFilters.sort_by = e.target.value;
-            currentPage = 1;
-            loadUsers(currentPage);
-        });
-
-        document.getElementById('sort-order').addEventListener('change', (e) => {
-            currentFilters.sort_order = e.target.value;
-            currentPage = 1;
-            loadUsers(currentPage);
-        });
-
-        // Toggle de filtros
-        document.getElementById('toggle-filters').addEventListener('click', () => {
+        if (toggleFiltersBtn) toggleFiltersBtn.addEventListener('click', () => {
             const panel = document.getElementById('filters-panel');
-            panel.classList.toggle('hidden');
+            if (panel) panel.classList.toggle('hidden');
         });
 
-        // Filtros
-        document.getElementById('filter-active').addEventListener('change', (e) => {
-            currentFilters.activo = e.target.value;
-        });
-
-        document.getElementById('filter-role').addEventListener('change', (e) => {
-            currentFilters.rol = e.target.value;
-        });
-
-        // Botones de filtros
-        document.getElementById('apply-filters').addEventListener('click', () => {
-            currentPage = 1;
-            loadUsers(currentPage);
-        });
-
-        document.getElementById('clear-filters').addEventListener('click', () => {
-            clearFilters();
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    navigateWithParams({ page: 1 });
+                }
+            });
+        }
+        if (sortByEl) sortByEl.addEventListener('change', () => navigateWithParams({ page: 1 }));
+        if (sortOrderEl) sortOrderEl.addEventListener('change', () => navigateWithParams({ page: 1 }));
+        if (filterActiveEl) filterActiveEl.addEventListener('change', () => {});
+        if (filterRoleEl) filterRoleEl.addEventListener('change', () => {});
+        if (applyBtn) applyBtn.addEventListener('click', () => navigateWithParams({ page: 1 }));
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+            clearFiltersControls();
+            navigateWithParams({ page: 1 });
         });
     }
 
-    function clearFilters() {
-        currentFilters = {
-            search: '',
-            sort_by: 'created_at',
-            sort_order: 'desc',
-            activo: '',
-            rol: ''
-        };
-
-        // Limpiar inputs
-        document.getElementById('search-input').value = '';
-        document.getElementById('sort-by').value = 'created_at';
-        document.getElementById('sort-order').value = 'desc';
-        document.getElementById('filter-active').value = '';
-        document.getElementById('filter-role').value = '';
-
-        currentPage = 1;
-        loadUsers(currentPage);
+    function clearFiltersControls() {
+        const ids = ['search-input','sort-by','sort-order','filter-activo','filter-rol'];
+        ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = id === 'sort-by' ? 'created_at' : (id === 'sort-order' ? 'desc' : ''); });
     }
 
-    function buildApiUrl(page) {
-        const params = new URLSearchParams({
-            page: page,
-            per_page: perPage,
-            sort_by: currentFilters.sort_by,
-            sort_order: currentFilters.sort_order
+    function collectParamsFromControls() {
+        const params = new URLSearchParams();
+        const v = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+        const search = v('search-input');
+        const sortBy = v('sort-by') || 'created_at';
+        const sortOrder = v('sort-order') || 'desc';
+        const activo = v('filter-activo');
+        const rol = v('filter-rol');
+        if (search) params.set('search', search);
+        if (sortBy) params.set('sort_by', sortBy);
+        if (sortOrder) params.set('sort_order', sortOrder);
+        if (activo) params.set('activo', activo);
+        if (rol) params.set('rol', rol);
+        return params;
+    }
+
+    function setFiltersFromQuery() {
+        const qs = new URLSearchParams(window.location.search);
+        const setVal = (id, key) => { const el = document.getElementById(id); const val = qs.get(key); if (el && val !== null) el.value = val; };
+        setVal('search-input', 'search');
+        setVal('sort-by', 'sort_by');
+        setVal('sort-order', 'sort_order');
+        setVal('filter-activo', 'activo');
+        setVal('filter-rol', 'rol');
+    }
+
+    function navigateWithParams({ page }) {
+        const params = collectParamsFromControls();
+        if (page) params.set('page', page);
+        params.set('per_page', perPage);
+        const fragmentUrl = '{{ url_for("users_web.list_users_fragment") }}' + '?' + params.toString();
+        const pageUrl = '{{ url_for("users_web.list_users_page") }}' + '?' + params.toString();
+        history.replaceState(null, '', pageUrl);
+        fetch(fragmentUrl, { headers: { 'X-Requested-With': 'fetch' } })
+          .then(r => r.text())
+          .then(html => { const c = document.getElementById('ssr-list-container'); if (c) c.innerHTML = html; })
+          .catch(() => {});
+    }
+
+    function setupUsersSSRListeners() {
+        setFiltersFromQuery();
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            let t;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(t);
+                t = setTimeout(() => {
+                    navigateWithParams({ page: 1 });
+                }, 300);
+            });
+        }
+        const sortByEl = document.getElementById('sort-by');
+        const sortOrderEl = document.getElementById('sort-order');
+        if (sortByEl) sortByEl.addEventListener('change', () => navigateWithParams({ page: 1 }));
+        if (sortOrderEl) sortOrderEl.addEventListener('change', () => navigateWithParams({ page: 1 }));
+        const applyBtn = document.getElementById('apply-filters');
+        if (applyBtn) applyBtn.addEventListener('click', () => navigateWithParams({ page: 1 }));
+        const clearBtn = document.getElementById('clear-filters');
+        if (clearBtn) clearBtn.addEventListener('click', () => { clearFiltersControls(); navigateWithParams({ page: 1 }); });
+        const toggleBtn = document.getElementById('toggle-filters');
+        if (toggleBtn) {
+            try { toggleBtn.setAttribute('type', 'button'); } catch(_) {}
+            toggleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const panel = document.getElementById('filters-panel');
+                if (panel) {
+                    panel.classList.toggle('hidden');
+                    panel.style.display = panel.classList.contains('hidden') ? 'none' : 'block';
+                }
+            });
+        }
+
+        // Delegación (por si en el futuro se re-renderiza filtros)
+        document.addEventListener('click', (e) => {
+            const t = e.target;
+            const btn = t.closest ? t.closest('#toggle-filters') : null;
+            if (btn) {
+                e.preventDefault();
+                const panel = document.getElementById('filters-panel');
+                if (panel) {
+                    panel.classList.toggle('hidden');
+                    panel.style.display = panel.classList.contains('hidden') ? 'none' : 'block';
+                }
+            }
+            if (t && t.id === 'apply-filters') {
+                e.preventDefault();
+                navigateWithParams({ page: 1 });
+            }
+            if (t && t.id === 'clear-filters') {
+                e.preventDefault();
+                clearFiltersControls();
+                navigateWithParams({ page: 1 });
+            }
         });
-
-        if (currentFilters.search) params.append('email', currentFilters.search);
-        if (currentFilters.activo) params.append('activo', currentFilters.activo);
-        if (currentFilters.rol) params.append('rol', currentFilters.rol);
-
-        return `{{ url_for("user_api.list_users") }}?${params.toString()}`;
+        // Paginación dinámica
+        window.changePage = function(page) { navigateWithParams({ page }); };
     }
 
     function getInitials(name, lastName) {
@@ -356,7 +320,7 @@
                     
                     // Generar botón de eliminar condicionalmente
                     const deleteButton = canDelete ? `
-                        <button onclick="openDeleteModal(${user.id}, '${user.name} ${user.last_name}')" 
+                        <button type="button" onclick="openDeleteModal(${user.id}, '${user.name} ${user.last_name}')" 
                             class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition duration-200"
                             title="Eliminar">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -364,7 +328,7 @@
                             </svg>
                         </button>
                     ` : `
-                        <button disabled
+                        <button type="button" disabled
                             class="text-gray-300 p-2 cursor-not-allowed rounded transition duration-200"
                             title="${isSuperAdmin ? 'No se puede eliminar SuperAdmin' : 'No puedes eliminarte a ti mismo'}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -485,18 +449,49 @@ ${activeStatus ? 'Activo' : 'Inactivo'}
     let userToDelete = null;
 
     function openDeleteModal(userId, userName) {
-        userToDelete = userId;
-        document.getElementById('userName').textContent = userName;
-        document.getElementById('deleteModal').classList.remove('hidden');
+        // Fallback al modal HTML si SweetAlert no está disponible
+        if (typeof Swal === 'undefined') {
+            userToDelete = userId;
+            document.getElementById('userName').textContent = userName;
+            document.getElementById('deleteModal').classList.remove('hidden');
+            return;
+        }
+        // SweetAlert de confirmación
+        Swal.fire({
+            title: '¿Eliminar usuario?',
+            text: `¿Estás seguro de eliminar a ${userName}? Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then(async (result) => {
+            if (!result.isConfirmed) return;
+            // Enviar formulario POST al endpoint web (SSR)
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/users/${userId}/eliminar`;
+            const reasonInput = document.createElement('input');
+            reasonInput.type = 'hidden';
+            reasonInput.name = 'reason';
+            reasonInput.value = '';
+            form.appendChild(reasonInput);
+            document.body.appendChild(form);
+            form.submit();
+        });
     }
 
     function closeDeleteModal() {
-        document.getElementById('deleteModal').classList.add('hidden');
-        document.getElementById('deleteReason').value = '';
+        const modal = document.getElementById('deleteModal');
+        const reason = document.getElementById('deleteReason');
+        if (modal) modal.classList.add('hidden');
+        if (reason) reason.value = '';
         userToDelete = null;
     }
 
-    document.getElementById('confirmDelete').addEventListener('click', async function() {
+    const confirmDeleteBtn = document.getElementById('confirmDelete');
+    if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', async function() {
         const reason = document.getElementById('deleteReason').value;
 
         try {
@@ -553,11 +548,23 @@ ${activeStatus ? 'Activo' : 'Inactivo'}
         closeDeleteModal();
     });
 
-    document.getElementById('cancelDelete').addEventListener('click', closeDeleteModal);
+    const cancelDeleteBtn = document.getElementById('cancelDelete');
+    if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
 
-    document.getElementById('deleteModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeDeleteModal();
+    const deleteModalEl = document.getElementById('deleteModal');
+    if (deleteModalEl) deleteModalEl.addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+
+    // Delegación de eventos para botones SSR de eliminar
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.js-delete-user');
+        if (!btn) return;
+        e.preventDefault();
+        const userId = btn.getAttribute('data-user-id');
+        const userName = btn.getAttribute('data-user-name') || '';
+        if (userId) {
+            openDeleteModal(userId, userName);
         }
     });
 </script>

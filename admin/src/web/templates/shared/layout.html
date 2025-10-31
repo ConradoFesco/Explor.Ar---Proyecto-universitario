@@ -70,136 +70,14 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     
-    <!-- Header -->
-    <header class="bg-white shadow-lg border-b border-gray-200 relative z-50">
-        <div class="flex items-center justify-between px-6 py-4">
-            <!-- Menu Button -->
-            <button id="menuToggle" class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                <div class="space-y-1.5">
-                    <div class="w-6 h-0.5 bg-gray-700 transition-all duration-300" id="line1"></div>
-                    <div class="w-6 h-0.5 bg-gray-700 transition-all duration-300" id="line2"></div>
-                    <div class="w-6 h-0.5 bg-gray-700 transition-all duration-300" id="line3"></div>
-                </div>
-            </button>
-
-            <!-- Logo centrado -->
-            <div class="absolute left-1/2 transform -translate-x-1/2">
-                <a href="{{ url_for('main.home') }}" class="cursor-pointer">
-                    <img src="{{ url_for('static', filename='img/logo.png') }}" 
-                        alt="HeritageTech Logo" 
-                        class="h-24 w-24 hover:opacity-80 transition-opacity duration-200">
-                </a>
-            </div>
-            <!-- User Profile -->
-            <div class="relative">
-                <button id="userMenuToggle" 
-                        class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                        {% if user_initials %}
-                            <span class="text-white font-semibold text-sm">{{ user_initials }}</span>
-                        {% else %}
-                            <i class="bi bi-person-fill text-white text-xl"></i>
-                        {% endif %}
-                    </div>
-                    <svg class="w-4 h-4 text-gray-600 transition-transform duration-200" 
-                        id="userArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </button>
-
-                <!-- User Dropdown -->
-                <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 hidden">
-                    <a href="/profile" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200">
-                        <svg class="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                        Ver perfil
-                    </a>
-                    <hr class="my-1 border-gray-200">
-                    <a href="#" onclick="cerrarSesion()" class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200">
-                        <svg class="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a2 2 0 013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
-                        Cerrar sesión
-                    </a>
-                    
-                </div>
-            </div>
-        </div>
-    </header>
+    {% include 'components/navbar.html.jinja' %}
 
     <!-- Sidebar -->
 <div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white shadow-xl transform -translate-x-full sidebar-transition z-40 pt-20">
     <div class="p-6">
         <nav class="space-y-2">
             {% block sidebar %}
-            <!-- Sitios Históricos (NO accesible para usuario común) -->
-            {% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
-            <a href="{{ url_for('main.lista_sitios') }}" 
-                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
-                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                </svg>
-                <span class="font-medium">Gestión de Sitios Históricos</span>
-            </a>
-            {% endif %}
-
-            <!-- Validación -->
-            <a href="#" 
-                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
-                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span class="font-medium">Validación de Propuestas</span>
-            </a>
-
-            <!-- Moderación -->
-            <a href="#" 
-                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
-                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-                </svg>
-                <span class="font-medium">Moderación de Reseñas</span>
-            </a>
-
-            <!-- Gestión de Tags (NO accesible para usuario común) -->
-            {% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
-            <a href="{{ url_for('main.lista_tags') }}" 
-                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
-                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                </svg>
-                <span class="font-medium">Gestión de Tags</span>
-            </a>
-            {% endif %}
-
-            <!-- Gestión de Usuarios (solo admin y superAdmin, NO editor ni usuario) -->
-            {% if is_admin %}
-            <a href="{{ url_for('user_api.list_users_page') }}" 
-                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
-                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.779.755 6.879 2.042M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                <span class="font-medium">Gestión de Usuarios</span>
-            </a>
-            {% endif %}
-
-            <!-- Flags (solo para superAdmin) -->
-            {% if 'superAdmin' in user_roles %}
-            <a href="{{ url_for('flag_api.list_flags_page') }}" 
-                class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
-                <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 4a8 8 0 100 16 8 8 0 000-16z"></path>
-                </svg>
-                <span class="font-medium">Flags</span>
-            </a>
-            {% endif %}
-
+            {% include 'components/sidebar_default.html.jinja' %}
             {% endblock %}
         </nav>
     </div>
@@ -213,6 +91,7 @@
     <main class="p-8 transition-all duration-300" id="mainContent">
         <div class="max-w-6xl mx-auto">
             <div class="bg-white rounded-xl shadow-lg p-8">
+                {% include 'components/flash_messages.html.jinja' %}
                 {% block content %}
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Bienvenido al Panel de Administración</h2>
                 <p class="text-gray-600 mb-6">Selecciona una opción del menú lateral para comenzar a gestionar el sistema.</p>

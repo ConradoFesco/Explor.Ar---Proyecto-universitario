@@ -326,3 +326,5 @@ def lista_tags():
         return render_template('pages/tags/index.html.jinja', 
                              tags=[], 
                              pagination={})
+
+

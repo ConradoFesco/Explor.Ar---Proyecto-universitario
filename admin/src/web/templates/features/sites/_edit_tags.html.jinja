@@ -1,0 +1,27 @@
+<div class="space-y-4">
+  <div>
+    <h4 class="text-lg font-semibold text-gray-800">Editar Tags para: {{ site.name }}</h4>
+    <p class="text-sm text-gray-500">Seleccioná los tags que correspondan y guardá los cambios.</p>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="edit-tags-container">
+    {% for tag in tags %}
+    <label class="inline-flex items-center space-x-2">
+      <input type="checkbox" value="{{ tag.id }}" {% if tag.id in selected_ids %}checked{% endif %} class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+      <span class="text-sm text-gray-700">{{ tag.name }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="flex justify-end gap-2 pt-3 border-t border-gray-100">
+    <button type="button" class="px-4 py-2 text-gray-600 hover:text-gray-800" onclick="openSiteDetail({{ site.id }})">Volver al detalle</button>
+    <button type="button" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded" onclick="(function(){
+      const checks = document.querySelectorAll('#edit-tags-container input[type=checkbox]:checked');
+      const ids = Array.from(checks).map(c=>parseInt(c.value)).filter(Boolean);
+      fetch('/sitios/{{ site.id }}/tags', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tag_ids: ids }) })
+        .then(r=>{ if(!r.ok) throw new Error('fail'); return r.json(); })
+        .then(()=>{ openSiteDetail({{ site.id }}); })
+        .catch(()=>{ alert('No se pudieron actualizar los tags'); });
+    })()">Guardar</button>
+  </div>
+</div>
+
+

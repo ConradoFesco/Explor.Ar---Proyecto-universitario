@@ -20,17 +20,10 @@ def toggle_flag_route(flag_id):
 
     flag = flag_service.toggle_flag(flag_id, user_id) # Pasamos el id del User
 
-    return redirect(url_for('flag_api.list_flags_page'))
+    return redirect(url_for('flags_web.list_flags_page'))
 # === Página principal de administración de flags ===
 
-@flag_api.route("/", methods=["GET"])
-@permission_required('flag_admin')
-def list_flags_page():
-    """
-    Muestra la página de Feature Flags en el panel de administración.
-    """
-    flags = flag_service.get_all_flags()
-    return render_template("flags/list_flags.html", flags=flags)
+ 
 
 # === API: Actualizar mensaje de mantenimiento ===
 @flag_api.route("/<int:flag_id>/message", methods=["POST"])
@@ -68,3 +61,5 @@ def update_flag_message_route(flag_id):
         "last_modified_by": flag.last_modified_by,
         "last_modified_at": flag.last_modified_at.strftime("%Y-%m-%d %H:%M")
     })
+
+

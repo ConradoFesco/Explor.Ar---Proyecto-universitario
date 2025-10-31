@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from src.core.services.tag_service import tag_service
 from src.web.auth.decorators import permission_required
-from .. import exceptions as exc
+from src.web import exceptions as exc
 
 tag_api = Blueprint('tag_api', __name__, url_prefix='/api')
 
@@ -104,3 +104,5 @@ def get_tags_by_site_id_route(site_id):
         return jsonify({'error': str(e)}), 404
     except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 409
+
+

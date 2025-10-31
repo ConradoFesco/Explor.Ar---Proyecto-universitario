@@ -1,0 +1,10 @@
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<div class="mb-4 p-4 rounded-lg border flex items-start gap-3
+    {% if category == 'success' %}bg-green-50 border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border-red-200 text-red-800{% elif category == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}">
+    <i class="bi 
+        {% if category == 'success' %}bi-check-circle-fill text-green-600{% elif category == 'error' %}bi-x-circle-fill text-red-600{% elif category == 'warning' %}bi-exclamation-triangle-fill text-yellow-600{% else %}bi-info-circle-fill text-blue-600{% endif %}"></i>
+    <div class="flex-1">{{ message }}</div>
+</div>
+{% endfor %}
+
+

@@ -142,11 +142,12 @@ class HistoricSite_Service:
         if not include_deleted:
             query = query.filter_by(deleted=False)
         
-        # Filtro de búsqueda por texto (nombre o descripción breve)
+        # Filtro de búsqueda por texto (prefijo en nombre o descripción breve)
         if search_text:
+            prefix = f"{search_text.strip()}%"
             search_filter = or_(
-                HistoricSite.name.ilike(f'%{search_text}%'),
-                HistoricSite.brief_description.ilike(f'%{search_text}%')
+                HistoricSite.name.ilike(prefix),
+                HistoricSite.brief_description.ilike(prefix)
             )
             query = query.filter(search_filter)
         
@@ -543,11 +544,12 @@ class HistoricSite_Service:
         # Filtro de eliminados (solo sitios no eliminados)
         query = query.filter_by(deleted=False)
         
-        # Filtro de búsqueda por texto (nombre o descripción breve)
+        # Filtro de búsqueda por texto (prefijo en nombre o descripción breve)
         if search_text:
+            prefix = f"{search_text.strip()}%"
             search_filter = or_(
-                HistoricSite.name.ilike(f'%{search_text}%'),
-                HistoricSite.brief_description.ilike(f'%{search_text}%')
+                HistoricSite.name.ilike(prefix),
+                HistoricSite.brief_description.ilike(prefix)
             )
             query = query.filter(search_filter)
         

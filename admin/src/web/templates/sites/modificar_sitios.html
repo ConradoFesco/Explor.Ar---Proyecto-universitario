@@ -1,4 +1,4 @@
-{% extends "shared/layout.html" %}
+{% extends "layouts/app.html.jinja" %}
 
 {% block title %}Modificar Sitio Histórico{% endblock %}
 
@@ -8,9 +8,15 @@
 
 <div class="max-w-6xl mx-auto">
     <div class="bg-white rounded-xl shadow-lg p-8">
+        {% import 'components/breadcrumbs.html.jinja' as bc %}
+        {{ bc.render_breadcrumbs([
+            {'label': 'Inicio', 'url': url_for('main.home')},
+            {'label': 'Sitios históricos', 'url': url_for('sites_web.lista_sitios')},
+            {'label': 'Modificar', 'current': True}
+        ]) }}
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-gray-800">Modificar Sitio Histórico</h2>
-            <a href="{{ url_for('main.lista_sitios') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+            <a href="{{ url_for('sites_web.lista_sitios') }}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition duration-200">
                 ← Volver al Listado
             </a>
         </div>
@@ -446,7 +452,7 @@ function cancelEdit() {
         cancelButtonText: 'No, continuar editando'
     }).then((result) => {
         if (result.isConfirmed) {
-            window.location.href = '{{ url_for("main.lista_sitios") }}';
+            window.location.href = '{{ url_for("sites_web.lista_sitios") }}';
         }
     });
 }
@@ -495,7 +501,7 @@ document.getElementById('site-form').addEventListener('submit', async function(e
                 timer: 2000,
                 showConfirmButton: false
             }).then(() => {
-                window.location.href = '{{ url_for("main.lista_sitios") }}';
+                window.location.href = '{{ url_for("sites_web.lista_sitios") }}';
             });
         } else {
             const errorData = await response.json();

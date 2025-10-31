@@ -1,14 +1,17 @@
 {# Componente de filtros de búsqueda reutilizable #}
 {% macro render_search_filters(filters_config) %}
+    {% set prefix = filters_config.id_prefix or '' %}
     <div class="bg-gray-50 rounded-lg p-4 mb-6">
         <!-- Barra de búsqueda y ordenamiento -->
         <div class="flex flex-wrap gap-4 mb-4">
             <!-- Búsqueda por texto -->
             <div class="flex-1 min-w-64">
                 <div class="relative">
+                    {% set search_param = filters_config.search_param or 'search' %}
                     <input type="text" 
-                           id="search-input" 
+                           id="{{ prefix }}search-input" 
                            placeholder="{{ filters_config.search_placeholder or 'Buscar...' }}" 
+                           value="{{ request.args.get(search_param,'') }}"
                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400"></i>
@@ -16,27 +19,31 @@
                 </div>
             </div>
             
-            <!-- Ordenamiento -->
+            <!-- Ordenamiento (opcional) -->
+            {% if filters_config.sort_options and filters_config.sort_options|length > 0 %}
             <div class="flex gap-2">
-                <select id="sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="{{ prefix }}sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     {% for option in filters_config.sort_options %}
                         <option value="{{ option.value }}">{{ option.label }}</option>
                     {% endfor %}
                 </select>
-                <select id="sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="{{ prefix }}sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="desc">Descendente</option>
                     <option value="asc">Ascendente</option>
                 </select>
             </div>
+            {% endif %}
             
             <!-- Botón de filtros -->
-            <button id="toggle-filters" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+            {% if filters_config.filters and filters_config.filters|length > 0 %}
+            <button id="{{ prefix }}toggle-filters" type="button" onclick="(function(){var p=document.getElementById('{{ prefix }}filters-panel'); if(p){ if(p.classList){p.classList.toggle('hidden');} p.style.display = p.classList && p.classList.contains('hidden') ? 'none' : 'block'; } })()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
                 <i class="fas fa-filter"></i>
                 Filtros
             </button>
+            {% endif %}
             
             {% if filters_config.export_button %}
-                <button id="export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
+                <button id="{{ prefix }}export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
                     <i class="fas fa-download"></i>
                     {{ filters_config.export_button.text or 'Exportar' }}
                 </button>
@@ -44,24 +51,28 @@
         </div>
 
         <!-- Panel de filtros (inicialmente oculto) -->
-        <div id="filters-panel" class="hidden border-t border-gray-200 pt-4">
+        {% if filters_config.filters and filters_config.filters|length > 0 %}
+        <div id="{{ prefix }}filters-panel" class="hidden border-t border-gray-200 pt-4" style="display:none;">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for filter in filters_config.filters %}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ filter.label }}</label>
                         {% if filter.type == 'select' %}
-                            <select id="filter-{{ filter.name }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {% set param_key = filter.param or filter.name %}
+                            <select id="{{ prefix }}filter-{{ filter.name }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="">{{ filter.placeholder or 'Todos' }}</option>
                                 {% for option in filter.options %}
-                                    <option value="{{ option.value }}">{{ option.label }}</option>
+                                    <option value="{{ option.value }}" {% if request.args.get(param_key) == option.value %}selected{% endif %}>{{ option.label }}</option>
                                 {% endfor %}
                             </select>
                         {% elif filter.type == 'date' %}
+                            {% set param_key = filter.param or filter.name %}
                             <input type="date" 
-                                   id="filter-{{ filter.name }}" 
+                                   id="{{ prefix }}filter-{{ filter.name }}" 
+                                   value="{{ request.args.get(param_key,'') }}"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         {% elif filter.type == 'checkbox' %}
-                            <div id="filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
+                            <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
                                 <!-- Los checkboxes se cargarán dinámicamente -->
                             </div>
                         {% endif %}
@@ -71,13 +82,14 @@
             
             <!-- Botones de acción -->
             <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
-                <button id="clear-filters" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
+                <button id="{{ prefix }}clear-filters" type="button" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
                     Limpiar filtros
                 </button>
-                <button id="apply-filters" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
+                <button id="{{ prefix }}apply-filters" type="button" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200">
                     Aplicar filtros
                 </button>
             </div>
         </div>
+        {% endif %}
     </div>
 {% endmacro %}

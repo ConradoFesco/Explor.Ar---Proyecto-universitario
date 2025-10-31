@@ -1,8 +1,8 @@
 # src/web/routes/login_routes.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from src.core.models.user import User
-from ..extensions import db   # importa tu instancia SQLAlchemy
-from .. import exceptions as exc
+from src.web.extensions import db   # importa tu instancia SQLAlchemy
+from src.web import exceptions as exc
 from src.core.services.auth_service import auth_service
 from src.core.models.flag import Flag
 login_bp = Blueprint("login_bp", __name__)
@@ -35,3 +35,5 @@ def logout():
     if request.is_json:
         return jsonify({"message": "Sesión cerrada correctamente"})
     return redirect(url_for("main.index"))
+
+

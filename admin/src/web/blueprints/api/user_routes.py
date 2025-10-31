@@ -147,16 +147,6 @@ def update_user(user_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    #if 'blocked' in changed_fields:
-     #   new_blocked_status = changed_fields["blocked"]
-
-        # Si el usuario a editar tiene permiso de 'admin' e intenta bloquearlo
-        #if is_admin and new_blocked_status == True:
-          #  return jsonify({
-           #     "error": "Acción no permitida",
-            #    "message": f"No se puede bloquear al usuario porque tiene permisos de Administrador."
-           # }), 403 # 403 Forbidden
-
 @user_api.route('/<int:user_id>', methods=['DELETE'])
 @permission_required("delete_user")
 def delete_user(user_id):
@@ -351,4 +341,5 @@ def update_user_roles(user_id):
 @user_api.route('/page', methods=['GET'])
 def list_users_page():
     return render_template("users/list_users.html")
+
 

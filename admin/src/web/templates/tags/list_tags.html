@@ -1,41 +1,27 @@
-{% extends "shared/layout.html" %}
+{% extends "layouts/app.html.jinja" %}
 
 {% block title %}Gestión de tags{% endblock %}
 
 {% block content %}
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Buscador y filtros -->
-    <div class="mb-6 flex flex-col lg:flex-row gap-4">
-        <div class="relative max-w-md">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-            </div>
-            <input type="text" id="searchInput"
-                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 
-                    focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Buscar tags...">
-        </div>
-        
-        <!-- Ordenamiento -->
-        <div class="flex gap-2">
-            <select id="sortBy" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                <option value="name">Ordenar por nombre</option>
-                <option value="created_at">Ordenar por fecha</option>
-            </select>
-            <select id="sortOrder" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                <option value="asc">Ascendente</option>
-                <option value="desc">Descendente</option>
-            </select>
-        </div>
-    </div>
+    {% from 'shared/components/search_filters.html' import render_search_filters %}
+    {{ render_search_filters({
+        'search_placeholder': 'Buscar tags...',
+        'sort_options': [
+            {'value': 'name', 'label': 'Ordenar por nombre'},
+            {'value': 'created_at', 'label': 'Ordenar por fecha'}
+        ]
+    }) }}
 
     <!-- Lista de tags -->
     <div class="bg-white rounded-xl shadow-lg p-8">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-800">Gestión de Tags</h2>
+        {% import 'components/breadcrumbs.html.jinja' as bc %}
+        {{ bc.render_breadcrumbs([
+            {'label': 'Inicio', 'url': url_for('main.home')},
+            {'label': 'Tags', 'current': True}
+        ]) }}
+        {% from 'components/page_header.html.jinja' import render_page_header %}
+        {% call render_page_header('Gestión de Tags') %}
             <button onclick="showCreateTagModal()" 
                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,30 +29,10 @@
                 </svg>
                 Agregar Tag
             </button>
+        {% endcall %}
+        <div id="ssr-list-container">
+            {% include 'features/tags/_list_fragment.html.jinja' %}
         </div>
-        <div id="loading-message" class="text-center text-gray-500 py-8">Cargando tags...</div>
-        <div id="tags-list" class="hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha de creación</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sitios asociados</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tags-table-body" class="bg-white divide-y divide-gray-200">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div id="no-tags-message" class="text-center text-gray-500 py-8 hidden">No hay tags para mostrar.</div>
-        
-        <!-- Controles de paginación -->
-        <div id="pagination-controls" class="pagination hidden mt-6 flex justify-center gap-2"></div>
-        <div id="pagination-info" class="pagination-info hidden mt-2 text-sm text-gray-600 text-center"></div>
     </div>
 </main>
 
@@ -135,82 +101,44 @@
 {% endblock %}
 
 {% block scripts %}
-{{ super() }} 
+{{ super() }}
 <script>
-let currentPage = 1;
-let totalPages = 1;
-let currentSortBy = 'name';
-let currentSortOrder = 'asc';
-let currentSearch = '';
-let editingTagId = null;
+const perPage = 25;
+document.addEventListener('DOMContentLoaded', () => setupTagsSSR());
 
-// Cargar tags al inicializar
-document.addEventListener('DOMContentLoaded', function() {
-    loadTags();
-    
-    // Event listeners para búsqueda y ordenamiento
-    document.getElementById('searchInput').addEventListener('input', debounce(handleSearch, 300));
-    document.getElementById('sortBy').addEventListener('change', handleSortChange);
-    document.getElementById('sortOrder').addEventListener('change', handleSortChange);
-    
-    // Event listener para el formulario de tag
-    document.getElementById('tagForm').addEventListener('submit', handleTagSubmit);
-    
-    // Event listener para generar slug automáticamente
-    document.getElementById('tagName').addEventListener('input', generateSlug);
-});
-
-// Función para cargar tags
-async function loadTags() {
-    try {
-        showLoading(true);
-        
-        const params = new URLSearchParams({
-            page: currentPage,
-            per_page: 25,
-            sort_by: currentSortBy,
-            sort_order: currentSortOrder
+function setupTagsSSR() {
+    setValuesFromQuery();
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        let t; searchInput.addEventListener('input', () => {
+            clearTimeout(t); t = setTimeout(() => navigateTags({ page: 1 }), 300);
         });
-        
-        if (currentSearch) {
-            params.append('search', currentSearch);
-        }
-        
-        const response = await fetch(`/api/tags?${params}`);
-        const data = await response.json();
-        
-        if (response.ok) {
-            displayTags(data.tags);
-            updatePagination(data.pagination);
-        } else {
-            throw new Error(data.error || 'Error al cargar tags');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al cargar los tags: ' + error.message,
-            confirmButtonColor: '#dc2626'
-        });
-    } finally {
-        showLoading(false);
     }
+    const sortByEl = document.getElementById('sort-by');
+    const sortOrderEl = document.getElementById('sort-order');
+    if (sortByEl) sortByEl.addEventListener('change', () => navigateTags({ page: 1 }));
+    if (sortOrderEl) sortOrderEl.addEventListener('change', () => navigateTags({ page: 1 }));
+    const applyBtn = document.getElementById('apply-filters');
+    if (applyBtn) applyBtn.addEventListener('click', () => navigateTags({ page: 1 }));
+    const clearBtn = document.getElementById('clear-filters');
+    if (clearBtn) clearBtn.addEventListener('click', () => { clearControls(); navigateTags({ page: 1 }); });
+    const toggleBtn = document.getElementById('toggle-filters');
+    if (toggleBtn) toggleBtn.addEventListener('click', (e) => { e.preventDefault(); const p=document.getElementById('filters-panel'); if(p){ p.classList.toggle('hidden'); p.style.display = p.classList.contains('hidden') ? 'none' : 'block'; }});
+    window.changePage = function(page) { navigateTags({ page }); };
 }
 
 // Función para mostrar/ocultar loading
-function showLoading(show) {
-    const loadingMessage = document.getElementById('loading-message');
-    const tagsList = document.getElementById('tags-list');
-    const noTagsMessage = document.getElementById('no-tags-message');
-    
-    if (show) {
-        loadingMessage.classList.remove('hidden');
-        tagsList.classList.add('hidden');
-        noTagsMessage.classList.add('hidden');
-    } else {
-        loadingMessage.classList.add('hidden');
-    }
+function collectParams() {
+    const params = new URLSearchParams();
+    const v = id => { const el=document.getElementById(id); return el ? el.value : ''; };
+    const search = v('search-input');
+    const sortBy = v('sort-by') || 'name';
+    const sortOrder = v('sort-order') || 'asc';
+    if (search) params.set('search', search);
+    if (sortBy) params.set('sort_by', sortBy);
+    if (sortOrder) params.set('sort_order', sortOrder);
+    params.set('per_page', perPage);
+    return params;
 }
 
 // Función para mostrar tags en la tabla
@@ -317,18 +245,25 @@ function changePage(page) {
 }
 
 // Función para manejar búsqueda
-function handleSearch(event) {
-    currentSearch = event.target.value;
-    currentPage = 1;
-    loadTags();
+function navigateTags({ page }) {
+    const params = collectParams();
+    if (page) params.set('page', page);
+    const fragmentUrl = '{{ url_for("tags_web.lista_tags_fragment") }}' + '?' + params.toString();
+    const pageUrl = '{{ url_for("tags_web.lista_tags") }}' + '?' + params.toString();
+    history.replaceState(null, '', pageUrl);
+    fetch(fragmentUrl, { headers: { 'X-Requested-With': 'fetch' } })
+      .then(r => r.text())
+      .then(html => { const c=document.getElementById('ssr-list-container'); if(c) c.innerHTML = html; })
+      .catch(() => {});
 }
 
 // Función para manejar cambio de ordenamiento
-function handleSortChange() {
-    currentSortBy = document.getElementById('sortBy').value;
-    currentSortOrder = document.getElementById('sortOrder').value;
-    currentPage = 1;
-    loadTags();
+function setValuesFromQuery() {
+    const qs = new URLSearchParams(window.location.search);
+    const setVal = (id,key)=>{ const el=document.getElementById(id); const val=qs.get(key); if(el && val!==null){ el.value=val; } };
+    setVal('search-input','search');
+    setVal('sort-by','sort_by');
+    setVal('sort-order','sort_order');
 }
 
 // Función debounce para búsqueda

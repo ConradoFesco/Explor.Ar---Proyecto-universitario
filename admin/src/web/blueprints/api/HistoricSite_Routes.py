@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response
 from src.core.services.HistoricSite_Service import historic_site_service
-from .. import exceptions as exc
+from src.web import exceptions as exc
 from flask import session
 from src.web.auth.decorators import permission_required
 
@@ -330,5 +330,6 @@ def export_sites_csv():
     except exc.DatabaseError as e:
         return jsonify({'error': str(e)}), 500
     except Exception as e:
-        return jsonify({'error': f'Error inesperado al exportar: {str(e)}'}), 500
+        return jsonify({'error': 'Error inesperado al exportar: ' + str(e)}), 500
+
 

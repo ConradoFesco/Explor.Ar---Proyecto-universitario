@@ -1,19 +1,21 @@
 from flask import Blueprint, request, jsonify
-from src.core.services.category_service import category_service
+from src.core.services.state_service import state_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
 
-category_api = Blueprint('category_api', __name__)
+state_api = Blueprint('state_api', __name__)
 
-@category_api.route('/category_routes', methods=['GET'])
-@permission_required('get_all_categories')
-def get_all_categories():
+@state_api.route('/state_routes', methods=['GET'])
+@permission_required('get_all_states')
+def get_all_states():
     try:
-        categories = category_service.get_all_categories()
-        return jsonify(categories), 200
+        states = state_service.get_all_states()
+        return jsonify(states), 200
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
     except DatabaseError as e:
         return jsonify({'error': str(e)}), 409
     except NotFoundError as e:
         return jsonify({'error': str(e)}), 404
+
+

@@ -1,0 +1,59 @@
+<!-- Header -->
+<header class="bg-white shadow-lg border-b border-gray-200 relative z-50">
+    <div class="flex items-center justify-between px-6 py-4">
+        <!-- Menu Button -->
+        <button id="menuToggle" class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+            <div class="space-y-1.5">
+                <div class="w-6 h-0.5 bg-gray-700 transition-all duration-300" id="line1"></div>
+                <div class="w-6 h-0.5 bg-gray-700 transition-all duration-300" id="line2"></div>
+                <div class="w-6 h-0.5 bg-gray-700 transition-all duration-300" id="line3"></div>
+            </div>
+        </button>
+
+        <!-- Logo centrado -->
+        <div class="absolute left-1/2 transform -translate-x-1/2">
+            <a href="{{ url_for('main.home') }}" class="cursor-pointer">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" 
+                    alt="HeritageTech Logo" 
+                    class="h-24 w-24 hover:opacity-80 transition-opacity duration-200">
+            </a>
+        </div>
+        <!-- User Profile -->
+        <div class="relative">
+            <button id="userMenuToggle" 
+                    class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    {% if user_initials %}
+                        <span class="text-white font-semibold text-sm">{{ user_initials }}</span>
+                    {% else %}
+                        <i class="bi bi-person-fill text-white text-xl"></i>
+                    {% endif %}
+                </div>
+                <svg class="w-4 h-4 text-gray-600 transition-transform duration-200" 
+                    id="userArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+
+            <!-- User Dropdown -->
+            <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 hidden">
+                <a href="/profile" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                    <svg class="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    Ver perfil
+                </a>
+                <hr class="my-1 border-gray-200">
+                <a href="#" onclick="cerrarSesion()" class="flex items-center px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200">
+                    <svg class="w-5 h-5 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a2 2 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    Cerrar sesión
+                </a>
+                
+            </div>
+        </div>
+    </div>
+</header>
+
+

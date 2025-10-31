@@ -1,0 +1,13 @@
+{% if users %}
+<ul id="users-list-server" class="divide-y divide-gray-200">
+    {% for user in users %}
+        {% include 'features/users/_item.html.jinja' %}
+    {% endfor %}
+    </ul>
+{% import 'components/paginator.html.jinja' as pager %}
+{{ pager.render_pagination(pagination) }}
+{% else %}
+<div class="text-center text-gray-500 py-8">No hay usuarios para mostrar.</div>
+{% endif %}
+
+

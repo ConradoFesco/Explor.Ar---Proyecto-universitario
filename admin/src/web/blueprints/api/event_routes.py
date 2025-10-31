@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from src.core.services.event_service import event_service
-from .. import exceptions as exc
+from src.web import exceptions as exc
 from src.web.auth.decorators import permission_required
 
 event_api = Blueprint('event_api', __name__)
@@ -64,3 +64,5 @@ def delete_event(id):
     except exc.DatabaseError as e:
         # 4. Si el servicio lanzó un error de base de datos, lo captura y lo devuelve
         return jsonify({'error': str(e)}), 409 # 409 = Conflict en la data base
+
+

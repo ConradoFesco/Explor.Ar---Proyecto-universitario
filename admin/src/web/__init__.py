@@ -88,7 +88,7 @@ def register_blueprints(app):
     Args:
         app: Instancia de la aplicación Flask
     """
-    from .blueprints import register_blueprints as _register_blueprints
+    from .blueprints_registry import register_blueprints as _register_blueprints
     _register_blueprints(app)
 
 

@@ -1,11 +1,17 @@
-{% extends "shared/layout.html" %}
+{% extends "layouts/app.html.jinja" %}
 
 {% block title %}Feature Flags{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <div class="bg-white shadow-lg rounded-xl p-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">Gestión de Feature Flags</h2>
+        {% import 'components/breadcrumbs.html.jinja' as bc %}
+        {{ bc.render_breadcrumbs([
+            {'label': 'Inicio', 'url': url_for('main.home')},
+            {'label': 'Feature Flags', 'current': True}
+        ]) }}
+        {% from 'components/page_header.html.jinja' import render_page_header %}
+        {% call render_page_header('Gestión de Feature Flags') %}{% endcall %}
         <p class="text-gray-600 mb-6">
             Activá o desactivá funcionalidades del sistema sin necesidad de despliegues.
         </p>
