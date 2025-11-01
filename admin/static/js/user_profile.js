@@ -2,7 +2,7 @@
   function openModal(id){ const m=document.getElementById(id); if (m) m.classList.remove('hidden'); }
   window.closeModal = function(id){ const m=document.getElementById(id); if (m) m.classList.add('hidden'); };
 
-  async function savePassword(){
+  function savePassword(){
     const msg = document.getElementById('passwordMsg');
     const input = document.getElementById('newPassword');
     if (!input || !msg) return;
@@ -14,27 +14,12 @@
       msg.classList.add('text-red-500');
       return;
     }
-    try{
-      const res = await fetch('/profile/update_password', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ new_password: val }) });
-      const data = await res.json().catch(()=>({}));
-      if (res.ok || data.message){
-        msg.textContent = data.message || 'Contraseña actualizada';
-        msg.classList.remove('hidden');
-        msg.classList.remove('text-red-500');
-        msg.classList.add('text-green-500');
-        setTimeout(()=>{ window.location.href = '/profile'; }, 1500);
-      } else {
-        msg.textContent = data.error || 'Error al actualizar contraseña';
-        msg.classList.remove('hidden');
-        msg.classList.remove('text-green-500');
-        msg.classList.add('text-red-500');
-      }
-    } catch(_e){
-      msg.textContent = 'Error al actualizar contraseña';
-      msg.classList.remove('hidden');
-      msg.classList.remove('text-green-500');
-      msg.classList.add('text-red-500');
-    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/profile/update_password';
+    const i = document.createElement('input'); i.type='hidden'; i.name='new_password'; i.value=val; form.appendChild(i);
+    document.body.appendChild(form);
+    form.submit();
   }
 
   function setup(){

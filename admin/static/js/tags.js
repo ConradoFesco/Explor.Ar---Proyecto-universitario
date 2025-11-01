@@ -107,22 +107,13 @@
     e.preventDefault();
     const name = (document.getElementById('tagName')?.value || '').trim();
     if (!name){ const err = document.getElementById('tagNameError'); if (err) err.classList.remove('hidden'); return; }
-    try {
-      const url = editingTagId ? `/api/tags/${editingTagId}` : '/api/tags';
-      const method = editingTagId ? 'PUT' : 'POST';
-      const resp = await fetch(url, { method, headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ name }) });
-      if (!resp.ok){ const data = await resp.json().catch(()=>({})); throw new Error(data.error || 'Error al guardar el tag'); }
-      const wasEditing = !!editingTagId;
-      closeTagModal();
-      navigateWithParams(1);
-      if (typeof Swal !== 'undefined'){
-        Swal.fire({ icon:'success', title: wasEditing ? 'Tag actualizado' : 'Tag creado', text: wasEditing ? 'Actualizado correctamente' : 'Creado correctamente', confirmButtonColor:'#16a34a', timer:2000, showConfirmButton:false });
-      }
-    } catch(err){
-      if (typeof Swal !== 'undefined'){
-        Swal.fire({ icon:'error', title:'Error', text: err.message || 'Error al guardar', confirmButtonColor:'#dc2626' });
-      }
-    }
+    // Enviar a endpoints Web mediante form POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = editingTagId ? `/tags/${editingTagId}/editar` : '/tags';
+    const input = document.createElement('input'); input.type='hidden'; input.name='name'; input.value=name; form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
   }
 
   // Modal eliminar
@@ -151,19 +142,7 @@
 
   async function deleteTag(){
     if (!tagToDelete) return;
-    try{
-      const resp = await fetch(`/api/tags/${tagToDelete}`, { method:'DELETE' });
-      if (!resp.ok){ const data = await resp.json().catch(()=>({})); throw new Error(data.error || 'Error al eliminar el tag'); }
-      closeDeleteModal();
-      navigateWithParams(1);
-      if (typeof Swal !== 'undefined'){
-        Swal.fire({ icon:'success', title:'Tag eliminado', text:'El tag ha sido eliminado correctamente', confirmButtonColor:'#16a34a', timer:2000, showConfirmButton:false });
-      }
-    } catch(err){
-      if (typeof Swal !== 'undefined'){
-        Swal.fire({ icon:'error', title:'Error', text: err.message || 'Error al eliminar', confirmButtonColor:'#dc2626' });
-      }
-    }
+    const form = document.createElement('form'); form.method='POST'; form.action = `/tags/${tagToDelete}/eliminar`; document.body.appendChild(form); form.submit();
   }
 
   document.addEventListener('DOMContentLoaded', function(){

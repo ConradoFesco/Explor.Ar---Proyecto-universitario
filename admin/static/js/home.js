@@ -3,7 +3,8 @@ document.addEventListener('DOMContentLoaded', function(){
   if (typeof mapHandler !== 'undefined'){
     const noClickHandler = function(_coords){};
     mapHandler.initializeMap('map-container', [-34.92, -57.95], 13, noClickHandler);
-    mapHandler.loadHistoricSites();
+    const sites = Array.isArray(window.SITES_FOR_MAP) ? window.SITES_FOR_MAP : [];
+    sites.forEach(s => mapHandler.createSiteMarker(s));
   }
 });
 

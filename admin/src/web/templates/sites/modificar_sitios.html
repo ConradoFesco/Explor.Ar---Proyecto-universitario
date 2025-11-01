@@ -59,6 +59,13 @@
 <!-- Scripts necesarios para el mapa (en este orden) -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
+<script>
+  window.SITE_EDIT = {{ (site_edit or {}) | tojson }};
+  window.SITE_OPTIONS = {
+    states: {{ (states_options or []) | tojson }},
+    categories: {{ (categories_options or []) | tojson }}
+  };
+</script>
 <script src="{{ url_for('static', filename='js/edit_site.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sidebar_fix.js') }}"></script>
 

@@ -141,7 +141,12 @@ class UserService:
         
         # Verificar si el usuario a eliminar es superAdmin
         if self._is_super_admin(user):
-            raise ValidationError("No se puede eliminar un usuario con rol de SuperAdmin")
+            # Solo superAdmins pueden eliminar SuperAdmins y no a sí mismos
+            admin_user = User.query.get(admin_id)
+            if not admin_user or not self._is_super_admin(admin_user):
+                raise ValidationError("Solo usuarios SuperAdmin pueden eliminar a un SuperAdmin")
+            if user_id == admin_id:
+                raise ValidationError("Un SuperAdmin no puede eliminarse a sí mismo")
         
         # Marcar como eliminado con información adicional
         user.active = False

@@ -65,21 +65,19 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   function loadEstados(){
-    fetch('/api/state_routes').then(r=>r.json()).then(data=>{
-      const sel = document.getElementById('estado');
-      if (!sel || !Array.isArray(data)) return;
-      sel.innerHTML = '<option value="">Seleccione un estado...</option>';
-      data.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.state; sel.appendChild(o); });
-    }).catch(()=>{});
+    const data = (window.SITE_OPTIONS && Array.isArray(window.SITE_OPTIONS.states)) ? window.SITE_OPTIONS.states : [];
+    const sel = document.getElementById('estado');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Seleccione un estado...</option>';
+    data.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.state; sel.appendChild(o); });
   }
 
   function loadCategorias(){
-    fetch('/api/category_routes').then(r=>r.json()).then(data=>{
-      const sel = document.getElementById('categoria');
-      if (!sel || !Array.isArray(data)) return;
-      sel.innerHTML = '<option value="">Seleccione una categoría...</option>';
-      data.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
-    }).catch(()=>{});
+    const data = (window.SITE_OPTIONS && Array.isArray(window.SITE_OPTIONS.categories)) ? window.SITE_OPTIONS.categories : [];
+    const sel = document.getElementById('categoria');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Seleccione una categoría...</option>';
+    data.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
   }
 
   window.cancelCreate = function(){
@@ -137,17 +135,9 @@ document.addEventListener('DOMContentLoaded', function(){
     sendDataToBackend(payload);
   }
 
-  function sendDataToBackend(data){
-    const btn = document.querySelector('button[type="submit"]');
-    const original = btn?.textContent; if (btn){ btn.textContent='Guardando...'; btn.disabled=true; }
-    fetch('/api/HistoricSite_Routes', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(data) })
-      .then(r=>{ if (!r.ok) return r.json().then(e=>{ throw new Error(e.error || 'Error en el servidor'); }); return r.json(); })
-      .then(result=>{ showSuccessMessage(); addNewSiteToMap(result); window.clearForm(); })
-      .catch(err=>{
-        if (err.message.includes('Usuario no autenticado') || err.message.includes('Faltan datos de sitio histórico o usuario')){ alert('Su sesión ha expirado. Por favor, inicie sesión nuevamente.'); window.location.href = '/'; return; }
-        showErrorMessage(err.message);
-      })
-      .finally(()=>{ if (btn){ btn.textContent = original; btn.disabled=false; } });
+  function sendDataToBackend(_data){
+    const form = document.getElementById('site-form');
+    if (form){ form.method='POST'; form.action='/sitios'; form.submit(); }
   }
 
   function addNewSiteToMap(site){ if (!mapHandler?.map) return; mapHandler.createSiteMarker(site); mapHandler.centerOnSite(site); }
@@ -163,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function(){
     constructor(containerId){ this.containerId=containerId; this.selectedTags=[]; this.allTags=[]; this.init(); }
     init(){ this.createHTML(); this.loadTags(); }
     createHTML(){ const c=document.getElementById(this.containerId); if (!c) return; c.innerHTML = '<button type="button" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200" id="open-tag-selector"><i class="bi bi-tags-fill"></i> Agregar Tags</button>'; document.getElementById('open-tag-selector').addEventListener('click', ()=> this.openModal()); }
-    async loadTags(){ try{ const r=await fetch('/api/tags'); const d=await r.json(); this.allTags = d.tags || d; } catch(_e){ this.allTags=[]; } }
+    async loadTags(){ this.allTags = Array.isArray(window.TAGS_OPTIONS) ? window.TAGS_OPTIONS : []; }
     openModal(){ const modal=document.getElementById('detail-modal'); const title=document.getElementById('modal-title'); const content=document.getElementById('modal-content'); title.textContent='Seleccionar Tags'; content.innerHTML=this.createModalContent(); modal.classList.remove('hidden'); this.bindModalEvents(); }
     createModalContent(){ return `<div class="space-y-4"><div><input type="text" id="tag-search" placeholder="Buscar tags..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"></div><div id="tags-container" class="max-h-64 overflow-y-auto space-y-2">${this.renderTagsHTML()}</div><div class="flex justify-end space-x-3 pt-4 border-t border-gray-200"><button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">Cancelar</button><button type="button" id="confirm-tags" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition duration-200">Confirmar Selección</button></div></div>`; }
     renderTagsHTML(list=null){ const tags=list||this.allTags; if (!tags.length) return '<div class="text-center text-gray-500 py-4">No se encontraron tags</div>'; return tags.map(tag=>`<div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition duration-200"><input type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" id="tag-${tag.id}" data-tag-id="${tag.id}" ${this.isSelected(tag.id)?'checked':''}><label for="tag-${tag.id}" class="ml-3 flex-1 cursor-pointer"><span class="font-medium text-gray-900">${tag.name}</span><span class="text-sm text-gray-500 ml-2">(${tag.slug})</span></label></div>`).join(''); }

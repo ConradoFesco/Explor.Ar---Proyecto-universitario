@@ -25,16 +25,16 @@
             ],
             'export_button': {'text': 'Exportar CSV'},
             'filters': [
-                {'name': 'city', 'label': 'Ciudad', 'type': 'select', 'placeholder': 'Todas las ciudades'},
-                {'name': 'province', 'label': 'Provincia', 'type': 'select', 'placeholder': 'Todas las provincias'},
-                {'name': 'state', 'label': 'Estado del sitio', 'type': 'select', 'placeholder': 'Todos los estados'},
+                {'name': 'city', 'label': 'Ciudad', 'type': 'select', 'placeholder': 'Todas las ciudades', 'options': filters_options.cities},
+                {'name': 'province', 'label': 'Provincia', 'type': 'select', 'placeholder': 'Todas las provincias', 'options': filters_options.provinces},
+                {'name': 'state', 'label': 'Estado del sitio', 'type': 'select', 'placeholder': 'Todos los estados', 'options': filters_options.states},
                 {'name': 'visible', 'label': 'Visibilidad', 'type': 'select', 'placeholder': 'Todos', 'options': [
                     {'value': 'true', 'label': 'Visible'},
                     {'value': 'false', 'label': 'No visible'}
                 ]},
                 {'name': 'date-from', 'label': 'Fecha desde', 'type': 'date'},
                 {'name': 'date-to', 'label': 'Fecha hasta', 'type': 'date'},
-                {'name': 'tags', 'label': 'Tags', 'type': 'checkbox'}
+                {'name': 'tags', 'label': 'Tags', 'type': 'checkbox', 'options': filters_options.tags}
             ]
         }) }}
         {% if sites is defined %}
@@ -60,8 +60,7 @@ window.SITES_CONFIG = {
   perPage: 25,
   pageUrl: "{{ url_for('sites_web.lista_sitios') }}",
   fragmentUrl: "{{ url_for('sites_web.lista_sitios_fragment') }}",
-  filterOptionsUrl: "{{ url_for('site_api.get_filter_options') }}",
-  exportCsvUrl: "{{ url_for('site_api.export_sites_csv') }}"
+  exportCsvUrl: "{{ url_for('sites_web.export_sites_csv_web') }}"
 };
 </script>
 <script src="{{ url_for('static', filename='js/sites.js') }}"></script>

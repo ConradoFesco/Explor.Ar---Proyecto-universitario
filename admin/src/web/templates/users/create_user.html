@@ -16,7 +16,7 @@
             {% call render_page_header('Crear Nuevo Usuario') %}{% endcall %}
         </div>
         
-        <form id="createUserForm" class="p-6 space-y-6">
+        <form id="createUserForm" class="p-6 space-y-6" method="post" action="{{ url_for('users_web.create_user_web') }}">
             {% import 'components/fields.html.jinja' as f %}
             {{ f.render_text_input('name','Nombre', True, 'Ingresa el nombre') }}
             {{ f.render_text_input('last_name','Apellido', True, 'Ingresa el apellido') }}
@@ -31,7 +31,16 @@
                     Roles <span class="text-red-500">*</span>
                 </label>
                 <div id="roles-container" class="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
-                    <div class="text-sm text-gray-500">Cargando roles...</div>
+                    {% if available_roles %}
+                        {% for role in available_roles %}
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" id="role_{{ role.id }}" name="roles" value="{{ role.id }}" class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="role_{{ role.id }}" class="ml-2 text-sm text-gray-700">{{ role.name|capitalize }}</label>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-red-500">No hay roles disponibles</div>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-gray-500 mt-1">Selecciona uno o más roles para el usuario</p>
             </div>

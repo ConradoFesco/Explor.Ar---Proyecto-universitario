@@ -42,7 +42,7 @@
                         
                         <!-- Estado (botón toggle) -->
                         <td class="px-6 py-4 text-center">
-                            <form method="POST" action="{{ url_for('flag_api.toggle_flag_route', flag_id=flag.id) }}" style="display: inline;">
+                            <form method="POST" action="{{ url_for('flags_web.toggle_flag', flag_id=flag.id) }}" style="display: inline;">
                                 <button
                                     type="submit"
                                     class="px-4 py-1.5 rounded-full font-bold text-sm text-white shadow-sm transition-all duration-200 hover:shadow-md

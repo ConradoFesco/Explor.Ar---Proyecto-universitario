@@ -23,9 +23,11 @@ def register_hooks(app):
         """
         # Ignorar rutas públicas (login, static, logout, archivos estáticos)
         public_endpoints = [
-            'login_bp.login',      # POST /api/login
-            'login_bp.logout',     # GET/POST /api/logout
+            'login_bp.login',      # legacy API login
+            'login_bp.logout',     # legacy API logout
             'main.index',          # GET /
+            'main.login_post',     # POST /login (web)
+            'main.logout',         # GET /logout (web)
             'static',              # Archivos estáticos
             None                   # Peticiones sin endpoint definido
         ]
@@ -39,7 +41,7 @@ def register_hooks(app):
         
         # Consultar el flag de mantenimiento
         try:
-            admin_flag = Flag.query.filter_by(name="admin_maintenance_mode").first()
+            admin_flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
         except Exception as e:
             # Si hay error al consultar la BD, permitir acceso
             return None

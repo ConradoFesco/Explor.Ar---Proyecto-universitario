@@ -30,7 +30,11 @@ def list_users_page():
         sort_by=sort_by,
         sort_order=sort_order
     )
-
+    try:
+        current_roles = user_service.get_user_roles(session.get('user_id'))
+        current_is_super_admin = any((r.get('name') or '').lower() == 'superadmin' for r in current_roles)
+    except Exception:
+        current_is_super_admin = False
     return render_template(
         'users/list_users.html',
         users=result.get('users', []),
@@ -43,7 +47,8 @@ def list_users_page():
             'has_next': result.get('has_next', False),
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
-        }
+        },
+        current_is_super_admin=current_is_super_admin
     )
 
 
@@ -72,7 +77,11 @@ def list_users_fragment():
         sort_by=sort_by,
         sort_order=sort_order
     )
-
+    try:
+        current_roles = user_service.get_user_roles(session.get('user_id'))
+        current_is_super_admin = any((r.get('name') or '').lower() == 'superadmin' for r in current_roles)
+    except Exception:
+        current_is_super_admin = False
     return render_template(
         'features/users/_list_fragment.html.jinja',
         users=result.get('users', []),
@@ -85,7 +94,8 @@ def list_users_fragment():
             'has_next': result.get('has_next', False),
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
-        }
+        },
+        current_is_super_admin=current_is_super_admin
     )
 
 
@@ -116,6 +126,35 @@ def create_user_form_page():
     return render_template('users/create_user.html', available_roles=available_roles)
 
 
+@users_web.route('/users', methods=['POST'])
+def create_user_web():
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    admin_id = session.get('user_id')
+    form = request.form
+    name = (form.get('name') or '').strip()
+    last_name = (form.get('last_name') or '').strip()
+    mail = (form.get('mail') or '').strip()
+    password = form.get('password') or ''
+    roles_raw = form.getlist('roles')
+    try:
+        role_ids = [int(r) for r in roles_raw if r.strip()]
+    except Exception:
+        role_ids = []
+    active = bool(form.get('active'))
+    blocked = bool(form.get('blocked'))
+    data_new_user = { 'name': name, 'last_name': last_name, 'mail': mail, 'password': password, 'roles': role_ids, 'active': active, 'blocked': blocked }
+    try:
+        user_service.create_user(data_user=admin_id, data_new_user=data_new_user)
+        flash('Usuario creado correctamente', 'success')
+        return redirect(url_for('users_web.list_users_page'))
+    except ValidationError as ve:
+        flash(str(ve), 'error')
+    except Exception as e:
+        flash('Error al crear el usuario: ' + str(e), 'error')
+    return redirect(url_for('users_web.create_user_form_page'))
+
+
 @users_web.post('/users/<int:user_id>/eliminar')
 def delete_user_page(user_id: int):
     if "user_id" not in session:
@@ -130,5 +169,33 @@ def delete_user_page(user_id: int):
         flash(str(ve), "error")
     except Exception as e:
         flash("Error al eliminar usuario: " + str(e), "error")
+    return redirect(url_for('users_web.list_users_page'))
+
+
+@users_web.post('/users/<int:user_id>/editar')
+def update_user_page(user_id: int):
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    admin_id = session.get('user_id')
+    form = request.form
+    name = (form.get('name') or '').strip()
+    last_name = (form.get('last_name') or '').strip()
+    mail = (form.get('mail') or '').strip()
+    active = bool(form.get('active'))
+    blocked = bool(form.get('blocked'))
+    roles_raw = form.getlist('roles')
+    try:
+        role_ids = [int(r) for r in roles_raw if r.strip()]
+    except Exception:
+        role_ids = []
+    changed_fields = { 'name': name, 'last_name': last_name, 'mail': mail, 'active': active, 'blocked': blocked }
+    try:
+        user_service.update_user(user_id, changed_fields, admin_user_id=admin_id)
+        user_service.update_user_roles(user_id, role_ids, admin_user_id=admin_id)
+        flash('Usuario actualizado correctamente', 'success')
+    except ValidationError as ve:
+        flash(str(ve), 'error')
+    except Exception as e:
+        flash('Error al actualizar usuario: ' + str(e), 'error')
     return redirect(url_for('users_web.list_users_page'))
 

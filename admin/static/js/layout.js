@@ -12,11 +12,7 @@ async function cerrarSesion() {
       cancelButtonText: 'Cancelar'
     });
     if (!result.isConfirmed) return;
-    Swal.fire({ title: 'Cerrando sesión...', text: 'Por favor espera', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: () => { Swal.showLoading(); } });
-    const res = await fetch('/api/logout', { method:'POST', headers:{ 'Content-Type':'application/json' } });
-    const data = await res.json().catch(()=>({}));
-    if (res.ok){ window.location.href = '/home'; }
-    else { Swal.fire({ icon:'error', title:'Error', text: data.error || 'Error al cerrar sesión', confirmButtonColor:'#dc2626' }); }
+    Swal.fire({ title: 'Cerrando sesión...', text: 'Redirigiendo...', timer: 600, showConfirmButton: false, didOpen: () => { Swal.showLoading(); } }).then(()=>{ window.location.href = '/logout'; });
   } catch (err){
     console.error('Error al cerrar sesión:', err);
     Swal.fire({ icon:'error', title:'Error', text:'No se pudo cerrar sesión. Intenta nuevamente.', confirmButtonColor:'#dc2626' });
@@ -92,9 +88,9 @@ function loadModalContent(url, title, renderFunction, errorFunction = null){
   modalTitle.textContent = title;
   modalContent.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div><div class="h-4 bg-gray-200 rounded w-1/2"></div></div>';
   modal.classList.remove('hidden');
-  fetch(url)
-    .then(response => { if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`); return response.json(); })
-    .then(data => { modalContent.innerHTML = renderFunction(data); })
+  fetch(url, { headers: { 'X-Requested-With':'fetch' }})
+    .then(response => { if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`); return response.text(); })
+    .then(html => { modalContent.innerHTML = typeof renderFunction === 'function' ? renderFunction(html) : html; })
     .catch(error => {
       console.error('Error fetching details:', error);
       modalContent.innerHTML = errorFunction ? errorFunction(error) : `<div class="text-red-600 text-center"><p>Error al cargar los detalles.</p><p class="text-sm mt-2">${error.message}</p></div>`;

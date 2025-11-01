@@ -120,18 +120,11 @@
   });
 
   window.deleteSite = function(siteId){
+    const doSubmit = ()=>{ const f=document.createElement('form'); f.method='POST'; f.action=`/sitios/${siteId}/eliminar`; document.body.appendChild(f); f.submit(); };
     if (typeof Swal !== 'undefined'){
       Swal.fire({ title:'¿Eliminar sitio?', text:'Esta acción no se puede deshacer.', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonColor:'#6B7280', confirmButtonText:'Sí, eliminar', cancelButtonText:'Cancelar' })
-        .then((res)=>{ if(res.isConfirmed){ fetch(`/sitios/${siteId}/eliminar`, { method:'POST', headers:{'Content-Type':'application/json'} })
-            .then(r=>{ if(!r.ok) throw new Error('Fail'); return r.json(); })
-            .then(()=>{ const params = new URLSearchParams(window.location.search); params.set('page',1); history.replaceState(null,'', location.pathname+'?'+params.toString()); const m=document.getElementById('detail-modal'); if(m) m.classList.add('hidden'); if (window._prevChangePage){ window.changePage = window._prevChangePage; window._prevChangePage = null; } Swal.fire('Eliminado','El sitio fue eliminado.','success'); })
-            .catch(()=> Swal.fire('Error','No se pudo eliminar el sitio.','error')); } });
-    } else {
-      if (confirm('¿Eliminar el sitio?')){ fetch(`/sitios/${siteId}/eliminar`, { method:'POST', headers:{'Content-Type':'application/json'} })
-          .then(()=>{ const m=document.getElementById('detail-modal'); if(m) m.classList.add('hidden'); if (window._prevChangePage){ window.changePage = window._prevChangePage; window._prevChangePage = null; } })
-          .catch(()=>{});
-      }
-    }
+        .then((res)=>{ if(res.isConfirmed){ doSubmit(); } });
+    } else { if (confirm('¿Eliminar el sitio?')) doSubmit(); }
   };
 })();
 

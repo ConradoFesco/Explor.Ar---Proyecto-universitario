@@ -43,10 +43,10 @@
             <h1 class="text-3xl font-bold text-white mb-2">Bienvenido</h1>
             <p class="text-white text-opacity-80 mb-6">Accede a tu cuenta</p>
 
-            <form id="loginForm" class="space-y-4 mb-6">
-                <input type="text" id="mail" placeholder="Correo electrónico"
+            <form id="loginForm" class="space-y-4 mb-6" method="post" action="/login">
+                <input type="text" id="mail" name="mail" placeholder="Correo electrónico"
                        class="w-full py-3 px-4 rounded-lg focus:outline-none">
-                <input type="password" id="password" placeholder="Contraseña"
+                <input type="password" id="password" name="password" placeholder="Contraseña"
                        class="w-full py-3 px-4 rounded-lg focus:outline-none">
                 <button type="submit"
                         class="w-full bg-white text-gray-800 font-semibold py-3 px-6 rounded-lg hover-scale hover:bg-gray-50 transition-colors duration-300">

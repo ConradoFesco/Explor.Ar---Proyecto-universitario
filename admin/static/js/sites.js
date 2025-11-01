@@ -45,7 +45,7 @@
     const tagParam = qs.get('tag_ids');
     if (tagParam) {
       const ids = tagParam.split(',');
-      ids.forEach(id=>{ const cb=document.querySelector(`#tags-filter-container input[type="checkbox"][value="${id}"]`); if(cb) cb.checked=true; });
+      ids.forEach(id=>{ const cb=document.querySelector(`#filter-tags input[type="checkbox"][value="${id}"]`) || document.querySelector(`#filter-tags-container input[type="checkbox"][value="${id}"]`); if(cb) cb.checked=true; });
     }
   }
 
@@ -59,14 +59,7 @@
       .catch(()=>{});
   }
 
-  function loadFilterOptions(){
-    if (!cfg.filterOptionsUrl) return;
-    fetch(cfg.filterOptionsUrl)
-      .then(r=>r.json())
-      .then(data=>populateOptions(data))
-      .then(()=> setFromQuery())
-      .catch(()=>{});
-  }
+  function loadFilterOptions(){ /* SSR supplies options now */ }
 
   function populateOptions(data){
     if (!data) return;

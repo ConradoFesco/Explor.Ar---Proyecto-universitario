@@ -27,6 +27,9 @@
 <!-- Scripts necesarios para el mapa (solo visualización, sin funcionalidad de clic) -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
+<script>
+  window.SITES_FOR_MAP = {{ (sites_for_map or []) | tojson }};
+</script>
 <script src="{{ url_for('static', filename='js/sidebar_fix.js') }}"></script>
 <script src="{{ url_for('static', filename='js/home.js') }}"></script>
 {% endblock %}

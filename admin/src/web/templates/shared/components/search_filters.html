@@ -72,9 +72,18 @@
                                    value="{{ request.args.get(param_key,'') }}"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         {% elif filter.type == 'checkbox' %}
-                            <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
-                                <!-- Los checkboxes se cargarán dinámicamente -->
-                            </div>
+                            {% if filter.options and filter.options|length > 0 %}
+                                <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
+                                    {% for option in filter.options %}
+                                        <label class="flex items-center mr-4">
+                                            <input type="checkbox" value="{{ option.value }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {% if request.args.get(filter.param or filter.name, '') and (option.value in request.args.get(filter.param or filter.name).split(',')) %}checked{% endif %}>
+                                            <span class="ml-2 text-sm text-gray-700 cursor-pointer">{{ option.label }}</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2"></div>
+                            {% endif %}
                         {% endif %}
                     </div>
                 {% endfor %}

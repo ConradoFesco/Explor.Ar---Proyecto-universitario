@@ -1,27 +1,6 @@
 (function(){
   let originalUserData = null;
 
-  function getConfig(){
-    if (!window.USER_EDIT_CONFIG) throw new Error('USER_EDIT_CONFIG no definido');
-    return window.USER_EDIT_CONFIG;
-  }
-
-  async function loadUserData(){
-    const { userId } = getConfig();
-    try {
-      const response = await fetch(`/api/users/${userId}`);
-      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
-      const userData = await response.json();
-      originalUserData = userData;
-      populateForm(userData);
-      const loading = document.getElementById('loading-state'); if (loading) loading.classList.add('hidden');
-      const form = document.getElementById('editUserForm'); if (form) form.classList.remove('hidden');
-    } catch (err){
-      console.error('Error cargando datos del usuario:', err);
-      showError(err.message);
-    }
-  }
-
   function populateForm(userData){
     setValue('name', userData.name || '');
     setValue('last_name', userData.last_name || '');
@@ -37,29 +16,10 @@
     } else {
       setText('user-created-at','N/A');
     }
-    populateRoles(userData.available_roles || [], userData.current_roles || []);
+    // Roles se renderizan SSR en el template
   }
 
-  function populateRoles(availableRoles, currentRoles){
-    const rolesContainer = document.getElementById('roles-container');
-    if (!rolesContainer) return;
-    if (availableRoles.length === 0){
-      rolesContainer.innerHTML = '<div class="text-sm text-red-500">No hay roles disponibles</div>';
-      return;
-    }
-    rolesContainer.innerHTML = '';
-    const currentRoleIds = currentRoles.map(r => r.id);
-    availableRoles.forEach(role => {
-      const roleDiv = document.createElement('div');
-      roleDiv.className = 'flex items-center mb-2';
-      const isChecked = currentRoleIds.includes(role.id);
-      roleDiv.innerHTML = `
-        <input type="checkbox" id="role_${role.id}" value="${role.id}" ${isChecked ? 'checked' : ''} class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-        <label for="role_${role.id}" class="ml-2 text-sm text-gray-700">${capitalize(role.name)}</label>
-      `;
-      rolesContainer.appendChild(roleDiv);
-    });
-  }
+  // Roles ya SSR
 
   function showError(message){
     const loading = document.getElementById('loading-state'); if (loading) loading.classList.add('hidden');
@@ -109,48 +69,12 @@
     return (originalUserData.current_roles || []).map(r => r.id).sort();
   }
 
-  async function handleSubmit(e){
-    e.preventDefault();
-    if (!validateForm()) return;
-    const { userId, currentUserId } = getConfig();
-    const currentData = collectFormData();
-    const changedFields = computeChanges(currentData, originalUserData || {});
-    const originalRoleIds = getOriginalRoleIds();
-    const currentRoleIds = getSelectedRoleIds();
-    const rolesChanged = JSON.stringify(originalRoleIds) !== JSON.stringify(currentRoleIds);
-
-    if (Object.keys(changedFields).length === 0 && !rolesChanged){
-      return info('Sin cambios','No hay cambios para guardar');
+  function handleSubmit(e){
+    if (!validateForm()){
+      e.preventDefault();
+      return false;
     }
-
-    try {
-      if (Object.keys(changedFields).length > 0){
-        const resp = await fetch(`/api/users/${userId}`, {
-          method:'PUT', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ data_user:{ id: currentUserId }, data_new: changedFields })
-        });
-        if (!resp.ok){ const data = await resp.json(); throw new Error(data.error || 'Error al actualizar usuario'); }
-      }
-
-      if (rolesChanged){
-        const resp = await fetch(`/api/users/${userId}/roles`, {
-          method:'PUT', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ data_user:{ id: currentUserId }, role_ids: currentRoleIds })
-        });
-        if (!resp.ok){ const data = await resp.json(); throw new Error(data.error || 'Error al actualizar roles'); }
-      }
-
-      if (typeof Swal !== 'undefined'){
-        Swal.fire({ icon:'success', title:'¡Actualizado!', text:'Usuario actualizado correctamente', confirmButtonColor:'#3B82F6', timer:2000, showConfirmButton:false })
-          .then(()=> window.location.replace('/users'));
-      } else {
-        alert('Usuario actualizado'); window.location.replace('/users');
-      }
-    } catch (err){
-      if (typeof Swal !== 'undefined'){
-        Swal.fire({ icon:'error', title:'Error de conexión', text: err.message, confirmButtonColor:'#3B82F6' });
-      } else { alert('Error: ' + err.message); }
-    }
+    return true;
   }
 
   // Helpers UI
@@ -165,7 +89,9 @@
   function init(){
     const form = document.getElementById('editUserForm');
     if (form){ form.addEventListener('submit', handleSubmit); }
-    loadUserData();
+    // Datos ya SSR: ocultar loading y mostrar form
+    const loading = document.getElementById('loading-state'); if (loading) loading.classList.add('hidden');
+    const frm = document.getElementById('editUserForm'); if (frm) frm.classList.remove('hidden');
   }
 
   document.addEventListener('DOMContentLoaded', init);

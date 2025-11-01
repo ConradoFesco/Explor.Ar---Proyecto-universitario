@@ -38,11 +38,11 @@
             </div>
         </div>
 
-        <form id="editUserForm" class="p-6 space-y-6 hidden">
+        <form id="editUserForm" class="p-6 space-y-6" method="post" action="{{ url_for('users_web.update_user_page', user_id=user_id) }}">
             {% import 'components/fields.html.jinja' as f %}
-            {{ f.render_text_input('name','Nombre', True, 'Ingresa el nombre') }}
-            {{ f.render_text_input('last_name','Apellido', True, 'Ingresa el apellido') }}
-            {{ f.render_email_input('mail','Email', True, '') }}
+            {{ f.render_text_input('name','Nombre', True, 'Ingresa el nombre', user.name) }}
+            {{ f.render_text_input('last_name','Apellido', True, 'Ingresa el apellido', user.last_name) }}
+            {{ f.render_email_input('mail','Email', True, '', user.mail) }}
 
             <!-- Roles -->
             <div>
@@ -50,17 +50,27 @@
                     Roles
                 </label>
                 <div id="roles-container" class="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
-                    <div class="text-sm text-gray-500">Cargando roles...</div>
+                    {% if available_roles %}
+                        {% set current_ids = (user.current_roles or []) | map(attribute='id') | list %}
+                        {% for role in available_roles %}
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" id="role_{{ role.id }}" name="roles" value="{{ role.id }}" class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {% if role.id in current_ids %}checked{% endif %}>
+                            <label for="role_{{ role.id }}" class="ml-2 text-sm text-gray-700">{{ role.name|capitalize }}</label>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-red-500">No hay roles disponibles</div>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-gray-500 mt-1">Selecciona uno o más roles para el usuario</p>
             </div>
 
-            {{ f.render_checkbox('active','Usuario activo') }}
-            {{ f.render_checkbox('blocked','Usuario bloqueado') }}
+            {{ f.render_checkbox('active','Usuario activo', user.active) }}
+            {{ f.render_checkbox('blocked','Usuario bloqueado', user.blocked) }}
 
             <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                {{ f.render_info_row('ID','user-id') }}
-                {{ f.render_info_row('Fecha de creación','user-created-at') }}
+                {{ f.render_info_row('ID','user-id', (user.id|string)) }}
+                {{ f.render_info_row('Fecha de creación','user-created-at', (user.created_at if user.created_at else '-') ) }}
             </div>
 
             <!-- Botones -->
@@ -81,11 +91,5 @@
 
 {% block scripts %}
 {{ super() }}
-<script>
-  window.USER_EDIT_CONFIG = {
-    userId: {{ (user_id)|tojson }},
-    currentUserId: {{ (current_user.id if current_user else None)|tojson }}
-  };
-</script>
 <script src="{{ url_for('static', filename='js/user_edit.js') }}"></script>
 {% endblock %}

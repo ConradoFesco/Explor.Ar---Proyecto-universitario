@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, session, redirect, url_for, request
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash
 from src.core.services.tag_service import tag_service
 
 tags_web = Blueprint('tags_web', __name__)
@@ -77,3 +77,42 @@ def lista_tags_fragment():
 
     return render_template('features/tags/_list_fragment.html.jinja', tags=tags, pagination=pagination)
 
+
+@tags_web.route('/tags', methods=['POST'])
+def crear_tag_web():
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    payload_json = request.get_json(silent=True) or {}
+    name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
+    try:
+        tag_service.create_tag({ 'name': name })
+        flash('Tag creado correctamente', 'success')
+    except Exception as e:
+        flash(str(e), 'error')
+    return redirect(url_for('tags_web.lista_tags'))
+
+
+@tags_web.route('/tags/<int:tag_id>/editar', methods=['POST'])
+def editar_tag_web(tag_id: int):
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    payload_json = request.get_json(silent=True) or {}
+    name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
+    try:
+        tag_service.update_tag(tag_id, { 'name': name })
+        flash('Tag actualizado', 'success')
+    except Exception as e:
+        flash(str(e), 'error')
+    return redirect(url_for('tags_web.lista_tags'))
+
+
+@tags_web.route('/tags/<int:tag_id>/eliminar', methods=['POST'])
+def eliminar_tag_web(tag_id: int):
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    try:
+        tag_service.delete_tag(tag_id)
+        flash('Tag eliminado', 'success')
+    except Exception as e:
+        flash(str(e), 'error')
+    return redirect(url_for('tags_web.lista_tags'))

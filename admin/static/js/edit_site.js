@@ -4,28 +4,31 @@ let currentSiteId = null;
 document.addEventListener('DOMContentLoaded', function() {
   const urlParams = new URLSearchParams(window.location.search);
   currentSiteId = urlParams.get('edit');
-  if (currentSiteId) { loadSiteData(currentSiteId); } else { showError('No se especificó un sitio para modificar'); }
+  if (window.SITE_EDIT && window.SITE_EDIT.id){
+    currentSiteId = String(window.SITE_EDIT.id);
+    populateFromSSR(window.SITE_EDIT);
+    loadStatesAndCategoriesSSR();
+  } else if (currentSiteId) {
+    showError('Los datos del sitio no están disponibles');
+  } else {
+    showError('No se especificó un sitio para modificar');
+  }
   setTimeout(() => { initializeMapForEdit(); }, 100);
 });
 
-async function loadSiteData(siteId){
-  try{
-    const resp = await fetch(`/api/historic_sites/${siteId}`);
-    if (!resp.ok) throw new Error('Error al cargar los datos del sitio');
-    const site = await resp.json();
-    setValue('nombre', site.name || '');
-    setValue('año_inauguración', site.year_inauguration || '');
-    setValue('descripcion_breve', site.brief_description || '');
-    setValue('descripcion_completa', site.complete_description || '');
-    setValue('latitud', site.latitude || '');
-    setValue('longitud', site.longitude || '');
-    setValue('ciudad', site.city_name || '');
-    setValue('provincia', site.province_name || '');
-    const visible = document.getElementById('visible'); if (visible) visible.checked = site.visible === true;
-    if (site.latitude && site.longitude){ setMapLocation(parseFloat(site.latitude), parseFloat(site.longitude)); }
-    loadStatesAndCategories();
-    setTimeout(()=> setSelectedValues(site), 500);
-  } catch(err){ console.error('Error:', err); showError('Error al cargar los datos del sitio: ' + err.message); }
+function setValue(id, val){ const el=document.getElementById(id); if (el) el.value = val; }
+
+function populateFromSSR(site){
+  setValue('nombre', site.name || '');
+  setValue('año_inauguración', site.year_inauguration || '');
+  setValue('descripcion_breve', site.brief_description || '');
+  setValue('descripcion_completa', site.complete_description || '');
+  setValue('latitud', site.latitude || '');
+  setValue('longitud', site.longitude || '');
+  setValue('ciudad', site.city_name || '');
+  setValue('provincia', site.province_name || '');
+  const visible = document.getElementById('visible'); if (visible) visible.checked = site.visible === true;
+  if (site.latitude && site.longitude){ setMapLocation(parseFloat(site.latitude), parseFloat(site.longitude)); }
 }
 
 function initializeMapForEdit(){
@@ -44,34 +47,19 @@ function updateFormCoordinates(coords){ const lat=document.getElementById('latit
 
 function getLocationInfo(coords){ const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}&zoom=10&addressdetails=1`; fetch(url).then(r=>r.json()).then(data=>{ const ciudad=document.getElementById('ciudad'); const provincia=document.getElementById('provincia'); if (data.address){ const city = data.address.city || data.address.town || data.address.village || data.address.municipality || data.address.suburb || ''; const prov = data.address.state || data.address.region || data.address.province || ''; if (ciudad) ciudad.value = city; if (provincia) provincia.value = prov; } }).catch(()=>{ const ciudad=document.getElementById('ciudad'); const provincia=document.getElementById('provincia'); if (ciudad) ciudad.value=''; if (provincia) provincia.value=''; }); }
 
-function loadEstados(){ fetch('/api/state_routes').then(r=>r.json()).then(data=>{ const sel=document.getElementById('estado'); if (sel && Array.isArray(data)){ sel.innerHTML = '<option value="">Seleccione un estado...</option>'; data.forEach(e=>{ const opt=document.createElement('option'); opt.value=e.id; opt.textContent=e.state; sel.appendChild(opt); }); } }).catch(()=>{}); }
-function loadCategorias(){ fetch('/api/category_routes').then(r=>r.json()).then(data=>{ const sel=document.getElementById('categoria'); if (sel && Array.isArray(data)){ sel.innerHTML = '<option value="">Seleccione una categoría...</option>'; data.forEach(c=>{ const opt=document.createElement('option'); opt.value=c.id; opt.textContent=c.name; sel.appendChild(opt); }); } }).catch(()=>{}); }
-function loadStatesAndCategories(){ loadEstados(); loadCategorias(); }
+function loadEstadosSSR(){ const data=(window.SITE_OPTIONS&&Array.isArray(window.SITE_OPTIONS.states))?window.SITE_OPTIONS.states:[]; const sel=document.getElementById('estado'); if (sel){ sel.innerHTML='<option value="">Seleccione un estado...</option>'; data.forEach(e=>{ const opt=document.createElement('option'); opt.value=e.id; opt.textContent=e.state; sel.appendChild(opt); }); } }
+function loadCategoriasSSR(){ const data=(window.SITE_OPTIONS&&Array.isArray(window.SITE_OPTIONS.categories))?window.SITE_OPTIONS.categories:[]; const sel=document.getElementById('categoria'); if (sel){ sel.innerHTML='<option value="">Seleccione una categoría...</option>'; data.forEach(c=>{ const opt=document.createElement('option'); opt.value=c.id; opt.textContent=c.name; sel.appendChild(opt); }); } }
+function loadStatesAndCategoriesSSR(){ loadEstadosSSR(); loadCategoriasSSR(); setTimeout(()=> setSelectedValues(window.SITE_EDIT||{}), 100); }
 function setSelectedValues(site){ if (site.id_estado){ const sel=document.getElementById('estado'); if (sel) sel.value = site.id_estado; } if (site.id_category){ const sel=document.getElementById('categoria'); if (sel) sel.value = site.id_category; } }
 
 function showError(message){ if (typeof Swal !== 'undefined'){ Swal.fire({ icon:'error', title:'Error', text: message, confirmButtonColor:'#dc2626' }); } else { alert(message); } }
 function showSuccess(message){ if (typeof Swal !== 'undefined'){ Swal.fire({ icon:'success', title:'¡Éxito!', text: message, confirmButtonColor:'#16a34a', timer:2000, showConfirmButton:false }); } }
 
-document.getElementById('site-form')?.addEventListener('submit', async function(e){
+document.getElementById('site-form')?.addEventListener('submit', function(e){
   e.preventDefault();
   if (!validateForm()) return;
-  const data = {
-    name: document.getElementById('nombre').value,
-    year_inauguration: document.getElementById('año_inauguración').value || null,
-    brief_description: document.getElementById('descripcion_breve').value,
-    complete_description: document.getElementById('descripcion_completa').value || null,
-    latitude: parseFloat(document.getElementById('latitud').value),
-    longitude: parseFloat(document.getElementById('longitud').value),
-    id_ciudad: 1,
-    id_estado: parseInt(document.getElementById('estado').value),
-    id_category: parseInt(document.getElementById('categoria').value),
-    visible: document.getElementById('visible')?.checked === true
-  };
-  try{
-    const resp = await fetch(`/api/historic_sites/${currentSiteId}`, { method:'PUT', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(data) });
-    if (resp.ok){ const siteName = document.getElementById('nombre').value || 'el sitio histórico'; if (typeof Swal !== 'undefined'){ Swal.fire({ icon:'success', title:'¡Modificación exitosa!', text:`"${siteName}" ha sido modificado correctamente`, confirmButtonColor:'#16a34a', timer:2000, showConfirmButton:false }).then(()=>{ window.location.href = '/sitios'; }); } else { window.location.href = '/sitios'; } }
-    else { const err = await resp.json().catch(()=>({})); if (typeof Swal !== 'undefined'){ Swal.fire({ icon:'error', title:'Error al modificar', text: err.error || 'No se pudo modificar', confirmButtonColor:'#dc2626' }); } }
-  } catch(_e){ if (typeof Swal !== 'undefined'){ Swal.fire({ icon:'error', title:'Error de conexión', text:'No se pudo conectar con el servidor.', confirmButtonColor:'#dc2626' }); } }
+  const form = document.getElementById('site-form');
+  if (form){ form.method='POST'; form.action = `/sitios/${currentSiteId}/editar`; form.submit(); }
 });
 
 function validateForm(){
@@ -88,5 +76,16 @@ function validateForm(){
 document.addEventListener('DOMContentLoaded', function(){
   ['nombre','descripcion_breve','estado','categoria'].forEach(id=>{ const el=document.getElementById(id); if (el){ el.addEventListener('input', function(){ this.classList.remove('field-error'); const err=document.getElementById(id+'-error'); if (err){ err.classList.add('hidden'); } }); }});
 });
+
+// Cancelar edición con confirmación y volver al listado
+window.cancelEdit = function(){
+  const doGo = ()=>{ window.location.href = '/sitios'; };
+  if (typeof Swal !== 'undefined'){
+    Swal.fire({ title:'¿Cancelar edición?', text:'Los cambios no guardados se perderán.', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc2626', cancelButtonColor:'#6b7280', confirmButtonText:'Sí, cancelar', cancelButtonText:'No, continuar' })
+      .then(res=>{ if(res.isConfirmed) doGo(); });
+  } else {
+    if (confirm('¿Cancelar edición? Se perderán los cambios no guardados.')) doGo();
+  }
+};
 
 
