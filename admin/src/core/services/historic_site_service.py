@@ -1,3 +1,7 @@
+"""
+Servicios de dominio para Sitios Históricos: CRUD, listados, filtros, tags y exportación.
+Usado por Web y API; retorna estructuras Python puras (dict/list).
+"""
 from src.core.models.historic_site import HistoricSite
 from src.core.models.tag import Tag
 from src.core.models.tag_historic_site import TagHistoricSite
@@ -12,28 +16,47 @@ from src.core.services.event_service import event_service
 from src.core.services.tag_service import tag_service
 from src.core.services.city_service import city_service
 from src.core.services.province_service import province_service
+from src.core.validators.site_validator import validate_create_site, validate_update_site
 import csv
 import io
 
-class HistoricSite_Service:
+
+class HistoricSiteService:
+    """Casos de uso de sitios históricos (crear, obtener, listar, actualizar, tags, exportar)."""
     def create_historic_site(self, data_site, data_user):
+        """
+        Crea un sitio histórico y registra evento de creación.
+
+        Args:
+            data_site (dict): Campos del sitio (name, brief_description, name_city, name_province,
+                latitude, longitude, id_category, visible, id_estado?, year_inauguration?, tag_ids?).
+            data_user (int): ID del usuario actor.
+
+        Returns:
+            HistoricSite: Objeto sitio creado.
+
+        Raises:
+            ValidationError: Si faltan campos o datos inválidos.
+            DatabaseError: Si falla la persistencia.
+        """
         required_fields = ['name', 'brief_description', 'name_city', 'name_province', 'latitude', 'longitude', 'id_category', 'visible']
         if ( not all(field in data_site for field in required_fields)):
             raise exc.ValidationError("Faltan campos obligatorios del sitio histórico: Nombre, descripción, ciudad, latitud, longitud, categoría y visible")
         id_user = data_user
         if not id_user:
             raise exc.ValidationError("Usuario no autenticado. Por favor, inicie sesión.")
-        name = data_site.get('name') 
-        brief_description = data_site.get('brief_description')
-        complete_description = data_site.get('complete_description',None) 
-        name_city = data_site.get('name_city')
-        name_province = data_site.get('name_province')
-        latitude = data_site.get('latitude')
-        longitude = data_site.get('longitude')
-        id_estado = data_site.get('id_estado',None) 
-        year_inauguration = data_site.get('year_inauguration',None) 
-        id_category = data_site.get('id_category')
-        visible = data_site.get('visible')
+        validated = validate_create_site(data_site)
+        name = validated.get('name')
+        brief_description = validated.get('brief_description')
+        complete_description = validated.get('complete_description')
+        name_city = validated.get('name_city')
+        name_province = validated.get('name_province')
+        latitude = validated.get('latitude')
+        longitude = validated.get('longitude')
+        id_estado = validated.get('id_estado')
+        year_inauguration = validated.get('year_inauguration')
+        id_category = validated.get('id_category')
+        visible = validated.get('visible')
         deleted = False
         created_at = datetime.now()
         try:
@@ -89,6 +112,18 @@ class HistoricSite_Service:
         return historic_site
 
     def get_historic_site(self, id):
+        """
+        Obtiene un sitio histórico con datos relacionados y tags.
+
+        Args:
+            id (int): ID del sitio.
+
+        Returns:
+            dict: Representación del sitio con relaciones y tags.
+
+        Raises:
+            NotFoundError: Si no existe.
+        """
         from src.core.models.category_site import CategorySite
         
         # Hacer join para obtener datos de relaciones
@@ -129,9 +164,28 @@ class HistoricSite_Service:
                               city_id=None, province_id=None, tag_ids=None, 
                               state_id=None, date_from=None, date_to=None, 
                               visible=None): 
-        """Obtiene todos los sitios históricos con paginación, filtros y ordenamiento."""
+        """
+        Lista sitios con paginación, filtros y orden.
+
+        Args: ver parámetros.
+
+        Returns:
+            dict: {'sites': [...], 'pagination': {...}}
+        """
         from sqlalchemy import and_, or_, desc, asc
         
+        # Validaciones de entrada
+        from src.core.validators.listing_validator import validate_site_list_params
+        params = validate_site_list_params(
+            page=page, per_page=per_page, search_text=search_text, sort_by=sort_by, sort_order=sort_order,
+            city_id=city_id, province_id=province_id, tag_ids=tag_ids, state_id=state_id,
+            date_from=date_from, date_to=date_to, visible=visible,
+        )
+        page = params['page']; per_page = params['per_page']; search_text = params['search_text']
+        sort_by = params['sort_by']; sort_order = params['sort_order']; city_id = params['city_id']
+        province_id = params['province_id']; tag_ids = params['tag_ids']; state_id = params['state_id']
+        date_from = params['date_from']; date_to = params['date_to']; visible = params['visible']
+
         # Query base
         query = HistoricSite.query
         
@@ -249,22 +303,40 @@ class HistoricSite_Service:
         }
 
     def update_historic_site(self, id, data_site, data_user):
+        """
+        Actualiza campos de un sitio histórico y registra evento UPDATE.
+
+        Args:
+            id (int): ID del sitio.
+            data_site (dict): Campos a actualizar.
+            data_user (int): ID del usuario actor.
+
+        Returns:
+            HistoricSite: Objeto actualizado.
+
+        Raises:
+            NotFoundError: Si no existe.
+            DatabaseError: Si falla la persistencia.
+        """
         historic_site = HistoricSite.query.get(id)
         # si no se encuentra el sitio histórico, devuelve un error 404
         if historic_site is None:
             raise exc.NotFoundError("Sitio histórico no encontrado")
+        # Validaciones de entrada parcial
+        cleaned = validate_update_site(data_site or {})
+
         # si se encuentra el sitio histórico, actualiza el sitio histórico
-        historic_site.name = data_site.get('name',historic_site.name)
-        historic_site.brief_description = data_site.get('brief_description',historic_site.brief_description)
-        historic_site.complete_description = data_site.get('complete_description',historic_site.complete_description)
-        historic_site.id_ciudad = data_site.get('id_ciudad',historic_site.id_ciudad)
-        historic_site.latitude = data_site.get('latitude',historic_site.latitude)
-        historic_site.longitude = data_site.get('longitude',historic_site.longitude)
-        historic_site.id_estado = data_site.get('id_estado',historic_site.id_estado)
-        historic_site.year_inauguration = data_site.get('year_inauguration',historic_site.year_inauguration)
-        historic_site.id_category = data_site.get('id_category',historic_site.id_category)
-        historic_site.deleted = data_site.get('deleted',historic_site.deleted)
-        historic_site.visible = data_site.get('visible',historic_site.visible)
+        historic_site.name = cleaned.get('name', historic_site.name)
+        historic_site.brief_description = cleaned.get('brief_description', historic_site.brief_description)
+        historic_site.complete_description = cleaned.get('complete_description', historic_site.complete_description)
+        historic_site.id_ciudad = cleaned.get('id_ciudad', historic_site.id_ciudad)
+        historic_site.latitude = cleaned.get('latitude', historic_site.latitude)
+        historic_site.longitude = cleaned.get('longitude', historic_site.longitude)
+        historic_site.id_estado = cleaned.get('id_estado', historic_site.id_estado)
+        historic_site.year_inauguration = cleaned.get('year_inauguration', historic_site.year_inauguration)
+        historic_site.id_category = cleaned.get('id_category', historic_site.id_category)
+        historic_site.deleted = cleaned.get('deleted', historic_site.deleted)
+        historic_site.visible = cleaned.get('visible', historic_site.visible)
         
         id_user = data_user
         try:
@@ -281,6 +353,20 @@ class HistoricSite_Service:
         return historic_site
 
     def soft_delete_historic_site(self, id, data_user):
+        """
+        Baja lógica de un sitio y registra evento DELETE.
+
+        Args:
+            id (int): ID del sitio.
+            data_user (int): ID del usuario actor.
+
+        Returns:
+            HistoricSite: Objeto modificado.
+
+        Raises:
+            NotFoundError: Si no existe.
+            DatabaseError: Si falla la persistencia.
+        """
         # 1. Busca el sitio histórico por su ID
         site = HistoricSite.query.get(id)
         # 2. Si no lo encuentra, lanza un error claro
@@ -305,6 +391,21 @@ class HistoricSite_Service:
 
 
     def add_tags(self, site_id, tag_ids_list, data_user, event_action=True): #event_action es true si se quiere crear un evento
+        """
+        Agrega tags a un sitio evitando duplicados. Opcionalmente registra evento UPDATE.
+
+        Args:
+            site_id (int): ID del sitio.
+            tag_ids_list (list[int]): IDs de tags a agregar.
+            data_user (int): ID del actor.
+            event_action (bool): Si True, crea evento.
+
+        Returns:
+            dict: {'site': HistoricSite, 'added_tags': [...], 'skipped_tags': [...], 'message': str}
+
+        Raises:
+            ValidationError/NotFoundError/DatabaseError según corresponda.
+        """
         # Validar que el sitio histórico existe
         site = HistoricSite.query.get(site_id)
         if not site:
@@ -377,7 +478,20 @@ class HistoricSite_Service:
             raise exc.DatabaseError(f"Error al agregar los tags al sitio histórico y su evento: {e}")
 
     def update_site_tags(self, site_id, new_tag_ids, data_user):
-        """Actualiza completamente los tags de un sitio histórico (agrega nuevos y elimina los que no están en la lista)"""
+        """
+        Reemplaza completamente los tags de un sitio histórico.
+
+        Args:
+            site_id (int): ID del sitio.
+            new_tag_ids (list[int]): Lista final de tags.
+            data_user (int): ID del actor.
+
+        Returns:
+            dict: Resumen con agregados y removidos.
+
+        Raises:
+            ValidationError/NotFoundError/DatabaseError según corresponda.
+        """
         # Validar que el sitio histórico existe
         site = HistoricSite.query.get(site_id)
         if not site:
@@ -449,7 +563,17 @@ class HistoricSite_Service:
 
 
     def get_all_sites_for_map(self, include_deleted=False, page=1, per_page=25): 
-        """Obtiene todos los sitios históricos con información para el mapa, incluyendo paginación."""
+        """
+        Devuelve sitios con lat/long para mapa, con paginación.
+
+        Args:
+            include_deleted (bool): Incluir eliminados.
+            page (int): Página.
+            per_page (int): Tamaño de página.
+
+        Returns:
+            dict: {'sites': [...], 'pagination': {...}}
+        """
         query = HistoricSite.query
         if not include_deleted:
             query = query.filter_by(deleted=False)
@@ -499,7 +623,12 @@ class HistoricSite_Service:
         }
 
     def get_filter_options(self):
-        """Obtiene las opciones de filtros disponibles para sitios históricos"""
+        """
+        Obtiene opciones de filtros (ciudades, provincias, tags, estados).
+
+        Returns:
+            dict: {'cities': [...], 'provinces': [...], 'tags': [...], 'states': [...]}
+        """
         try:
             # Obtener ciudades
             cities = City.query.filter_by(deleted=False).all()
@@ -531,12 +660,23 @@ class HistoricSite_Service:
                            state_id=None, date_from=None, date_to=None, 
                            visible=None):
         """
-        Exporta sitios históricos a CSV respetando los filtros aplicados.
-        
-        Retorna una tupla (csv_content, filename) donde csv_content es el contenido del CSV
-                   y filename es el nombre del archivo generado
+        Exporta sitios históricos a CSV respetando filtros.
+
+        Returns:
+            tuple[str, str]: (contenido_csv, nombre_archivo)
         """
         from sqlalchemy import and_, or_, desc, asc
+        # Validaciones de entrada (mismos parámetros que el listado)
+        from src.core.validators.listing_validator import validate_site_list_params
+        params = validate_site_list_params(
+            page=1, per_page=25, search_text=search_text, sort_by=sort_by, sort_order=sort_order,
+            city_id=city_id, province_id=province_id, tag_ids=tag_ids, state_id=state_id,
+            date_from=date_from, date_to=date_to, visible=visible,
+        )
+        search_text = params['search_text']; sort_by = params['sort_by']; sort_order = params['sort_order']
+        city_id = params['city_id']; province_id = params['province_id']; tag_ids = params['tag_ids']
+        state_id = params['state_id']; date_from = params['date_from']; date_to = params['date_to']
+        visible = params['visible']
         
         # Query base - similar al método get_all_historic_sites pero sin paginación
         query = HistoricSite.query.join(City).join(Province).join(StateSite, isouter=True)
@@ -661,5 +801,8 @@ class HistoricSite_Service:
         
         return csv_content, filename
 
-# instancia de la clase HistoricSite_Service
-historic_site_service = HistoricSite_Service()
+
+# instancia de la clase HistoricSiteService
+historic_site_service = HistoricSiteService()
+
+

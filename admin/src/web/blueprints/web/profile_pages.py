@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, flash
+from src.web.auth.decorators import web_permission_required
 from src.core.services.usuario_service import user_service
 
 profile_web = Blueprint("profile_web", __name__)
 
 
 @profile_web.route("/profile", methods=["GET"])
+@web_permission_required("view_profile")
 def view_profile():
     if "user_id" not in session:
         return redirect(url_for("main.index"))
@@ -16,6 +18,7 @@ def view_profile():
 
 
 @profile_web.route("/profile/update_password", methods=["POST"])
+@web_permission_required("update_password")
 def update_password():
     if "user_id" not in session:
         return redirect(url_for("main.index"))

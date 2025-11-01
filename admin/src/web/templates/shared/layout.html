@@ -73,15 +73,15 @@
     {% include 'components/navbar.html.jinja' %}
 
     <!-- Sidebar -->
-<div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white shadow-xl transform -translate-x-full sidebar-transition z-40 pt-20">
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white shadow-xl transform -translate-x-full sidebar-transition z-40 pt-20" aria-label="Barra lateral de navegación">
     <div class="p-6">
-        <nav class="space-y-2">
+        <nav class="space-y-2" aria-label="Menú lateral">
             {% block sidebar %}
             {% include 'components/sidebar_default.html.jinja' %}
             {% endblock %}
         </nav>
     </div>
-</div>
+</aside>
 
 
     <!-- Overlay -->

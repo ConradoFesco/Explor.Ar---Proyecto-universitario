@@ -29,7 +29,7 @@ def register_blueprints(app):
     app.register_blueprint(tag_api, url_prefix="/api")
     
     # Blueprint de sitios históricos
-    from .blueprints.api.HistoricSite_Routes import site_api
+    from .blueprints.api.historic_site_routes import site_api
     app.register_blueprint(site_api, url_prefix="/api")
     
     # Blueprint de estados

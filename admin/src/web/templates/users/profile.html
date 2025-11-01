@@ -3,14 +3,14 @@
 {% block title %}Gestión de usuarios{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow-md">
+<section class="max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow-md" aria-label="Perfil de usuario" role="region">
     {% import 'components/breadcrumbs.html.jinja' as bc %}
     {{ bc.render_breadcrumbs([
         {'label': 'Inicio', 'url': url_for('main.home')},
         {'label': 'Perfil', 'current': True}
     ]) }}
     {% from 'components/page_header.html.jinja' import render_page_header %}
-    {% call render_page_header('Perfil de usuario') %}{% endcall %}
+    {% call render_page_header('Perfil de usuario', 'profile-heading') %}{% endcall %}
 
     <div class="mb-4">
         <label class="block text-gray-700 font-semibold mb-1">Correo:</label>
@@ -33,7 +33,7 @@
             </button>
         </div>
     </div>
-</div>
+</section>
 {% from 'shared/components/modal.html' import render_modal_content %}
 {% import 'components/fields.html.jinja' as f %}
 {% call render_modal_content('passwordModal','Cambiar contraseña','sm') %}

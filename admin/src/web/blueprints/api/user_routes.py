@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify
 from src.core.services.usuario_service import user_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.web.auth.decorators import permission_required
@@ -338,8 +338,4 @@ def update_user_roles(user_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@user_api.route('/page', methods=['GET'])
-def list_users_page():
-    return render_template("users/list_users.html")
-
-
+# HTML rendering is handled by the Web blueprint; no templates here

@@ -1,3 +1,6 @@
+"""
+Servicio de eventos de auditoría para operaciones sobre sitios.
+"""
 from src.core.models.event import Event
 from src.web.extensions import db
 from src.web import exceptions as exc
@@ -5,7 +8,22 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
 class EventService:
+    """Crear, listar (con filtros) y eliminar lógicamente eventos."""
     def create_event(self, data, commit=True):
+        """
+        Crea un evento de auditoría.
+
+        Args:
+            data (dict): {'id_site', 'id_user', 'type_Action', 'date_time'(opcional)}
+            commit (bool): Si True, confirma la transacción.
+
+        Returns:
+            dict: Evento creado en formato dict.
+
+        Raises:
+            ValidationError: Si faltan campos requeridos.
+            DatabaseError: Si falla la escritura en base.
+        """
         required_fields = ['id_site', 'id_user', 'type_Action']
         if ( not all(field in data for field in required_fields)):
             raise ValidationError("Faltan campos obligatorios: id_site, id_user y type_Action")
@@ -32,6 +50,23 @@ class EventService:
     
     def get_all_events(self, id, include_deleted=False, page=1, per_page=25,
                        user_id=None, user_email=None, type_action=None, date_from=None, date_to=None):
+        """
+        Lista eventos de un sitio con filtros y paginación.
+
+        Args:
+            id (int): ID del sitio.
+            include_deleted (bool): Incluir eliminados lógicamente.
+            page (int): Página.
+            per_page (int): Tamaño de página.
+            user_id (int|None): Filtro por usuario.
+            user_email (str|None): Prefijo de email.
+            type_action (str|None): Tipo de acción.
+            date_from (str|None): 'YYYY-MM-DD'.
+            date_to (str|None): 'YYYY-MM-DD'.
+
+        Returns:
+            dict: {'events': [...], 'pagination': {...}}
+        """
         from src.core.models.user import User
 
         query = Event.query.filter_by(id_site=id)
@@ -102,6 +137,20 @@ class EventService:
         }
 
     def soft_delete_event(self, id, data_user):
+        """
+        Realiza baja lógica del evento.
+
+        Args:
+            id (int): ID del evento.
+            data_user (int): ID del usuario actor.
+
+        Returns:
+            Event: Objeto evento modificado.
+
+        Raises:
+            NotFoundError: Si no existe.
+            DatabaseError: Si falla commit.
+        """
         # 1. Busca el evento por su ID
         event = Event.query.get(id)
         # 2. Si no lo encuentra, lanza un error claro

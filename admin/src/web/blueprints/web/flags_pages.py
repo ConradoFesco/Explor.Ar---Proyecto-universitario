@@ -1,11 +1,17 @@
+"""
+Rutas Web para administración de Feature Flags.
+"""
 from flask import Blueprint, render_template, session, redirect, url_for
+from src.web.auth.decorators import web_permission_required
 from src.core.services.flag_service import flag_service
 
 flags_web = Blueprint('flags_web', __name__)
 
 
 @flags_web.route("/flags", methods=["GET"])
+@web_permission_required("flag_admin")
 def list_flags_page():
+    """Listado de flags del sistema para administradores."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     flags = flag_service.get_all_flags()
@@ -13,7 +19,9 @@ def list_flags_page():
 
 
 @flags_web.route("/flags/<int:flag_id>/toggle", methods=["POST"])
+@web_permission_required("flag_admin")
 def toggle_flag(flag_id: int):
+    """Alterna el estado de un flag y registra auditoría."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     user_id = session.get('user_id')

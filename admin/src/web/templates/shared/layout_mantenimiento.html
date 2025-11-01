@@ -55,13 +55,13 @@
     </header>
 
     <!-- Contenido principal -->
-    <div class="flex items-center justify-center py-8" style="min-height: calc(100vh - 112px);">
+    <main class="flex items-center justify-center py-8" style="min-height: calc(100vh - 112px);">
         <div class="w-full max-w-4xl px-4">
             {% block content %}
             <!-- El contenido se insertará aquí -->
             {% endblock %}
         </div>
-    </div>
+    </main>
 
     <!-- Scripts opcionales -->
     {% block scripts %}{% endblock %}

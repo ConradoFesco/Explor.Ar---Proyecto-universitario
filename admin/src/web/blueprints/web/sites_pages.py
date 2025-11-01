@@ -1,13 +1,19 @@
+"""
+Rutas Web para sitios históricos (SSR de listados, formularios y fragmentos).
+"""
 from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response
+from src.web.auth.decorators import web_permission_required
 from src.core.services.state_service import state_service
 from src.core.services.category_service import category_service
-from src.core.services.HistoricSite_Service import historic_site_service
+from src.core.services.historic_site_service import historic_site_service
 
 sites_web = Blueprint('sites_web', __name__)
 
 
 @sites_web.route("/sitios")
+@web_permission_required("get_all_historic_sites")
 def lista_sitios():
+    """Listado SSR de sitios con filtros, orden y paginación."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     # Parámetros de filtrado
@@ -53,7 +59,9 @@ def lista_sitios():
 
 
 @sites_web.route("/sitios/fragment")
+@web_permission_required("get_all_historic_sites")
 def lista_sitios_fragment():
+    """Fragmento HTML para refrescar el listado de sitios (paginación/orden)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -89,7 +97,9 @@ def lista_sitios_fragment():
 
 
 @sites_web.route("/alta-sitios")
+@web_permission_required("create_historic_site")
 def alta_sitios():
+    """Formulario SSR de alta de sitio (carga de opciones desde servicios)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     # Pasar opciones de tags para SSR en selector
@@ -110,7 +120,9 @@ def alta_sitios():
 
 
 @sites_web.route("/modificar-sitios")
+@web_permission_required("update_historic_site")
 def modificar_sitios():
+    """Formulario SSR de edición de sitio (incluye opciones y datos del sitio)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     edit_id = request.args.get('edit', type=int)
@@ -133,7 +145,9 @@ def modificar_sitios():
 
 
 @sites_web.route("/sitios/<int:site_id>/fragment")
+@web_permission_required("get_historic_site")
 def site_detail_fragment(site_id: int):
+    """Fragmento HTML con detalle de sitio para uso en modales o vistas parciales."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     site = historic_site_service.get_historic_site(site_id)
@@ -141,7 +155,9 @@ def site_detail_fragment(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/eliminar", methods=["POST"])
+@web_permission_required("delete_historic_site")
 def eliminar_sitio(site_id: int):
+    """Elimina lógicamente un sitio histórico (solo con permisos)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     data_user = session.get('user_id')
@@ -154,7 +170,9 @@ def eliminar_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/tags", methods=["POST"])
+@web_permission_required("update_tags")
 def actualizar_tags_sitio(site_id: int):
+    """Actualiza las etiquetas asociadas a un sitio histórico."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     tag_ids = []
@@ -172,7 +190,9 @@ def actualizar_tags_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/tags/fragment")
+@web_permission_required("update_tags")
 def editar_tags_fragment(site_id: int):
+    """Fragmento HTML para selección/edición de tags de un sitio."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     site = historic_site_service.get_historic_site(site_id)
@@ -183,7 +203,9 @@ def editar_tags_fragment(site_id: int):
 
 
 @sites_web.route('/sitios', methods=['POST'])
+@web_permission_required("create_historic_site")
 def crear_sitio_web():
+    """Procesa la creación de un sitio a partir de datos de formulario."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     data_user = session.get('user_id')
@@ -210,7 +232,9 @@ def crear_sitio_web():
 
 
 @sites_web.route('/sitios/<int:site_id>/editar', methods=['POST'])
+@web_permission_required("update_historic_site")
 def editar_sitio_web(site_id: int):
+    """Procesa la actualización de un sitio histórico y redirige al listado."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     data_user = session.get('user_id')
@@ -236,7 +260,9 @@ def editar_sitio_web(site_id: int):
 
 
 @sites_web.route("/sitios/export-csv", methods=["GET"])
+@web_permission_required("export_historic_sites")
 def export_sites_csv_web():
+    """Genera un CSV con sitios históricos respetando filtros actuales."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     try:

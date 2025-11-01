@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, Response
-from src.core.services.HistoricSite_Service import historic_site_service
+from src.core.services.historic_site_service import historic_site_service
 from src.web import exceptions as exc
 from flask import session
 from src.web.auth.decorators import permission_required
@@ -258,7 +258,7 @@ def get_filter_options():
         return jsonify({'error': str(e)}), 500
 
 @site_api.route('/HistoricSite_Routes/export-csv', methods=['GET'])
-# @permission_required("export_historic_sites")
+@permission_required("export_historic_sites")
 def export_sites_csv():
     """Endpoint para exportar sitios históricos a CSV"""
     try:
@@ -331,5 +331,6 @@ def export_sites_csv():
         return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': 'Error inesperado al exportar: ' + str(e)}), 500
+
 
 

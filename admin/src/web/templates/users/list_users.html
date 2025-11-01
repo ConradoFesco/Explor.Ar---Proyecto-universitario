@@ -3,7 +3,7 @@
 {% block title %}Gestión de usuarios{% endblock %}
 
 {% block content %}
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" aria-labelledby="users-heading" role="region">
     <!-- Controles de búsqueda y filtrado -->
     {% from 'shared/components/search_filters.html' import render_search_filters %}
     {{ render_search_filters({
@@ -34,7 +34,7 @@
             {'label': 'Usuarios', 'current': True}
         ]) }}
         {% from 'components/page_header.html.jinja' import render_page_header %}
-        {% call render_page_header('Usuarios registrados') %}
+        {% call render_page_header('Usuarios registrados', 'users-heading') %}
             <button onclick="window.location.href='/users/nuevo'" 
                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,7 +47,7 @@
             {% include 'features/users/_list_fragment.html.jinja' %}
         </div>
     </div>
-</main>
+</section>
 
 {# Modal de eliminación eliminado: usamos SweetAlert #}
 {% endblock %}

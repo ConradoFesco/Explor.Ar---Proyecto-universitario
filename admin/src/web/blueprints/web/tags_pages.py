@@ -1,11 +1,17 @@
+"""
+Rutas Web para gestión de tags (renderizado HTML/Jinja).
+"""
 from flask import Blueprint, render_template, session, redirect, url_for, request, flash
+from src.web.auth.decorators import web_permission_required
 from src.core.services.tag_service import tag_service
 
 tags_web = Blueprint('tags_web', __name__)
 
 
 @tags_web.route("/tags")
+@web_permission_required("get_all_tags")
 def lista_tags():
+    """Listado de tags con filtros, orden y paginación (SSR)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -43,7 +49,9 @@ def lista_tags():
 
 
 @tags_web.route('/tags/fragment')
+@web_permission_required("get_all_tags")
 def lista_tags_fragment():
+    """Fragmento HTML del listado de tags para paginación/filtrado dinámico."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -79,7 +87,9 @@ def lista_tags_fragment():
 
 
 @tags_web.route('/tags', methods=['POST'])
+@web_permission_required("create_tag")
 def crear_tag_web():
+    """Crea un tag a partir de datos de formulario y redirige con flash."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     payload_json = request.get_json(silent=True) or {}
@@ -93,7 +103,9 @@ def crear_tag_web():
 
 
 @tags_web.route('/tags/<int:tag_id>/editar', methods=['POST'])
+@web_permission_required("update_tag")
 def editar_tag_web(tag_id: int):
+    """Actualiza un tag existente con datos del formulario."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     payload_json = request.get_json(silent=True) or {}
@@ -107,7 +119,9 @@ def editar_tag_web(tag_id: int):
 
 
 @tags_web.route('/tags/<int:tag_id>/eliminar', methods=['POST'])
+@web_permission_required("delete_tag")
 def eliminar_tag_web(tag_id: int):
+    """Elimina un tag y redirige al listado con mensaje flash."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     try:

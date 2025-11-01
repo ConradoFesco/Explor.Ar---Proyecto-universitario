@@ -3,7 +3,7 @@
 {% block title %}Gestión de tags{% endblock %}
 
 {% block content %}
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" aria-labelledby="tags-heading" role="region">
     {% from 'shared/components/search_filters.html' import render_search_filters %}
     {{ render_search_filters({
         'search_placeholder': 'Buscar tags...',
@@ -21,7 +21,7 @@
             {'label': 'Tags', 'current': True}
         ]) }}
         {% from 'components/page_header.html.jinja' import render_page_header %}
-        {% call render_page_header('Gestión de Tags') %}
+        {% call render_page_header('Gestión de Tags', 'tags-heading') %}
             <button onclick="showCreateTagModal()" 
                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@
             {% include 'features/tags/_list_fragment.html.jinja' %}
         </div>
     </div>
-</main>
+</section>
 
 <!-- Modal de creación/edición de tag -->
 <div id="tagModal" class="hidden fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">

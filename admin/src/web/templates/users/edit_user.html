@@ -3,7 +3,7 @@
 {% block title %}Editar Usuario{% endblock %}
 
 {% block content %}
-<main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8" aria-labelledby="edit-user-heading" role="region">
     <div class="bg-white shadow-sm rounded-lg border border-gray-200">
         {% import 'components/breadcrumbs.html.jinja' as bc %}
         {{ bc.render_breadcrumbs([
@@ -13,7 +13,7 @@
         ]) }}
         <div class="px-6 py-4 border-b border-gray-200">
             {% from 'components/page_header.html.jinja' import render_page_header %}
-            {% call render_page_header('Editar Usuario') %}{% endcall %}
+            {% call render_page_header('Editar Usuario', 'edit-user-heading') %}{% endcall %}
         </div>
 
         <!-- Loading state -->
@@ -86,7 +86,7 @@
             </div>
         </form>
     </div>
-</main>
+</section>
 {% endblock %}
 
 {% block scripts %}

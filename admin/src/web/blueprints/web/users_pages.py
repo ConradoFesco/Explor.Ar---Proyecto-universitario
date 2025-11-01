@@ -1,4 +1,9 @@
+"""
+Rutas Web para gestión de usuarios (renderizado HTML/Jinja).
+Requieren permisos equivalentes a los endpoints API.
+"""
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
+from src.web.auth.decorators import web_permission_required
 from src.core.services.usuario_service import user_service
 from src.web.exceptions import ValidationError
 
@@ -6,7 +11,9 @@ users_web = Blueprint('users_web', __name__)
 
 
 @users_web.route("/users")
+@web_permission_required("get_all_users")
 def list_users_page():
+    """Listado de usuarios con filtros, orden y paginación (SSR)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -53,7 +60,9 @@ def list_users_page():
 
 
 @users_web.route('/users/fragment')
+@web_permission_required("get_all_users")
 def list_users_fragment():
+    """Fragmento HTML del listado de usuarios para paginar/filtrar vía fetch HTML."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -100,7 +109,9 @@ def list_users_fragment():
 
 
 @users_web.route("/users/<int:user_id>/editar")
+@web_permission_required("get_user")
 def edit_user_page(user_id: int):
+    """Página de edición de usuario con SSR de datos y roles disponibles."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -114,7 +125,9 @@ def edit_user_page(user_id: int):
 
 
 @users_web.route('/users/nuevo')
+@web_permission_required("create_user")
 def create_user_form_page():
+    """Formulario de creación de usuario (SSR de roles disponibles)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -127,7 +140,9 @@ def create_user_form_page():
 
 
 @users_web.route('/users', methods=['POST'])
+@web_permission_required("create_user")
 def create_user_web():
+    """Procesa el alta de usuario y redirige con mensajes flash."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     admin_id = session.get('user_id')
@@ -156,7 +171,9 @@ def create_user_web():
 
 
 @users_web.post('/users/<int:user_id>/eliminar')
+@web_permission_required("delete_user")
 def delete_user_page(user_id: int):
+    """Elimina lógicamente un usuario con motivo (solo con permiso)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
@@ -173,7 +190,9 @@ def delete_user_page(user_id: int):
 
 
 @users_web.post('/users/<int:user_id>/editar')
+@web_permission_required("update_user")
 def update_user_page(user_id: int):
+    """Actualiza datos y roles de un usuario y redirige con flash."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     admin_id = session.get('user_id')
