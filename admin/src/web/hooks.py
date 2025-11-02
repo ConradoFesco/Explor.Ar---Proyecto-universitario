@@ -51,7 +51,7 @@ def register_hooks(app):
         if not maintenance_enabled:
             return None
         
-        # Flag activo: verificar si el usuario es superAdmin
+        # Flag activo: verificar permiso en lugar de nombre de rol
         user_id = session.get("user_id")
         
         # Si no está logueado, mostrar mantenimiento para rutas no públicas
@@ -61,15 +61,14 @@ def register_hooks(app):
                 message=maintenance_message or "El sitio de administración está temporalmente inactivo."
             )
         
-        # Verificar si es superAdmin
+        # Verificar permiso explícito (patrón módulo-acción)
         try:
-            roles = user_service.get_user_roles(user_id)
-            role_names = [r.get('name', '') for r in roles]
-            if any((name or '').lower() == 'superadmin' for name in role_names):
-                # SuperAdmin puede acceder siempre
+            perms = user_service.get_user_permissions(user_id)
+            # Permisos que pueden bypassear mantenimiento (ej: gestión de flags)
+            if 'flag_admin' in perms:
                 return None
         except Exception:
-            # Error al obtener roles, asumir no es superAdmin
+            # Error al obtener permisos, asumir sin privilegios
             pass
         
         # Usuario normal: mostrar página de mantenimiento
@@ -92,14 +91,17 @@ def register_hooks(app):
                 user_dict = user_service.get_user(user_id)
                 roles = user_dict.get('current_roles', [])
                 role_names = [r.get('name', '') for r in roles]
+                perms = user_service.get_user_permissions(user_id)
                 name = user_dict.get('name') or ''
                 last_name = user_dict.get('last_name') or ''
                 initials = (f"{name[:1]}{last_name[:1]}".upper()) if name and last_name else "U"
                 return {
                     'current_user': user_dict,
                     'user_roles': role_names,
+                    'user_permissions': perms,
                     'user_initials': initials,
-                    'is_admin': any(r.lower() in ['admin', 'superadmin'] for r in role_names if r)
+                    # Consideramos admin si tiene algún permiso de administración
+                    'is_admin': any(p in perms for p in ['get_all_users','create_user','update_user','delete_user','flag_admin'])
                 }
             except Exception:
                 pass

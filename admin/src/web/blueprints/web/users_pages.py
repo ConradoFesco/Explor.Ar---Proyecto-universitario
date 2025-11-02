@@ -23,6 +23,7 @@ def list_users_page():
     filters = {
         "email": request.args.get('search'),
         "activo": request.args.get('activo'),
+        "blocked": request.args.get('blocked'),
         "rol": request.args.get('rol')
     }
     filters = {k: v for k, v in filters.items() if v}
@@ -42,6 +43,12 @@ def list_users_page():
         current_is_super_admin = any((r.get('name') or '').lower() == 'superadmin' for r in current_roles)
     except Exception:
         current_is_super_admin = False
+    # Opciones de roles dinámicas para el filtro (respeta módulo de roles)
+    try:
+        roles_all = user_service.get_available_roles()
+        role_options = [{'value': r.get('name'), 'label': r.get('name').capitalize()} for r in roles_all]
+    except Exception:
+        role_options = []
     return render_template(
         'users/list_users.html',
         users=result.get('users', []),
@@ -55,7 +62,8 @@ def list_users_page():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        current_is_super_admin=current_is_super_admin
+        current_is_super_admin=current_is_super_admin,
+        role_options=role_options
     )
 
 
@@ -181,7 +189,10 @@ def delete_user_page(user_id: int):
     reason = request.form.get("reason", "")
     try:
         user_service.delete_user_with_reason(user_id=user_id, reason=reason, admin_user_data=admin_id)
-        flash("Usuario eliminado correctamente", "success")
+        msg = "Usuario eliminado correctamente"
+        if (reason or '').strip():
+            msg += f". Motivo: {reason.strip()}"
+        flash(msg, "success")
     except ValidationError as ve:
         flash(str(ve), "error")
     except Exception as e:

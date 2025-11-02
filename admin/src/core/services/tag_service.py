@@ -159,42 +159,30 @@ class TagService:
                 order_column = Tag.name.asc()
             
             query = query.order_by(order_column)
-            
-            # Obtener total de registros
-            total = query.count()
-            
-            # Aplicar paginación
-            tags = query.offset((page - 1) * per_page).limit(per_page).all()
-            
+
+            # Paginar con SQLAlchemy
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+            items = pagination.items
+
             # Convertir a diccionarios y agregar conteo de sitios
             tags_data = []
-            for tag in tags:
+            for tag in items:
                 tag_dict = tag.to_dict()
-                # Obtener conteo de sitios asociados
                 sites_count = TagHistoricSite.query.filter_by(Tag_id=tag.id).count()
                 tag_dict['sites_count'] = sites_count
                 tags_data.append(tag_dict)
-            
-            # Calcular información de paginación
-            total_pages = (total + per_page - 1) // per_page
-            has_prev = page > 1
-            has_next = page < total_pages
-            start = (page - 1) * per_page + 1 if total > 0 else 0
-            end = min(page * per_page, total)
-            
+
             return {
                 'tags': tags_data,
                 'pagination': {
-                    'current_page': page,
-                    'total_pages': total_pages,
-                    'total': total,
-                    'per_page': per_page,
-                    'has_prev': has_prev,
-                    'has_next': has_next,
-                    'prev_page': page - 1 if has_prev else None,
-                    'next_page': page + 1 if has_next else None,
-                    'start': start,
-                    'end': end
+                    'page': pagination.page,
+                    'pages': pagination.pages,
+                    'per_page': pagination.per_page,
+                    'total': pagination.total,
+                    'has_prev': pagination.has_prev,
+                    'has_next': pagination.has_next,
+                    'prev_num': pagination.prev_num,
+                    'next_num': pagination.next_num,
                 }
             }
         except Exception as e:
@@ -202,16 +190,14 @@ class TagService:
             return {
                 'tags': [],
                 'pagination': {
-                    'current_page': page,
-                    'total_pages': 0,
+                    'page': page,
+                    'pages': 0,
                     'total': 0,
                     'per_page': per_page,
                     'has_prev': False,
                     'has_next': False,
-                    'prev_page': None,
-                    'next_page': None,
-                    'start': 0,
-                    'end': 0
+                    'prev_num': None,
+                    'next_num': None,
                 }
             }
 

@@ -49,7 +49,7 @@ class EventService:
             raise DatabaseError(f"Error al crear el evento: {e}")
     
     def get_all_events(self, id, include_deleted=False, page=1, per_page=25,
-                       user_id=None, user_email=None, type_action=None, date_from=None, date_to=None):
+                       user_id=None, user_email=None, type_action=None, date_from: datetime | None = None, date_to: datetime | None = None):
         """
         Lista eventos de un sitio con filtros y paginación.
 
@@ -61,8 +61,8 @@ class EventService:
             user_id (int|None): Filtro por usuario.
             user_email (str|None): Prefijo de email.
             type_action (str|None): Tipo de acción.
-            date_from (str|None): 'YYYY-MM-DD'.
-            date_to (str|None): 'YYYY-MM-DD'.
+            date_from (datetime|None): fecha/hora desde (inclusive).
+            date_to (datetime|None): fecha/hora hasta (inclusive).
 
         Returns:
             dict: {'events': [...], 'pagination': {...}}
@@ -86,25 +86,11 @@ class EventService:
         if type_action is not None and type_action.strip():
             query = query.filter(Event.type_Action == type_action)
         
-        if date_from is not None and date_from.strip():
-            try:
-                # Convertir string a datetime
-                from datetime import datetime as dt
-                date_from_obj = dt.strptime(date_from, '%Y-%m-%d')
-                query = query.filter(Event.date_time >= date_from_obj)
-            except ValueError:
-                pass  # Si el formato es inválido, ignorar el filtro
+        if date_from is not None:
+            query = query.filter(Event.date_time >= date_from)
         
-        if date_to is not None and date_to.strip():
-            try:
-                # Convertir string a datetime (incluir todo el día)
-                from datetime import datetime as dt, timedelta
-                date_to_obj = dt.strptime(date_to, '%Y-%m-%d')
-                # Agregar 1 día menos 1 segundo para incluir todo el día
-                date_to_obj = date_to_obj + timedelta(days=1, seconds=-1)
-                query = query.filter(Event.date_time <= date_to_obj)
-            except ValueError:
-                pass  # Si el formato es inválido, ignorar el filtro
+        if date_to is not None:
+            query = query.filter(Event.date_time <= date_to)
         
         # Ordenar por fecha cronológicamente (más reciente primero)
         query = query.order_by(Event.date_time.desc())

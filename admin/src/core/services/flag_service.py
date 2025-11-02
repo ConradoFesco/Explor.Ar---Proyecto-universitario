@@ -5,6 +5,7 @@ from datetime import datetime
 from src.core.models.flag import Flag
 from src.core.models.user import User
 from src.web.extensions import db
+from src.core.validators.utils import ensure_max_length
 
 class FlagService:
     """Opera sobre flags del sistema, incluyendo modo mantenimiento del admin."""
@@ -14,32 +15,38 @@ class FlagService:
         return Flag.query.order_by(Flag.id).all()
 
 
-    def toggle_flag(self, flag_id, data_user): # Recibe el id del User
-        """
-        Alterna el estado (enabled) de un flag y registra auditoría.
+    def set_flag_state(self, flag_id: int, enabled: bool, data_user: int, message: str | None = None):
+        """Establece explícitamente el estado del flag (idempotente) y opcionalmente el mensaje.
 
-        Args:
-            flag_id (int): ID del flag.
-            data_user (int): ID del usuario actor.
-
-        Returns:
-            Flag: Flag actualizado.
+        Valida longitud máxima del mensaje (<= 255).
         """
         flag = Flag.query.get_or_404(flag_id)
-        new_state = not flag.enabled 
         user = User.query.get(data_user)
-        flag.set_enabled(new_state, actor=user)
-        db.session.commit()
+        if message is not None and not ensure_max_length(message, 255):
+            raise ValueError("El mensaje no puede superar los 255 caracteres")
+        changed = False
+        if bool(flag.enabled) != bool(enabled):
+            flag.set_enabled(bool(enabled), actor=user, msg=message)
+            changed = True
+        elif message is not None and (flag.message or '') != message:
+            # Actualiza solo el mensaje manteniendo estado
+            flag.set_enabled(flag.enabled, actor=user, msg=message)
+            changed = True
+        if changed:
+            db.session.commit()
         return flag
 
-    def update_flag_message(self, flag_id, message, data_user):
-        """Actualiza el mensaje de un flag sin cambiar su estado."""
+    def update_flag_message(self, flag_id: int, message: str, data_user: int):
+        """Actualiza solamente el mensaje del flag con validación de longitud."""
+        if not ensure_max_length(message, 255):
+            raise ValueError("El mensaje no puede superar los 255 caracteres")
         flag = Flag.query.get_or_404(flag_id)
-        # Mantiene el estado actual, solo actualiza el mensaje
         actor = User.query.get(data_user)
         flag.set_enabled(flag.enabled, actor=actor, msg=message)
         db.session.commit()
         return flag
+
+    # Métodos obsoletos removidos: toggle_flag, update_flag_message
 
     def is_maintenance_mode(self):
         """Devuelve True si el modo mantenimiento está activado."""

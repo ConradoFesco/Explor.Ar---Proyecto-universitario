@@ -25,6 +25,15 @@ def lista_sitios():
     city_id = request.args.get('city_id', type=int)
     province_id = request.args.get('province_id', type=int)
     state_id = request.args.get('state_id', type=int)
+    # tags opcional como '1,2,3'
+    tag_ids_param = request.args.get('tag_ids', '')
+    if tag_ids_param:
+        try:
+            tag_ids = [int(t.strip()) for t in tag_ids_param.split(',') if t.strip()]
+        except Exception:
+            tag_ids = []
+    else:
+        tag_ids = []
     visible_param = request.args.get('visible')
     visible = None
     if visible_param is not None and visible_param != '':
@@ -39,6 +48,7 @@ def lista_sitios():
         sort_order=sort_order,
         city_id=city_id,
         province_id=province_id,
+        tag_ids=tag_ids,
         state_id=state_id,
         visible=visible,
     )
@@ -73,6 +83,14 @@ def lista_sitios_fragment():
     city_id = request.args.get('city_id', type=int)
     province_id = request.args.get('province_id', type=int)
     state_id = request.args.get('state_id', type=int)
+    tag_ids_param = request.args.get('tag_ids', '')
+    if tag_ids_param:
+        try:
+            tag_ids = [int(t.strip()) for t in tag_ids_param.split(',') if t.strip()]
+        except Exception:
+            tag_ids = []
+    else:
+        tag_ids = []
     visible_param = request.args.get('visible')
     visible = None
     if visible_param is not None and visible_param != '':
@@ -87,6 +105,7 @@ def lista_sitios_fragment():
         sort_order=sort_order,
         city_id=city_id,
         province_id=province_id,
+        tag_ids=tag_ids,
         state_id=state_id,
         visible=visible,
     )

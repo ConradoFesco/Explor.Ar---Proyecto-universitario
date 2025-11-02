@@ -1,65 +1,48 @@
-from flask import Blueprint, jsonify, render_template, request,redirect,url_for
+from flask import Blueprint, jsonify, request, session
 from src.web.auth.decorators import permission_required
-from flask import session,url_for
 from src.core.services.flag_service import flag_service
-from datetime import datetime
-from src.core.models.user import User
 
-flag_api = Blueprint("flag_api", __name__, url_prefix="/flags")
+flag_api = Blueprint("flag_api", __name__)
 
-@flag_api.route("/<int:flag_id>/toggle", methods=["POST"])
+
+@flag_api.route("/flags/<int:flag_id>/toggle", methods=["POST"])
 @permission_required('flag_admin')
-def toggle_flag_route(flag_id):
-    """
-    Endpoint para cambiar el estado de un flag.
-    """
+def toggle_flag_route(flag_id: int):
+    """API: fija estado explícito (enabled) y opcionalmente mensaje. Devuelve JSON."""
     user_id = session.get('user_id')
-
     if not user_id:
         return jsonify({"error": "Sesión o usuario inválido"}), 401
+    data = request.get_json(silent=True) or request.form or {}
+    raw_enabled = str(data.get('enabled', '')).strip().lower()
+    enabled = True if raw_enabled in ('1','true','on','yes') else False
+    message = (data.get('message') or '').strip() or None
+    try:
+        flag = flag_service.set_flag_state(flag_id, enabled, user_id, message=message)
+        return jsonify({
+            "success": True,
+            "id": flag.id,
+            "enabled": bool(flag.enabled),
+            "message": flag.message or None,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-    flag = flag_service.toggle_flag(flag_id, user_id) # Pasamos el id del User
 
-    return redirect(url_for('flags_web.list_flags_page'))
-# === Página principal de administración de flags ===
-
- 
-
-# === API: Actualizar mensaje de mantenimiento ===
-@flag_api.route("/<int:flag_id>/message", methods=["POST"])
-@permission_required('flag_admin')  # ✅ Corregido nombre del permiso
-def update_flag_message_route(flag_id):
-    """
-    Endpoint para actualizar el mensaje del flag (por ejemplo, modo mantenimiento).
-    Permite cambiar el mensaje sin modificar el estado del flag.
-    """
-    # ✅ Obtener datos del JSON body
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({"error": "No se recibieron datos"}), 400
-    
-    message = data.get("message")
-
-    if not message or len(message.strip()) == 0:
-        return jsonify({"error": "El mensaje es obligatorio"}), 400
-
-    if len(message) > 255:
-        return jsonify({"error": "El mensaje no puede superar los 255 caracteres"}), 400
-
+@flag_api.route("/flags/<int:flag_id>/message", methods=["POST"])
+@permission_required('flag_admin')
+def update_flag_message_route(flag_id: int):
+    """API: Actualiza únicamente el mensaje (con validación)."""
     user_id = session.get('user_id')
-
     if not user_id:
         return jsonify({"error": "Sesión o usuario inválido"}), 401
-
-    # Pasar user_id al servicio (el servicio lo convierte a objeto User)
-    flag = flag_service.update_flag_message(flag_id, message, data_user=user_id)
-
-    return jsonify({
-        "success": True,
-        "message": flag.message,
-        "last_modified_by": flag.last_modified_by,
-        "last_modified_at": flag.last_modified_at.strftime("%Y-%m-%d %H:%M")
-    })
-
-
+    data = request.get_json(silent=True) or {}
+    message = (data.get('message') or '').strip()
+    try:
+        flag = flag_service.update_flag_message(flag_id, message, data_user=user_id)
+        return jsonify({
+            "success": True,
+            "id": flag.id,
+            "message": flag.message or None,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400

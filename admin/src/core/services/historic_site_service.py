@@ -140,15 +140,11 @@ class HistoricSiteService:
         # Crear respuesta personalizada que incluya los tags y relaciones
         site_data = site.to_dict()
         
-        # Agregar información de tags
-        site_data['tags'] = []
-        for tag_relation in site.tag_historic_sites:
-            if not tag_relation.tag.deleted:  # Solo incluir tags no eliminados
-                site_data['tags'].append({
-                    'id': tag_relation.tag.id,
-                    'name': tag_relation.tag.name,
-                    'slug': tag_relation.tag.slug
-                })
+        # Agregar información de tags (solo no eliminados) usando consulta
+        from src.core.models.tag import Tag
+        site_tags = Tag.query.join(TagHistoricSite).\
+            filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
+        site_data['tags'] = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in site_tags]
         
         # Agregar información de relaciones usando los joins
         site_data['city_name'] = site.city.name if hasattr(site, 'city') and site.city else None
@@ -172,7 +168,7 @@ class HistoricSiteService:
         Returns:
             dict: {'sites': [...], 'pagination': {...}}
         """
-        from sqlalchemy import and_, or_, desc, asc
+        from sqlalchemy import and_, or_, desc, asc, func
         
         # Validaciones de entrada
         from src.core.validators.listing_validator import validate_site_list_params
@@ -215,10 +211,16 @@ class HistoricSiteService:
             city_joined = True
             query = query.filter(City.id_province == province_id)
         
-        # Filtro por tags (multiselección)
+        # Filtro por tags (multiselección): deben contener TODOS los seleccionados
         if tag_ids and len(tag_ids) > 0:
-            # Filtrar sitios que tengan al menos uno de los tags especificados
-            query = query.join(TagHistoricSite).filter(TagHistoricSite.Tag_id.in_(tag_ids))
+            tags_subq = (
+                db.session.query(TagHistoricSite.Historic_Site_id)
+                .filter(TagHistoricSite.Tag_id.in_(tag_ids))
+                .group_by(TagHistoricSite.Historic_Site_id)
+                .having(func.count(func.distinct(TagHistoricSite.Tag_id)) == len(tag_ids))
+                .subquery()
+            )
+            query = query.filter(HistoricSite.id.in_(tags_subq))
         
         # Filtro por estado del sitio
         if state_id:
@@ -266,15 +268,11 @@ class HistoricSiteService:
         sites = pagination.items
         sites_data = []
         for site in sites:
-            # Obtener tags del sitio
-            site_tags = []
-            for tag_relation in site.tag_historic_sites:
-                if not tag_relation.tag.deleted:  # Solo incluir tags no eliminados
-                    site_tags.append({
-                        'id': tag_relation.tag.id,
-                        'name': tag_relation.tag.name,
-                        'slug': tag_relation.tag.slug
-                    })
+            # Obtener tags del sitio (solo no eliminados)
+            from src.core.models.tag import Tag
+            tags_q = Tag.query.join(TagHistoricSite).\
+                filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
+            site_tags = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in tags_q]
             
             sites_data.append({
                 'id': site.id, 
@@ -586,15 +584,11 @@ class HistoricSiteService:
         sites = pagination.items
         sites_data = []
         for site in sites:
-            # Obtener tags del sitio
-            site_tags = []
-            for tag_relation in site.tag_historic_sites:
-                if not tag_relation.tag.deleted:  # Solo incluir tags no eliminados
-                    site_tags.append({
-                        'id': tag_relation.tag.id,
-                        'name': tag_relation.tag.name,
-                        'slug': tag_relation.tag.slug
-                    })
+            # Obtener tags del sitio (solo no eliminados)
+            from src.core.models.tag import Tag
+            tags_q = Tag.query.join(TagHistoricSite).\
+                filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
+            site_tags = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in tags_q]
             
             sites_data.append({
                 'id': site.id, 
@@ -665,7 +659,7 @@ class HistoricSiteService:
         Returns:
             tuple[str, str]: (contenido_csv, nombre_archivo)
         """
-        from sqlalchemy import and_, or_, desc, asc
+        from sqlalchemy import and_, or_, desc, asc, func
         # Validaciones de entrada (mismos parámetros que el listado)
         from src.core.validators.listing_validator import validate_site_list_params
         params = validate_site_list_params(
@@ -701,9 +695,16 @@ class HistoricSiteService:
         if province_id:
             query = query.filter(City.id_province == province_id)
         
-        # Filtro por tags (multiselección)
+        # Filtro por tags (multiselección): deben contener TODOS los seleccionados
         if tag_ids and len(tag_ids) > 0:
-            query = query.join(TagHistoricSite).filter(TagHistoricSite.Tag_id.in_(tag_ids))
+            tags_subq = (
+                db.session.query(TagHistoricSite.Historic_Site_id)
+                .filter(TagHistoricSite.Tag_id.in_(tag_ids))
+                .group_by(TagHistoricSite.Historic_Site_id)
+                .having(func.count(func.distinct(TagHistoricSite.Tag_id)) == len(tag_ids))
+                .subquery()
+            )
+            query = query.filter(HistoricSite.id.in_(tags_subq))
         
         # Filtro por estado del sitio
         if state_id:
@@ -765,11 +766,11 @@ class HistoricSiteService:
         
         # Escribir datos
         for site in sites:
-            # Obtener tags del sitio
-            site_tags = []
-            for tag_relation in site.tag_historic_sites:
-                if not tag_relation.tag.deleted:
-                    site_tags.append(tag_relation.tag.name)
+            # Obtener tags del sitio (solo no eliminados)
+            from src.core.models.tag import Tag
+            tags_q = Tag.query.join(TagHistoricSite).\
+                filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
+            site_tags = [t.name for t in tags_q]
             
             # Formatear coordenadas
             coordinates = f"{site.latitude},{site.longitude}"

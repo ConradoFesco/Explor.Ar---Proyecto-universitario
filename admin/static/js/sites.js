@@ -24,7 +24,7 @@
     if (visible !== '') params.set('visible', visible);
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
-    const tagCheckboxes = document.querySelectorAll('#filter-tags-container input[type="checkbox"]:checked');
+    const tagCheckboxes = document.querySelectorAll('#filter-tag_ids-container input[type="checkbox"]:checked');
     const tagIds = Array.from(tagCheckboxes).map(cb => cb.value).filter(Boolean);
     if (tagIds.length>0) params.set('tag_ids', tagIds.join(','));
     return params;
@@ -45,7 +45,7 @@
     const tagParam = qs.get('tag_ids');
     if (tagParam) {
       const ids = tagParam.split(',');
-      ids.forEach(id=>{ const cb=document.querySelector(`#filter-tags input[type="checkbox"][value="${id}"]`) || document.querySelector(`#filter-tags-container input[type="checkbox"][value="${id}"]`); if(cb) cb.checked=true; });
+      ids.forEach(id=>{ const cb=document.querySelector(`#filter-tag_ids-container input[type="checkbox"][value="${id}"]`); if(cb) cb.checked=true; });
     }
   }
 
@@ -85,7 +85,7 @@
     if (search){ let t; search.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(()=>{ const p=collectParams(); p.set('page',1); p.set('per_page', perPage); replaceList(p); }, 300); }); }
     ['sort-by','sort-order'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('change', ()=>{ const p=collectParams(); p.set('page',1); p.set('per_page', perPage); replaceList(p); }); });
     const applyBtn=document.getElementById('apply-filters'); if (applyBtn) applyBtn.addEventListener('click', ()=>{ const p=collectParams(); p.set('page',1); p.set('per_page', perPage); replaceList(p); });
-    const clearBtn=document.getElementById('clear-filters'); if (clearBtn) clearBtn.addEventListener('click', ()=>{ ['search-input','sort-by','sort-order','filter-city','filter-province','filter-state','filter-visible','filter-date-from','filter-date-to'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); document.querySelectorAll('#tags-filter-container input[type="checkbox"]').forEach(cb=>cb.checked=false); const p=collectParams(); p.set('page',1); p.set('per_page', perPage); replaceList(p); });
+    const clearBtn=document.getElementById('clear-filters'); if (clearBtn) clearBtn.addEventListener('click', ()=>{ ['search-input','sort-by','sort-order','filter-city','filter-province','filter-state','filter-visible','filter-date-from','filter-date-to'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); document.querySelectorAll('#filter-tag_ids-container input[type="checkbox"]').forEach(cb=>cb.checked=false); const p=collectParams(); p.set('page',1); p.set('per_page', perPage); replaceList(p); });
     window.changePage = function(page){ const p=collectParams(); p.set('page', page); p.set('per_page', perPage); replaceList(p); };
     const exportBtn=document.getElementById('export-btn'); if (exportBtn && cfg.exportCsvUrl){ exportBtn.addEventListener('click', (e)=>{ e.preventDefault(); const p=collectParams(); const url=cfg.exportCsvUrl + '?' + p.toString(); const a=document.createElement('a'); a.href=url; document.body.appendChild(a); a.click(); a.remove(); }); }
     // modal functions moved to events.js

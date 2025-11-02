@@ -69,7 +69,6 @@
             {{ f.render_checkbox('blocked','Usuario bloqueado', user.blocked) }}
 
             <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                {{ f.render_info_row('ID','user-id', (user.id|string)) }}
                 {{ f.render_info_row('Fecha de creación','user-created-at', (user.created_at if user.created_at else '-') ) }}
             </div>
 

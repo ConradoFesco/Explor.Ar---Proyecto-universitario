@@ -13,16 +13,15 @@
             {'value': 'name', 'label': 'Nombre'}
         ],
         'filters': [
-            {'name': 'activo', 'label': 'Estado', 'type': 'select', 'placeholder': 'Todos', 'options': [
+            {'name': 'activo', 'label': 'Activo', 'type': 'select', 'placeholder': 'Todos', 'options': [
                 {'value': 'si', 'label': 'Activo'},
                 {'value': 'no', 'label': 'Inactivo'}
             ]},
-            {'name': 'rol', 'label': 'Rol', 'type': 'select', 'placeholder': 'Todos los roles', 'options': [
-                {'value': 'usuario', 'label': 'Usuario'},
-                {'value': 'editor', 'label': 'Editor'},
-                {'value': 'admin', 'label': 'Administrador'},
-                {'value': 'superAdmin', 'label': 'Super Administrador'}
-            ]}
+            {'name': 'blocked', 'label': 'Bloqueado', 'type': 'select', 'placeholder': 'Todos', 'options': [
+                {'value': 'si', 'label': 'Bloqueado'},
+                {'value': 'no', 'label': 'No bloqueado'}
+            ]},
+            {'name': 'rol', 'label': 'Rol', 'type': 'select', 'placeholder': 'Todos los roles', 'options': role_options}
         ]
     }) }}
 

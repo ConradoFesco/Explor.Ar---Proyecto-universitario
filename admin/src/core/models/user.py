@@ -15,6 +15,9 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     blocked = db.Column(db.Boolean)
     deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deletion_reason = db.Column(db.String(255), nullable=True)
+    deleted_by_id = db.Column(db.Integer, nullable=True)
 
     # Relaciones
     events = db.relationship('Event', backref='user', lazy=True)

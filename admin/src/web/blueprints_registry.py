@@ -44,9 +44,9 @@ def register_blueprints(app):
     from .blueprints.api.event_routes import event_api
     app.register_blueprint(event_api, url_prefix="/api")
     
-    # Blueprint de flags (API) y Web
+    # Blueprint de flags (API y Web)
     from .blueprints.api.flag_routes import flag_api
-    app.register_blueprint(flag_api, url_prefix="/flags")
+    app.register_blueprint(flag_api, url_prefix="/api")
     from .blueprints.web.flags_pages import flags_web
     app.register_blueprint(flags_web)
     
