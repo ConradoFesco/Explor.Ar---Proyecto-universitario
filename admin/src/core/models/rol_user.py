@@ -1,4 +1,5 @@
 from src.web.extensions import db
+from typing import Dict, Any
 
 class RolUser(db.Model):
     __tablename__ = 'Rol_User'
@@ -11,10 +12,10 @@ class RolUser(db.Model):
     permission_rol_users = db.relationship('PermissionRolUser', backref='rol_user', lazy=True)
     rol_user_users = db.relationship('RolUserUser', backref='rol_user', lazy=True)
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<RolUser {self.name}>'
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'name': self.name,

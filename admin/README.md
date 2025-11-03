@@ -116,6 +116,21 @@ admin/
 - Permisos con patrón `modulo_accion` (p.ej. `flag_admin`, `create_user`).
 - Mensajería unificada con SweetAlert2 a partir de `flash`.
 
+## Convenciones de plantillas (Jinja)
+- Componentes reutilizables de UI en `src/web/templates/components/`.
+- `shared/components/` reservado para piezas cross-página no visualmente acopladas a UI (p. ej., `modal.html`, `search_filters.html`).
+- Evitar duplicados entre `components/` y `shared/components/`.
+  - Paginación consolidada en `components/paginator.html.jinja`.
+  - Si se requiere una variante JS, usar el macro `render_pagination_js` en el mismo archivo.
+- Importar macros con `{% import 'components/...' as x %}` o `{% from 'components/...' import y %}`.
+- Mantener lógica de negocio fuera de las plantillas; sólo presentación.
+
+## Modelos y Servicios
+- Los Modelos (SQLAlchemy) no deben depender de Flask; pueden exponer utilidades orientadas al dominio (p. ej., hashing de contraseñas) y `to_dict()` para serialización simple.
+- Toda la lógica de negocio/composición de datos debe residir en `src/core/services/`.
+- Controladores Web: renderizan plantillas con datos preparados por Services (`render_template('tpl', **data)`).
+- Controladores API: serializan respuesta desde Services (por Marshmallow) y devuelven JSON.
+
 ## Comandos útiles
 ```
 # Estado de migraciones

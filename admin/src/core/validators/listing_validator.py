@@ -182,5 +182,3 @@ def validate_event_list_params(*, page: int, per_page: int, user_id: Optional[in
         'date_from': date_from_dt,
         'date_to': date_to_dt,
     }
-
-

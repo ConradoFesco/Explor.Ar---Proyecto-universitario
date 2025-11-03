@@ -1,7 +1,7 @@
 from src.web.extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from sqlalchemy.orm import relationship
+from typing import List, Dict, Any
 
 class User(db.Model):
     __tablename__ = 'User'
@@ -23,10 +23,10 @@ class User(db.Model):
     events = db.relationship('Event', backref='user', lazy=True)
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<User {self.name} {self.last_name}>'
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'mail': self.mail,
@@ -39,28 +39,16 @@ class User(db.Model):
         }
 
     # --- Métodos de password ---
-    def set_password(self, password_plain):
+    def set_password(self, password_plain: str) -> None:
         """Genera y guarda un hash seguro del password"""
         self.password = generate_password_hash(password_plain)
 
-    def check_password(self, password_plain):
+    def check_password(self, password_plain: str) -> bool:
         """Verifica si el password ingresado coincide con el hash guardado"""
         return check_password_hash(self.password, password_plain)
 
     # --- Permisos del usuario ---
-    @property
-    def permissions(self):
-        """Retorna lista con todos los permisos del usuario (para compatibilidad)"""
-        perms = []
-        for rol_rel in self.user_roles:   # recorre la relación User ↔ RolUser
-            rol = rol_rel.rol_user
-            for perm_rel in rol.permission_rol_users:  # accede a través de la relación
-                perm = perm_rel.permission
-                if perm.name not in perms:
-                    perms.append(perm.name)
-        return perms
-
-    def has_permission(self, permission_name):
+    def has_permission(self, permission_name: str) -> bool:
         """
         Verifica si el usuario tiene un permiso específico de forma eficiente.
         
@@ -84,7 +72,7 @@ class User(db.Model):
         
         return False  # No se encontró el permiso
 
-    def get_user_roles(self):
+    def get_user_roles(self) -> List[str]:
         """
         Retorna los nombres de los roles del usuario.
 
