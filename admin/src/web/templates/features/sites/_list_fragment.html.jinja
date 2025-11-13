@@ -1,0 +1,14 @@
+{% from 'components/paginator.html.jinja' import render_pagination %}
+{% if sites %}
+<ul class="divide-y divide-gray-200">
+  {% for site in sites %}
+    {% set site = site %}
+    {% include 'features/sites/_item.html.jinja' %}
+  {% endfor %}
+ </ul>
+ {{ render_pagination(pagination) }}
+{% else %}
+ <div class="text-center text-gray-500 py-8">No hay datos para mostrar.</div>
+{% endif %}
+
+

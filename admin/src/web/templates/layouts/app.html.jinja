@@ -1,0 +1,33 @@
+{% extends 'shared/layout.html' %}
+
+
+{#
+  App layout: lugar para lógica/JS y bloques compartidos por páginas
+  - Define utilidades comunes para paginación (usado por paginator.html.jinja)
+  - Mantiene estilos y estructura del layout base sin alteraciones visuales
+#}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  // Utilidad de paginación compartida por todas las páginas
+  // Actualiza solo el parámetro 'page' y preserva el resto de la query
+  function changePage(page) {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', page);
+      window.location.href = url.toString();
+    } catch (_) {
+      // Fallback para navegadores antiguos
+      var loc = window.location.href;
+      var base = loc.split('?')[0];
+      var qs = (loc.indexOf('?') !== -1 ? loc.split('?')[1] : '');
+      var params = new URLSearchParams(qs);
+      params.set('page', page);
+      window.location.href = base + '?' + params.toString();
+    }
+  }
+</script>
+{% endblock %}
+
+

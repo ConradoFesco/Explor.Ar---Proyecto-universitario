@@ -1,31 +1,24 @@
-# services/tag_service.py
+"""
+Servicios de dominio para Tags: CRUD, listados y utilidades.
+"""
 
 from src.core.models.tag import Tag
 from src.core.models.tag_historic_site import TagHistoricSite
 from src.web.extensions import db
-from slugify import slugify
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.core.models.historic_site import HistoricSite
+from src.core.validators.tag_validator import validate_create_tag, validate_update_tag
 
 class TagService:
+    """Operaciones sobre tags, con validaciones de unicidad y relaciones."""
     def create_tag(self, data): 
-        """Crea un nuevo tag o recupera uno eliminado si existe."""
+        """Crea un tag nuevo o recupera uno eliminado (reactiva) si coincide el nombre."""
         name = data.get('name')
-        if not name:
-            raise ValidationError("El nombre del tag es requerido.")
-        
-        # Siempre generar el slug automáticamente desde el nombre
-        slug = slugify(name)
-        
-        # Primero verificar si existe un tag activo con el mismo nombre o slug
-        existing_active_tag = Tag.query.filter(
-            ((Tag.name == name) | (Tag.slug == slug)) & (Tag.deleted == False)
-        ).first()
-        
-        if existing_active_tag:
-            raise ValidationError("El slug ya existe. El nombre del tag podría ser muy similar a uno ya existente.")
-        
+        validated = validate_create_tag(name)
+        name = validated['name']
+        slug = validated['slug']
+
         # Buscar si existe un tag eliminado con el mismo nombre
         deleted_tag = Tag.query.filter_by(name=name, deleted=True).first()
         
@@ -42,9 +35,7 @@ class TagService:
                 raise DatabaseError(f"Error al recuperar el tag: {str(e)}")
         else:
             # Crear un nuevo tag
-            new_tag = Tag(
-                name=name, 
-                slug=slug)
+            new_tag = Tag(name=name, slug=slug)
             try:
                 db.session.add(new_tag)
                 db.session.commit()
@@ -54,7 +45,9 @@ class TagService:
                 raise DatabaseError(f"Error al crear el tag: {str(e)}")
 
     def get_all_tags(self, include_deleted=False): 
-        """Obtiene todos los tags."""
+        """
+        Lista todos los tags (opcionalmente incluye eliminados).
+        """
         query = Tag.query
         if not include_deleted:
             query = query.filter_by(deleted=False)
@@ -62,21 +55,25 @@ class TagService:
         return [tag.to_dict() for tag in tags]
 
     def get_tag_by_id(self, tag_id): 
-        """Obtiene un tag por su ID."""
+        """
+        Obtiene un tag por ID (no eliminado).
+        """
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
         return tag.to_dict()
 
     def get_tag_by_slug(self, tag_slug):
-        """Obtiene un tag por su slug."""
+        """Obtiene un tag por slug (no eliminado)."""
         tag = Tag.query.filter_by(slug=tag_slug, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
         return tag.to_dict()
 
     def update_tag(self, tag_id, data): 
-        """Actualiza un tag existente."""
+        """
+        Actualiza nombre/slug de un tag, validando unicidad.
+        """
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
@@ -84,20 +81,9 @@ class TagService:
         name = data.get('name')
         
         if name and name != tag.name:
-            # Verificar que el nombre no exista en otros tags
-            existing_tag = Tag.query.filter(Tag.name == name, Tag.id != tag_id, Tag.deleted == False).first()
-            if existing_tag:
-                raise ValidationError("El nombre del tag ya existe para otro tag.")
-            tag.name = name
-            
-            # Siempre regenerar el slug automáticamente desde el nombre
-            new_slug = slugify(name)
-            
-            # Verificar que el nuevo slug no exista en otros tags
-            existing_slug = Tag.query.filter(Tag.slug == new_slug, Tag.id != tag_id, Tag.deleted == False).first()
-            if existing_slug:
-                raise ValidationError("El slug generado ya existe para otro tag.")
-            tag.slug = new_slug
+            validated = validate_update_tag(tag_id, name)
+            tag.name = validated['name']
+            tag.slug = validated['slug']
         
         try:
             db.session.commit()
@@ -107,7 +93,9 @@ class TagService:
             raise DatabaseError(f"Error al actualizar el tag: {str(e)}")
 
     def delete_tag(self, tag_id): 
-        """Elimina un tag por su ID (solo si no está asociado a sitios históricos)."""
+        """
+        Elimina lógicamente un tag si no está asociado a sitios.
+        """
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
@@ -126,7 +114,7 @@ class TagService:
             raise DatabaseError(f"Error al eliminar el tag: {str(e)}")
 
     def get_tags_by_site_id(self, site_id):
-        """Obtiene los tags de un sitio histórico por su ID."""
+        """Obtiene tags asociados a un sitio histórico por su ID."""
         site = HistoricSite.query.get(site_id)
         if not site:
             raise NotFoundError("Sitio histórico no encontrado.")
@@ -140,8 +128,18 @@ class TagService:
         return [tag.to_dict() for tag in tags]
 
     def get_all_tags_paginated(self, page=1, per_page=25, search='', sort_by='name', sort_order='asc', include_deleted=False):
-        """Obtiene tags con paginación, búsqueda y ordenamiento."""
+        """
+        Lista tags con paginación, búsqueda por prefijo y ordenamiento.
+
+        Returns:
+            dict: {'tags': [...], 'pagination': {...}}
+        """
         try:
+            # Validaciones de entrada
+            from src.core.validators.listing_validator import validate_tag_list_params
+            v = validate_tag_list_params(page=int(page), per_page=int(per_page), search=search, sort_by=sort_by, sort_order=sort_order)
+            page = v['page']; per_page = v['per_page']; search = v['search']; sort_by = v['sort_by']; sort_order = v['sort_order']
+
             # Construir query base
             query = Tag.query
             
@@ -161,42 +159,30 @@ class TagService:
                 order_column = Tag.name.asc()
             
             query = query.order_by(order_column)
-            
-            # Obtener total de registros
-            total = query.count()
-            
-            # Aplicar paginación
-            tags = query.offset((page - 1) * per_page).limit(per_page).all()
-            
+
+            # Paginar con SQLAlchemy
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+            items = pagination.items
+
             # Convertir a diccionarios y agregar conteo de sitios
             tags_data = []
-            for tag in tags:
+            for tag in items:
                 tag_dict = tag.to_dict()
-                # Obtener conteo de sitios asociados
                 sites_count = TagHistoricSite.query.filter_by(Tag_id=tag.id).count()
                 tag_dict['sites_count'] = sites_count
                 tags_data.append(tag_dict)
-            
-            # Calcular información de paginación
-            total_pages = (total + per_page - 1) // per_page
-            has_prev = page > 1
-            has_next = page < total_pages
-            start = (page - 1) * per_page + 1 if total > 0 else 0
-            end = min(page * per_page, total)
-            
+
             return {
                 'tags': tags_data,
                 'pagination': {
-                    'current_page': page,
-                    'total_pages': total_pages,
-                    'total': total,
-                    'per_page': per_page,
-                    'has_prev': has_prev,
-                    'has_next': has_next,
-                    'prev_page': page - 1 if has_prev else None,
-                    'next_page': page + 1 if has_next else None,
-                    'start': start,
-                    'end': end
+                    'page': pagination.page,
+                    'pages': pagination.pages,
+                    'per_page': pagination.per_page,
+                    'total': pagination.total,
+                    'has_prev': pagination.has_prev,
+                    'has_next': pagination.has_next,
+                    'prev_num': pagination.prev_num,
+                    'next_num': pagination.next_num,
                 }
             }
         except Exception as e:
@@ -204,16 +190,14 @@ class TagService:
             return {
                 'tags': [],
                 'pagination': {
-                    'current_page': page,
-                    'total_pages': 0,
+                    'page': page,
+                    'pages': 0,
                     'total': 0,
                     'per_page': per_page,
                     'has_prev': False,
                     'has_next': False,
-                    'prev_page': None,
-                    'next_page': None,
-                    'start': 0,
-                    'end': 0
+                    'prev_num': None,
+                    'next_num': None,
                 }
             }
 

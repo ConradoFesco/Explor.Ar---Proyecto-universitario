@@ -1,3 +1,6 @@
+"""
+Servicio de eventos de auditoría para operaciones sobre sitios.
+"""
 from src.core.models.event import Event
 from src.web.extensions import db
 from src.web import exceptions as exc
@@ -5,7 +8,22 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
 class EventService:
+    """Crear, listar (con filtros) y eliminar lógicamente eventos."""
     def create_event(self, data, commit=True):
+        """
+        Crea un evento de auditoría.
+
+        Args:
+            data (dict): {'id_site', 'id_user', 'type_Action', 'date_time'(opcional)}
+            commit (bool): Si True, confirma la transacción.
+
+        Returns:
+            dict: Evento creado en formato dict.
+
+        Raises:
+            ValidationError: Si faltan campos requeridos.
+            DatabaseError: Si falla la escritura en base.
+        """
         required_fields = ['id_site', 'id_user', 'type_Action']
         if ( not all(field in data for field in required_fields)):
             raise ValidationError("Faltan campos obligatorios: id_site, id_user y type_Action")
@@ -30,43 +48,49 @@ class EventService:
             db.session.rollback()
             raise DatabaseError(f"Error al crear el evento: {e}")
     
-    def get_all_events(self, id, include_deleted=False, page=1, per_page=25, 
-                       user_id=None, type_action=None, date_from=None, date_to=None):
+    def get_all_events(self, id, include_deleted=False, page=1, per_page=25,
+                       user_id=None, user_email=None, type_action=None, date_from: datetime | None = None, date_to: datetime | None = None):
+        """
+        Lista eventos de un sitio con filtros y paginación.
+
+        Args:
+            id (int): ID del sitio.
+            include_deleted (bool): Incluir eliminados lógicamente.
+            page (int): Página.
+            per_page (int): Tamaño de página.
+            user_id (int|None): Filtro por usuario.
+            user_email (str|None): Prefijo de email.
+            type_action (str|None): Tipo de acción.
+            date_from (datetime|None): fecha/hora desde (inclusive).
+            date_to (datetime|None): fecha/hora hasta (inclusive).
+
+        Returns:
+            dict: {'events': [...], 'pagination': {...}}
+        """
         from src.core.models.user import User
-        
+
         query = Event.query.filter_by(id_site=id)
         if not include_deleted:
             query = query.filter_by(deleted=False)
         
+        # Join con User para filtros por usuario
+        query = query.join(User, Event.id_user == User.id)
+
         # Aplicar filtros
         if user_id is not None:
             query = query.filter(Event.id_user == user_id)
+
+        if user_email is not None and user_email.strip():
+            query = query.filter(User.mail.ilike(f"{user_email.strip()}%"))
         
         if type_action is not None and type_action.strip():
             query = query.filter(Event.type_Action == type_action)
         
-        if date_from is not None and date_from.strip():
-            try:
-                # Convertir string a datetime
-                from datetime import datetime as dt
-                date_from_obj = dt.strptime(date_from, '%Y-%m-%d')
-                query = query.filter(Event.date_time >= date_from_obj)
-            except ValueError:
-                pass  # Si el formato es inválido, ignorar el filtro
+        if date_from is not None:
+            query = query.filter(Event.date_time >= date_from)
         
-        if date_to is not None and date_to.strip():
-            try:
-                # Convertir string a datetime (incluir todo el día)
-                from datetime import datetime as dt, timedelta
-                date_to_obj = dt.strptime(date_to, '%Y-%m-%d')
-                # Agregar 1 día menos 1 segundo para incluir todo el día
-                date_to_obj = date_to_obj + timedelta(days=1, seconds=-1)
-                query = query.filter(Event.date_time <= date_to_obj)
-            except ValueError:
-                pass  # Si el formato es inválido, ignorar el filtro
-        
-        # Hacer join con User para obtener información del usuario
-        query = query.join(User, Event.id_user == User.id)
+        if date_to is not None:
+            query = query.filter(Event.date_time <= date_to)
         
         # Ordenar por fecha cronológicamente (más reciente primero)
         query = query.order_by(Event.date_time.desc())
@@ -84,8 +108,7 @@ class EventService:
                 'id_user': event.id_user, 
                 'date_time': event.date_time, 
                 'type_Action': event.type_Action,
-                'user_name': event.user.name if event.user else 'Usuario desconocido',
-                'user_last_name': event.user.last_name if event.user else ''
+                'user_email': event.user.mail if event.user else ''
             } for event in events],
             'pagination': {
                 'page': pagination.page,
@@ -100,6 +123,20 @@ class EventService:
         }
 
     def soft_delete_event(self, id, data_user):
+        """
+        Realiza baja lógica del evento.
+
+        Args:
+            id (int): ID del evento.
+            data_user (int): ID del usuario actor.
+
+        Returns:
+            Event: Objeto evento modificado.
+
+        Raises:
+            NotFoundError: Si no existe.
+            DatabaseError: Si falla commit.
+        """
         # 1. Busca el evento por su ID
         event = Event.query.get(id)
         # 2. Si no lo encuentra, lanza un error claro

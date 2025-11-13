@@ -1,4 +1,5 @@
 from src.web.extensions import db
+from typing import Dict, Any
 
 class Permission(db.Model):
     __tablename__ = 'Permission'
@@ -10,10 +11,10 @@ class Permission(db.Model):
     # Relaciones
     permission_rol_users = db.relationship('PermissionRolUser', backref='permission', lazy=True)
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Permission {self.name}>'
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'name': self.name,

@@ -1,0 +1,87 @@
+<div class="space-y-6">
+  <div class="border-b pb-4">
+    <h4 class="text-xl font-bold text-gray-800 mb-2">{{ site.name }}</h4>
+    {% if site.brief_description %}
+    <p class="text-gray-600 leading-relaxed">{{ site.brief_description }}</p>
+    {% endif %}
+  </div>
+
+  {% if site.complete_description %}
+  <div>
+    <h5 class="font-semibold text-gray-700 mb-2">Descripción completa</h5>
+    <p class="text-gray-600 leading-relaxed">{{ site.complete_description }}</p>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-gray-50 p-3 rounded-lg">
+      <h6 class="font-medium text-gray-700 mb-1">Coordenadas</h6>
+      <p class="text-sm text-gray-600">Lat: {{ site.latitude }}</p>
+      <p class="text-sm text-gray-600">Lng: {{ site.longitude }}</p>
+    </div>
+    {% if site.year_inauguration %}
+    <div class="bg-gray-50 p-3 rounded-lg">
+      <h6 class="font-medium text-gray-700 mb-1">Año de inauguración</h6>
+      <p class="text-sm text-gray-600">{{ site.year_inauguration }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <h5 class="font-semibold text-gray-700 mb-2">Tags asociados</h5>
+    {% if site.tags and site.tags|length > 0 %}
+    <div class="flex flex-wrap gap-2">
+      {% for tag in site.tags %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-sm">Este sitio no tiene tags asociados</p>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    {% if site.city_name %}
+    <div class="text-center p-2 bg-blue-50 rounded">
+      <span class="font-medium text-blue-700">Ciudad</span>
+      <p class="text-blue-600">{{ site.city_name }}</p>
+    </div>
+    {% endif %}
+    {% if site.state_name %}
+    <div class="text-center p-2 bg-green-50 rounded">
+      <span class="font-medium text-green-700">Estado</span>
+      <p class="text-green-600">{{ site.state_name }}</p>
+    </div>
+    {% endif %}
+    {% if site.category_name %}
+    <div class="text-center p-2 bg-purple-50 rounded">
+      <span class="font-medium text-purple-700">Categoría</span>
+      <p class="text-purple-600">{{ site.category_name }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100 justify-end">
+    <a href="{{ url_for('sites_web.modificar_sitios') }}?edit={{ site.id }}"
+       class="group bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 hover:border-amber-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-opacity-50">
+      <i class="fas fa-edit mr-2 group-hover:scale-110 transition-transform duration-200"></i>Modificar
+    </a>
+    <button type="button"
+       class="group bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 hover:border-indigo-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:ring-opacity-50"
+       onclick="openEditTags({{ site.id }})">
+      <i class="fas fa-tags mr-2 group-hover:scale-110 transition-transform duration-200"></i>Editar Tags
+    </button>
+    <button type="button"
+       class="group bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 hover:border-emerald-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:ring-opacity-50"
+       onclick="openEventsHistory({{ site.id }})">
+      <i class="fas fa-history mr-2 group-hover:scale-110 transition-transform duration-200"></i>Historial de Eventos
+    </button>
+    <button type="button"
+       class="group bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 hover:border-red-300 font-medium py-2.5 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-200 focus:ring-opacity-50"
+       onclick="deleteSite({{ site.id }})">
+      <i class="fas fa-trash mr-2 group-hover:scale-110 transition-transform duration-200"></i>Eliminar
+    </button>
+  </div>
+</div>
+
+

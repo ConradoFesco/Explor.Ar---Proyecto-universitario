@@ -36,39 +36,29 @@ window.mapHandler = {
         });
     },
 
-    // Función para cargar sitios históricos desde el backend
-    loadHistoricSites: async function() {
-        try {
-            const response = await fetch('/api/HistoricSite_Routes/map');
-            if (!response.ok) {
-                throw new Error('Error al cargar sitios históricos');
-            }
-            const data = await response.json();
-            
-            // El backend devuelve {sites: [...], pagination: {...}}
-            const sites = data.sites || [];
-            
-            // Limpiar marcadores existentes
-            this.clearMarkers();
-            
-            // Crear marcadores para cada sitio
-            sites.forEach(site => {
-                this.createSiteMarker(site);
-            });
-        } catch (error) {
-            console.error('Error cargando sitios históricos:', error);
-        }
+    // Cargar sitios históricos desde variable global inyectada por SSR
+    loadHistoricSites: function() {
+        const sites = Array.isArray(window.SITES_FOR_MAP) ? window.SITES_FOR_MAP : [];
+        this.clearMarkers();
+        sites.forEach(site => { this.createSiteMarker(site); });
     },
 
     // Función para crear un marcador de sitio histórico
     createSiteMarker: function(site) {
         if (!this.map) {
             console.error('El mapa no está inicializado');
-            return;
+            return null;
+        }
+        if (!site) return null;
+        const lat = Number.parseFloat(site.latitude);
+        const lng = Number.parseFloat(site.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            // Coordenadas inválidas: omitir
+            return null;
         }
 
         // Crear marcador
-        const marker = L.marker([site.latitude, site.longitude]).addTo(this.map);
+        const marker = L.marker([lat, lng]).addTo(this.map);
         
         // Crear contenido del popup
         const popupContent = `
@@ -102,8 +92,10 @@ window.mapHandler = {
 
     // Función para centrar el mapa en un sitio específico
     centerOnSite: function(site) {
-        if (this.map && site.latitude && site.longitude) {
-            this.map.setView([site.latitude, site.longitude], 15);
+        const lat = Number.parseFloat(site?.latitude);
+        const lng = Number.parseFloat(site?.longitude);
+        if (this.map && Number.isFinite(lat) && Number.isFinite(lng)) {
+            this.map.setView([lat, lng], 15);
         }
     }
 };

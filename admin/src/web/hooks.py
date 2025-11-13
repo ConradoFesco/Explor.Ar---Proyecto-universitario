@@ -3,8 +3,8 @@ Hooks de la aplicación Flask.
 Contiene before_request, context_processors y otros hooks.
 """
 from flask import request, session, redirect, url_for, render_template
-from src.core.models.user import User
-from src.core.models.flag import Flag
+from src.core.services.usuario_service import user_service
+from src.core.services.flag_service import flag_service
 
 
 def register_hooks(app):
@@ -23,9 +23,11 @@ def register_hooks(app):
         """
         # Ignorar rutas públicas (login, static, logout, archivos estáticos)
         public_endpoints = [
-            'login_bp.login',      # POST /api/login
-            'login_bp.logout',     # GET/POST /api/logout
+            'login_bp.login',      # legacy API login
+            'login_bp.logout',     # legacy API logout
             'main.index',          # GET /
+            'main.login_post',     # POST /login (web)
+            'main.logout',         # GET /logout (web)
             'static',              # Archivos estáticos
             None                   # Peticiones sin endpoint definido
         ]
@@ -37,52 +39,42 @@ def register_hooks(app):
         if request.path and request.path.startswith('/static/'):
             return None
         
-        # Consultar el flag de mantenimiento
+        # Consultar el flag de mantenimiento mediante el servicio
         try:
-            admin_flag = Flag.query.filter_by(name="admin_maintenance_mode").first()
-        except Exception as e:
+            maintenance_enabled = flag_service.is_maintenance_mode()
+            maintenance_message = flag_service.get_maintenance_message()
+        except Exception:
             # Si hay error al consultar la BD, permitir acceso
             return None
-        
-        # Si el flag NO existe o está desactivado, continuar normalmente
-        if not admin_flag or not admin_flag.enabled:
+
+        # Si el modo mantenimiento NO está activo, continuar normalmente
+        if not maintenance_enabled:
             return None
         
-        # Flag activo: verificar si el usuario es superAdmin
+        # Flag activo: verificar permiso en lugar de nombre de rol
         user_id = session.get("user_id")
         
-        # Si no está logueado, permitir acceso (otras rutas lo redirigen)
+        # Si no está logueado, mostrar mantenimiento para rutas no públicas
         if not user_id:
-            return None
+            return render_template(
+                "auth/mantenimiento.html",
+                message=maintenance_message or "El sitio de administración está temporalmente inactivo."
+            )
         
-        # Obtener el usuario completo
+        # Verificar permiso explícito (patrón módulo-acción)
         try:
-            user = User.query.get(user_id)
-        except Exception as e:
-            # Error en BD, limpiar sesión
-            session.clear()
-            return redirect(url_for('main.index'))
-        
-        # Si no se encuentra el usuario, cerrar sesión y redirigir
-        if not user:
-            session.clear()
-            return redirect(url_for('main.index'))
-        
-        # Verificar si es superAdmin
-        try:
-            user_roles = user.get_user_roles()
-            
-            if 'superAdmin' in user_roles:
-                # SuperAdmin puede acceder siempre
+            perms = user_service.get_user_permissions(user_id)
+            # Permisos que pueden bypassear mantenimiento (ej: gestión de flags)
+            if 'flag_admin' in perms:
                 return None
-        except Exception as e:
-            # Error al obtener roles, asumir no es superAdmin
+        except Exception:
+            # Error al obtener permisos, asumir sin privilegios
             pass
         
         # Usuario normal: mostrar página de mantenimiento
         return render_template(
             "auth/mantenimiento.html",
-            message=admin_flag.message or "El sitio de administración está temporalmente inactivo."
+            message=maintenance_message or "El sitio de administración está temporalmente inactivo."
         )
     
     @app.context_processor
@@ -96,17 +88,22 @@ def register_hooks(app):
         user_id = session.get("user_id")
         if user_id:
             try:
-                user = User.query.get(user_id)
-                if user:
-                    user_roles = user.get_user_roles()
-                    user_initials = f"{user.name[0]}{user.last_name[0]}".upper() if user.name and user.last_name else "U"
-                    return {
-                        'current_user': user,
-                        'user_roles': user_roles,
-                        'user_initials': user_initials,
-                        'is_admin': 'admin' in user_roles or 'superAdmin' in user_roles
-                    }
-            except Exception as e:
+                user_dict = user_service.get_user(user_id)
+                roles = user_dict.get('current_roles', [])
+                role_names = [r.get('name', '') for r in roles]
+                perms = user_service.get_user_permissions(user_id)
+                name = user_dict.get('name') or ''
+                last_name = user_dict.get('last_name') or ''
+                initials = (f"{name[:1]}{last_name[:1]}".upper()) if name and last_name else "U"
+                return {
+                    'current_user': user_dict,
+                    'user_roles': role_names,
+                    'user_permissions': perms,
+                    'user_initials': initials,
+                    # Consideramos admin si tiene algún permiso de administración
+                    'is_admin': any(p in perms for p in ['get_all_users','create_user','update_user','delete_user','flag_admin'])
+                }
+            except Exception:
                 pass
         return {
             'current_user': None,

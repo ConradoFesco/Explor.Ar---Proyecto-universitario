@@ -1,0 +1,10 @@
+{% macro render_page_header(title, heading_id=None) -%}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-gray-800" {% if heading_id %}id="{{ heading_id }}"{% endif %}>{{ title }}</h2>
+    <div class="flex items-center gap-2">
+        {% if caller %}{{ caller() }}{% endif %}
+    </div>
+    </div>
+{%- endmacro %}
+
+

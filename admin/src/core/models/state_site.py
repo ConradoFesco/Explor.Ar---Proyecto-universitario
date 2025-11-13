@@ -1,4 +1,5 @@
 from src.web.extensions import db
+from typing import Dict, Any
 
 class StateSite(db.Model):
     __tablename__ = 'State_Site'
@@ -10,10 +11,10 @@ class StateSite(db.Model):
     # Relaciones
     historic_sites = db.relationship('HistoricSite', backref='state_site', lazy=True)
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<StateSite {self.state}>'
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'state': self.state,
