@@ -4,6 +4,7 @@ Factory para crear y configurar la aplicación Flask.
 """
 import os
 from flask import Flask
+from .storage import storage
 from dotenv import load_dotenv
 from sqlalchemy import inspect
 
@@ -31,6 +32,9 @@ def create_app(env="development", static_folder="../../static"):
     
     # Inicializar extensiones
     initialize_extensions(app)
+
+    #Inicializar storage
+    storage.init_app(app)
     
     # Registrar blueprints
     register_blueprints(app)
@@ -64,6 +68,13 @@ def configure_app(app, env):
     """
     current_config = get_current_config(env)
     app.config.from_object(current_config)
+
+    # 🔧 Cargar variables de entorno de MinIO explícitamente
+    app.config['MINIO_SERVER'] = os.getenv("MINIO_SERVER", "http://127.0.0.1:9000")
+    app.config['MINIO_ACCESS_KEY'] = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+    app.config['MINIO_SECRET_KEY'] = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+    app.config['MINIO_BUCKET'] = os.getenv("MINIO_BUCKET", "grupo06")
+    app.config['MINIO_SECURE'] = os.getenv("MINIO_SECURE", "False").lower() == "true"
 
    
 def initialize_extensions(app):

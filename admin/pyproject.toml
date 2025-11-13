@@ -21,6 +21,7 @@ geoalchemy2 = "^0.18.0"
 shapely = "^2.1.2"
 dotenv = "^0.9.9"
 flask-login = "^0.6.3"
+minio = "^7.2.18"
 
 
 [tool.poetry.group.test.dependencies]
