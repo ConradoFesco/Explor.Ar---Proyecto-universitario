@@ -14,6 +14,7 @@ class User(db.Model):
     active = db.Column(db.Boolean)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     blocked = db.Column(db.Boolean)
+    is_super_admin = db.Column(db.Boolean, default=False)
     deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deletion_reason = db.Column(db.String(255), nullable=True)
@@ -22,6 +23,7 @@ class User(db.Model):
     # Relaciones
     events = db.relationship('Event', backref='user', lazy=True)
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
+    favorites = db.relationship('FavoriteSite', backref='user', lazy=True)
 
     def __repr__(self) -> str:
         return f'<User {self.name} {self.last_name}>'
@@ -35,7 +37,8 @@ class User(db.Model):
             'active': self.active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'blocked': self.blocked,
-            'deleted': self.deleted
+            'deleted': self.deleted,
+            'is_super_admin': self.is_super_admin
         }
 
     # --- Métodos de password ---
@@ -59,9 +62,8 @@ class User(db.Model):
             bool: True si tiene el permiso, False en caso contrario
         """
         # 1. Chequeo de Super-Admin (llave maestra)
-        for rol_rel in self.user_roles:
-            if rol_rel.rol_user.name == 'superAdmin':
-                return True
+        if self.is_super_admin:
+            return True
         
         # 2. Chequeo normal - detiene búsqueda al encontrar el permiso
         for rol_rel in self.user_roles:

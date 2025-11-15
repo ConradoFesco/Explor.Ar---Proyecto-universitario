@@ -19,8 +19,7 @@ Todos los permisos necesarios para el funcionamiento del sistema, organizados po
 - Flags
 - Perfil de usuario
 
-#### 👥 **Roles (4 roles)**
-- `superAdmin` - Super Administrador con acceso total
+#### 👥 **Roles (3 roles)**
 - `admin` - Administrador sin acceso a flags
 - `editor` - Editor de contenido
 - `usuario` - Usuario básico
@@ -45,7 +44,7 @@ Todos los permisos necesarios para el funcionamiento del sistema, organizados po
 - **Nombre**: grupo
 - **Apellido**: 06
 - **Contraseña**: grupo06
-- **Rol**: superAdmin
+- **Super admin**: True
 
 ⚠️ **IMPORTANTE**: Cambiar estas credenciales inmediatamente después del despliegue en producción.
 

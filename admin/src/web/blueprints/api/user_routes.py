@@ -1,17 +1,17 @@
 from flask import Blueprint, request, jsonify
 from src.core.services.usuario_service import user_service
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
-from src.web.auth.decorators import permission_required
-from flask import session
+from src.web.auth.decorators import permission_required, token_or_session_required, get_current_user_id
 
 user_api = Blueprint('user_api', __name__)
 
 @user_api.route('', methods=['POST'])
+@token_or_session_required
 @permission_required("create_user")
 def create_user():
     try:
         # Obtener datos del usuario desde la sesión
-        user_data = session.get('user_id')
+        user_data = get_current_user_id()
         if not user_data:
             return jsonify({'error': 'Usuario no autenticado'}), 401
         
@@ -34,6 +34,7 @@ def create_user():
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('', methods=['GET'])
+@token_or_session_required
 @permission_required("get_all_users")
 def list_users():
     page = int(request.args.get('page', 1))
@@ -87,6 +88,7 @@ def list_users():
 from datetime import datetime
 
 @user_api.route('/<int:user_id>', methods=['GET'])
+@token_or_session_required
 @permission_required("get_user")
 def get_user(user_id):
     try:
@@ -112,11 +114,12 @@ def get_user(user_id):
         return jsonify({"error": str(e)}), 404
 
 @user_api.route('/<int:user_id>', methods=['PUT'])
+@token_or_session_required
 @permission_required("update_user")
 def update_user(user_id):
     try:
         # Obtener datos del usuario desde la sesión
-        admin_user_id = session.get('user_id')
+        admin_user_id = get_current_user_id()
         if not admin_user_id:
             return jsonify({'error': 'Usuario no autenticado'}), 401
         
@@ -148,11 +151,12 @@ def update_user(user_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>', methods=['DELETE'])
+@token_or_session_required
 @permission_required("delete_user")
 def delete_user(user_id):
     try:
         # Obtener datos del usuario desde la sesión
-        user_data = session.get('user_id')
+        user_data = get_current_user_id()
         if not user_data:
             return jsonify({'error': 'Usuario no autenticado'}), 401
         
@@ -181,6 +185,7 @@ def delete_user(user_id):
 # --- RUTAS PARA GESTIÓN DE BLOQUEO DE USUARIOS ---
 
 @user_api.route('/<int:user_id>/block', methods=['POST'])
+@token_or_session_required
 @permission_required("update_user")
 def block_user(user_id):
     """Bloquea un usuario"""
@@ -189,11 +194,8 @@ def block_user(user_id):
         if not json_content:
             return jsonify({'error': 'No se recibieron datos'}), 400
         
-        data_user = json_content.get('data_user')
-        if not data_user:
-            return jsonify({'error': 'Faltan datos de usuario administrador'}), 400
-        
-        admin_user_id = data_user.get('id')
+        data_user = (json_content.get('data_user') or {}) if isinstance(json_content, dict) else {}
+        admin_user_id = data_user.get('id') or get_current_user_id()
         if not admin_user_id:
             return jsonify({'error': 'Es necesario especificar el ID del usuario administrador'}), 400
         
@@ -207,6 +209,7 @@ def block_user(user_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/unblock', methods=['POST'])
+@token_or_session_required
 @permission_required("update_user")
 def unblock_user(user_id):
     """Desbloquea un usuario"""
@@ -215,11 +218,8 @@ def unblock_user(user_id):
         if not json_content:
             return jsonify({'error': 'No se recibieron datos'}), 400
         
-        data_user = json_content.get('data_user')
-        if not data_user:
-            return jsonify({'error': 'Faltan datos de usuario administrador'}), 400
-        
-        admin_user_id = data_user.get('id')
+        data_user = (json_content.get('data_user') or {}) if isinstance(json_content, dict) else {}
+        admin_user_id = data_user.get('id') or get_current_user_id()
         if not admin_user_id:
             return jsonify({'error': 'Es necesario especificar el ID del usuario administrador'}), 400
         
@@ -235,6 +235,7 @@ def unblock_user(user_id):
 # --- RUTAS PARA GESTIÓN DE ROLES ---
 
 @user_api.route('/<int:user_id>/roles', methods=['GET'])
+@token_or_session_required
 @permission_required("get_user")
 def get_user_roles(user_id):
     """Obtiene los roles asignados a un usuario"""
@@ -257,6 +258,7 @@ def get_available_roles():
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/roles/<int:role_id>', methods=['POST'])
+@token_or_session_required
 @permission_required("update_user")
 def assign_role_to_user(user_id, role_id):
     """Asigna un rol a un usuario"""
@@ -265,11 +267,8 @@ def assign_role_to_user(user_id, role_id):
         if not json_content:
             return jsonify({'error': 'No se recibieron datos'}), 400
         
-        data_user = json_content.get('data_user')
-        if not data_user:
-            return jsonify({'error': 'Faltan datos de usuario administrador'}), 400
-        
-        admin_user_id = data_user.get('id')
+        data_user = (json_content.get('data_user') or {}) if isinstance(json_content, dict) else {}
+        admin_user_id = data_user.get('id') or get_current_user_id()
         if not admin_user_id:
             return jsonify({'error': 'Es necesario especificar el ID del usuario administrador'}), 400
         
@@ -283,6 +282,7 @@ def assign_role_to_user(user_id, role_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/roles/<int:role_id>', methods=['DELETE'])
+@token_or_session_required
 @permission_required("update_user")
 def revoke_role_from_user(user_id, role_id):
     """Revoca un rol de un usuario"""
@@ -291,11 +291,8 @@ def revoke_role_from_user(user_id, role_id):
         if not json_content:
             return jsonify({'error': 'No se recibieron datos'}), 400
         
-        data_user = json_content.get('data_user')
-        if not data_user:
-            return jsonify({'error': 'Faltan datos de usuario administrador'}), 400
-        
-        admin_user_id = data_user.get('id')
+        data_user = (json_content.get('data_user') or {}) if isinstance(json_content, dict) else {}
+        admin_user_id = data_user.get('id') or get_current_user_id()
         if not admin_user_id:
             return jsonify({'error': 'Es necesario especificar el ID del usuario administrador'}), 400
         
@@ -309,6 +306,7 @@ def revoke_role_from_user(user_id, role_id):
         return jsonify({'error': str(e)}), 500
 
 @user_api.route('/<int:user_id>/roles', methods=['PUT'])
+@token_or_session_required
 @permission_required("update_user")
 def update_user_roles(user_id):
     """Actualiza los roles de un usuario (reemplaza todos los roles existentes)"""
@@ -317,11 +315,8 @@ def update_user_roles(user_id):
         if not json_content:
             return jsonify({'error': 'No se recibieron datos'}), 400
         
-        data_user = json_content.get('data_user')
-        if not data_user:
-            return jsonify({'error': 'Faltan datos de usuario administrador'}), 400
-        
-        admin_user_id = data_user.get('id')
+        data_user = (json_content.get('data_user') or {}) if isinstance(json_content, dict) else {}
+        admin_user_id = data_user.get('id') or get_current_user_id()
         if not admin_user_id:
             return jsonify({'error': 'Es necesario especificar el ID del usuario administrador'}), 400
         

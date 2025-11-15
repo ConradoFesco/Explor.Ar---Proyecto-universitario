@@ -43,7 +43,7 @@ poetry run flask run
 ## Credenciales de prueba
 - Email: `grupo06@gmail.com`
 - Contraseña: `grupo06`
-- Rol: `superAdmin`
+- Super admin: `True`
 
 > Importante: cambiar estas credenciales en producción.
 
@@ -83,7 +83,7 @@ admin/
       ├─ extensions.py         # db, migrate, session
       ├─ commands/
       │  ├─ cli.py             # comandos: seed-db, reset-db
-      │  └─ seeds.py           # datos iniciales (roles/permisos/flags/superadmin)
+      │  └─ seeds.py           # datos iniciales (roles/permisos/flags/super admin)
       ├─ blueprints/
       │  ├─ web/               # Endpoints Web (render/redirect)
       │  │  ├─ main_pages.py
