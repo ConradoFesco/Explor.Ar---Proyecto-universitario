@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify
 from src.core.services.event_service import event_service
 from src.web import exceptions as exc
-from src.web.auth.decorators import permission_required
+from src.web.auth.decorators import permission_required, token_or_session_required, get_current_user_id
 
 event_api = Blueprint('event_api', __name__)
 
 @event_api.route('/event_routes/<int:id>', methods=['GET'])
+@token_or_session_required
 @permission_required('get_all_events')
 def get_all_events(id):
     include_deleted = request.args.get('include_deleted', 'false').lower() == 'true'
@@ -43,14 +44,19 @@ def get_all_events(id):
 
 
 @event_api.route('/event_routes/<int:id>', methods=['DELETE'])
+@token_or_session_required
 @permission_required('delete_event')
 def delete_event(id):
     json_content = request.get_json()
     if not json_content:
         return jsonify({'error': 'No se recibieron datos'}), 400
     
-    data_user = json_content.get('data_user')
+    data_user = json_content.get('data_user') if isinstance(json_content, dict) else None
     if not data_user:
+        data_user = {'id': get_current_user_id()}
+    elif not data_user.get('id'):
+        data_user['id'] = get_current_user_id()
+    if not data_user.get('id'):
         return jsonify({'error': 'Faltan datos de usuario'}), 400
     
     try:

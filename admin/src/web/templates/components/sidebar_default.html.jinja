@@ -43,7 +43,7 @@
 </a>
 {% endif %}
 
-<!-- Gestión de Usuarios (solo admin y superAdmin, NO editor ni usuario) -->
+<!-- Gestión de Usuarios (solo admin o super admin, NO editor ni usuario) -->
 {% if is_admin %}
 <a href="{{ url_for('users_web.list_users_page') }}" 
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
@@ -55,8 +55,8 @@
 </a>
 {% endif %}
 
-<!-- Flags (solo para superAdmin) -->
-{% if 'superAdmin' in user_roles %}
+<!-- Flags (solo para super administradores) -->
+{% if current_user and current_user.is_super_admin %}
 <a href="{{ url_for('flags_web.list_flags_page') }}" 
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
     <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

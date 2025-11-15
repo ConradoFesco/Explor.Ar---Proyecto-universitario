@@ -39,8 +39,8 @@ def list_users_page():
         sort_order=sort_order
     )
     try:
-        current_roles = user_service.get_user_roles(session.get('user_id'))
-        current_is_super_admin = any((r.get('name') or '').lower() == 'superadmin' for r in current_roles)
+        admin_summary = user_service.get_user(session.get('user_id'))
+        current_is_super_admin = bool(admin_summary.get('is_super_admin'))
     except Exception:
         current_is_super_admin = False
     # Opciones de roles dinámicas para el filtro (respeta módulo de roles)
@@ -95,8 +95,8 @@ def list_users_fragment():
         sort_order=sort_order
     )
     try:
-        current_roles = user_service.get_user_roles(session.get('user_id'))
-        current_is_super_admin = any((r.get('name') or '').lower() == 'superadmin' for r in current_roles)
+        admin_summary = user_service.get_user(session.get('user_id'))
+        current_is_super_admin = bool(admin_summary.get('is_super_admin'))
     except Exception:
         current_is_super_admin = False
     return render_template(

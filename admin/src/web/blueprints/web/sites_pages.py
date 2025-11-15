@@ -6,8 +6,45 @@ from src.web.auth.decorators import web_permission_required
 from src.core.services.state_service import state_service
 from src.core.services.category_service import category_service
 from src.core.services.historic_site_service import historic_site_service
+from src.core.validators.listing_validator import validate_site_list_params
+from src.web import exceptions as exc
 
 sites_web = Blueprint('sites_web', __name__)
+
+
+def _resolve_site_list_params():
+    raw_args = {
+        'page': request.args.get('page', 1, type=int),
+        'per_page': request.args.get('per_page', 25, type=int),
+        'search_text': request.args.get('search'),
+        'sort_by': request.args.get('sort_by', 'created_at'),
+        'sort_order': request.args.get('sort_order', 'desc'),
+        'city_id': request.args.get('city_id', type=int),
+        'province_id': request.args.get('province_id', type=int),
+        'tag_ids': request.args.get('tag_ids'),
+        'state_id': request.args.get('state_id', type=int),
+        'date_from': request.args.get('date_from'),
+        'date_to': request.args.get('date_to'),
+        'visible': request.args.get('visible')
+    }
+    try:
+        return validate_site_list_params(**raw_args)
+    except exc.ValidationError as error:
+        flash('Parámetros inválidos en el listado: ' + str(error), 'error')
+        return validate_site_list_params(
+            page=1,
+            per_page=25,
+            search_text=None,
+            sort_by='created_at',
+            sort_order='desc',
+            city_id=None,
+            province_id=None,
+            tag_ids=[],
+            state_id=None,
+            date_from=None,
+            date_to=None,
+            visible=None,
+        )
 
 
 @sites_web.route("/sitios")
@@ -16,41 +53,22 @@ def lista_sitios():
     """Listado SSR de sitios con filtros, orden y paginación."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
-    # Parámetros de filtrado
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-    search_text = request.args.get('search')
-    sort_by = request.args.get('sort_by', 'created_at')
-    sort_order = request.args.get('sort_order', 'desc')
-    city_id = request.args.get('city_id', type=int)
-    province_id = request.args.get('province_id', type=int)
-    state_id = request.args.get('state_id', type=int)
-    # tags opcional como '1,2,3'
-    tag_ids_param = request.args.get('tag_ids', '')
-    if tag_ids_param:
-        try:
-            tag_ids = [int(t.strip()) for t in tag_ids_param.split(',') if t.strip()]
-        except Exception:
-            tag_ids = []
-    else:
-        tag_ids = []
-    visible_param = request.args.get('visible')
-    visible = None
-    if visible_param is not None and visible_param != '':
-        visible = True if visible_param.lower() == 'true' else False
+    params = _resolve_site_list_params()
 
     result = historic_site_service.get_all_historic_sites(
         include_deleted=False,
-        page=page,
-        per_page=per_page,
-        search_text=search_text,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        city_id=city_id,
-        province_id=province_id,
-        tag_ids=tag_ids,
-        state_id=state_id,
-        visible=visible,
+        page=params['page'],
+        per_page=params['per_page'],
+        search_text=params['search_text'],
+        sort_by=params['sort_by'],
+        sort_order=params['sort_order'],
+        city_id=params['city_id'],
+        province_id=params['province_id'],
+        tag_ids=params['tag_ids'],
+        state_id=params['state_id'],
+        date_from=params['date_from'],
+        date_to=params['date_to'],
+        visible=params['visible'],
     )
 
     sites = result.get('sites', [])
@@ -75,39 +93,22 @@ def lista_sitios_fragment():
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-    search_text = request.args.get('search')
-    sort_by = request.args.get('sort_by', 'created_at')
-    sort_order = request.args.get('sort_order', 'desc')
-    city_id = request.args.get('city_id', type=int)
-    province_id = request.args.get('province_id', type=int)
-    state_id = request.args.get('state_id', type=int)
-    tag_ids_param = request.args.get('tag_ids', '')
-    if tag_ids_param:
-        try:
-            tag_ids = [int(t.strip()) for t in tag_ids_param.split(',') if t.strip()]
-        except Exception:
-            tag_ids = []
-    else:
-        tag_ids = []
-    visible_param = request.args.get('visible')
-    visible = None
-    if visible_param is not None and visible_param != '':
-        visible = True if visible_param.lower() == 'true' else False
+    params = _resolve_site_list_params()
 
     result = historic_site_service.get_all_historic_sites(
         include_deleted=False,
-        page=page,
-        per_page=per_page,
-        search_text=search_text,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        city_id=city_id,
-        province_id=province_id,
-        tag_ids=tag_ids,
-        state_id=state_id,
-        visible=visible,
+        page=params['page'],
+        per_page=params['per_page'],
+        search_text=params['search_text'],
+        sort_by=params['sort_by'],
+        sort_order=params['sort_order'],
+        city_id=params['city_id'],
+        province_id=params['province_id'],
+        tag_ids=params['tag_ids'],
+        state_id=params['state_id'],
+        date_from=params['date_from'],
+        date_to=params['date_to'],
+        visible=params['visible'],
     )
 
     sites = result.get('sites', [])

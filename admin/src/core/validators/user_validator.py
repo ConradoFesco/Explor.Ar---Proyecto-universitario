@@ -71,6 +71,8 @@ def validate_update_user(data: dict) -> dict:
         cleaned['active'] = bool(data.get('active'))
     if 'blocked' in data:
         cleaned['blocked'] = bool(data.get('blocked'))
+    if 'is_super_admin' in data:
+        cleaned['is_super_admin'] = bool(data.get('is_super_admin'))
     return cleaned
 
 

@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify
 from src.core.services.tag_service import tag_service
-from src.web.auth.decorators import permission_required
+from src.web.auth.decorators import permission_required, token_or_session_required
 from src.web import exceptions as exc
 
 tag_api = Blueprint('tag_api', __name__, url_prefix='/api')
 
 @tag_api.route('/tags', methods=['POST'])
+@token_or_session_required
 @permission_required('create_tag')
 def create_new_tag():
     """Endpoint para crear un nuevo tag."""
@@ -19,6 +20,7 @@ def create_new_tag():
     return jsonify(tag), 201
 
 @tag_api.route('/tags', methods=['GET'])
+@token_or_session_required
 @permission_required('get_all_tags')
 def get_all_tags_route(): 
     """Endpoint para obtener todos los tags con paginación y filtros."""
@@ -52,6 +54,7 @@ def get_all_tags_route():
         return jsonify({'error': f'Error interno: {str(e)}'}), 500
 
 @tag_api.route('/tags/<string:tag_id_or_slug>', methods=['GET'])
+@token_or_session_required
 @permission_required('get_tag')
 def get_tag_by_id_or_slug_route(tag_id_or_slug): 
     """Endpoint para obtener un tag por ID o slug."""
@@ -70,6 +73,7 @@ def get_tag_by_id_or_slug_route(tag_id_or_slug):
         return jsonify({'error': f'Error interno: {str(e)}'}), 500
 
 @tag_api.route('/tags/<int:tag_id>', methods=['PUT'])
+@token_or_session_required
 @permission_required('update_tag')
 def update_tag_route(tag_id): 
     """Endpoint para actualizar un tag."""
@@ -83,6 +87,7 @@ def update_tag_route(tag_id):
     return jsonify(updated_tag), 200
 
 @tag_api.route('/tags/<int:tag_id>', methods=['DELETE'])
+@token_or_session_required
 @permission_required('delete_tag')
 def delete_tag_route(tag_id): 
     """Endpoint para eliminar un tag (solo si no está asociado a sitios)."""
@@ -95,6 +100,7 @@ def delete_tag_route(tag_id):
         return jsonify({'error': str(e)}), 409
 
 @tag_api.route('/tags/<int:site_id>/tags', methods=['GET'])
+@token_or_session_required
 @permission_required('get_tag')
 def get_tags_by_site_id_route(site_id):
     try:

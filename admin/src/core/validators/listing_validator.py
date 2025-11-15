@@ -6,10 +6,18 @@ from typing import Optional
 from src.web.exceptions import ValidationError
 
 
-def _validate_pagination(page: int, per_page: int, *, max_per_page: int = 25) -> tuple[int, int]:
-    if not isinstance(page, int) or page < 1:
+def _validate_pagination(page: int | str | None, per_page: int | str | None, *, max_per_page: int = 25) -> tuple[int, int]:
+    try:
+        page = int(page)
+    except (TypeError, ValueError):
         raise ValidationError('El número de página debe ser un entero >= 1')
-    if not isinstance(per_page, int) or per_page < 1 or per_page > max_per_page:
+    try:
+        per_page = int(per_page)
+    except (TypeError, ValueError):
+        raise ValidationError(f'per_page debe ser un entero entre 1 y {max_per_page}')
+    if page < 1:
+        raise ValidationError('El número de página debe ser un entero >= 1')
+    if per_page < 1 or per_page > max_per_page:
         raise ValidationError(f'per_page debe ser un entero entre 1 y {max_per_page}')
     return page, per_page
 
@@ -40,6 +48,32 @@ def _validate_optional_bool_str(value: Optional[str]) -> Optional[bool]:
     if s in ['false', '0', 'no', 'n']:
         return False
     raise ValidationError('Parámetro booleano inválido')
+
+
+def _clean_optional_str(value: Optional[object]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _validate_optional_float(value: Optional[object], field_name: str) -> Optional[float]:
+    if value is None or value == '':
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValidationError(f"{field_name} debe ser numérico")
+
+
+def _split_csv_values(raw_values: Optional[object]) -> list[str]:
+    if not raw_values:
+        return []
+    return [
+        item.strip().lower()
+        for item in str(raw_values).split(',')
+        if item.strip()
+    ]
 
 
 def _validate_tag_ids(tag_ids: Optional[object]) -> list[int]:
@@ -121,6 +155,53 @@ def validate_site_list_params(*, page: int, per_page: int, search_text: Optional
         'date_from': date_from,
         'date_to': date_to,
         'visible': visible,
+    }
+
+
+def validate_public_site_search_params(*, name: Optional[str], description: Optional[str],
+                                      city: Optional[str], province: Optional[str],
+                                      tags: Optional[str], order_by: Optional[str],
+                                      latitude: Optional[object], longitude: Optional[object],
+                                      radius: Optional[object], page: Optional[int],
+                                      per_page: Optional[int]) -> dict:
+    normalized_page = page if page is not None else 1
+    normalized_per_page = per_page if per_page is not None else 20
+    page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=100)
+
+    allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5']
+    normalized_order = (order_by or 'latest').strip().lower()
+    if normalized_order not in allowed_order:
+        raise ValidationError(f"order_by inválido. Valores permitidos: {', '.join(allowed_order)}")
+
+    normalized_name = _clean_optional_str(name)
+    normalized_description = _clean_optional_str(description)
+    normalized_city = _clean_optional_str(city)
+    normalized_province = _clean_optional_str(province)
+    normalized_tags = _split_csv_values(tags)
+
+    lat = _validate_optional_float(latitude, 'lat')
+    lon = _validate_optional_float(longitude, 'long')
+    radius_value = _validate_optional_float(radius, 'radius')
+
+    if (lat is None) ^ (lon is None):
+        raise ValidationError('lat y long deben enviarse juntos')
+    if radius_value is not None and (lat is None or lon is None):
+        raise ValidationError('radius requiere lat y long')
+    if radius_value is not None and radius_value <= 0:
+        raise ValidationError('radius debe ser mayor a 0')
+
+    return {
+        'name': normalized_name,
+        'description': normalized_description,
+        'city': normalized_city,
+        'province': normalized_province,
+        'tags': normalized_tags,
+        'order_by': normalized_order,
+        'latitude': lat,
+        'longitude': lon,
+        'radius_km': radius_value,
+        'page': page,
+        'per_page': per_page,
     }
 
 

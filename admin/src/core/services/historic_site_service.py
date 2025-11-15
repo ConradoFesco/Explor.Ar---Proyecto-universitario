@@ -19,6 +19,7 @@ from src.core.services.province_service import province_service
 from src.core.validators.site_validator import validate_create_site, validate_update_site
 import csv
 import io
+import math
 
 
 class HistoricSiteService:
@@ -268,12 +269,7 @@ class HistoricSiteService:
         sites = pagination.items
         sites_data = []
         for site in sites:
-            # Obtener tags del sitio (solo no eliminados)
-            from src.core.models.tag import Tag
-            tags_q = Tag.query.join(TagHistoricSite).\
-                filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
-            site_tags = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in tags_q]
-            
+            site_tags = self._get_site_tags(site.id)
             sites_data.append({
                 'id': site.id, 
                 'name': site.name, 
@@ -584,12 +580,7 @@ class HistoricSiteService:
         sites = pagination.items
         sites_data = []
         for site in sites:
-            # Obtener tags del sitio (solo no eliminados)
-            from src.core.models.tag import Tag
-            tags_q = Tag.query.join(TagHistoricSite).\
-                filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
-            site_tags = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in tags_q]
-            
+            site_tags = self._get_site_tags(site.id)
             sites_data.append({
                 'id': site.id, 
                 'name': site.name, 
@@ -615,6 +606,149 @@ class HistoricSiteService:
                 'prev_num': pagination.prev_num
             }
         }
+
+    def search_public_sites(self, *, name=None, description=None, city=None, province=None,
+                            tags=None, order_by='latest', latitude=None, longitude=None,
+                            radius_km=None, page=1, per_page=25):
+        """
+        Devuelve sitios visibles para el portal público respetando filtros estandarizados.
+        """
+        from sqlalchemy import asc, desc, func, literal, or_, cast, Float
+
+        tags = tags or []
+        query = HistoricSite.query.join(City).join(Province)
+        query = query.filter(HistoricSite.deleted == False, HistoricSite.visible == True)
+
+        if name:
+            like_name = f"%{name}%"
+            query = query.filter(HistoricSite.name.ilike(like_name))
+
+        if description:
+            like_desc = f"%{description}%"
+            query = query.filter(or_(
+                HistoricSite.brief_description.ilike(like_desc),
+                HistoricSite.complete_description.ilike(like_desc)
+            ))
+
+        if city:
+            query = query.filter(func.lower(City.name) == city.lower())
+
+        if province:
+            query = query.filter(func.lower(Province.name) == province.lower())
+
+        if tags:
+            normalized_tags = [slug.lower() for slug in tags]
+            tags_subquery = (
+                db.session.query(TagHistoricSite.Historic_Site_id)
+                .join(Tag, TagHistoricSite.Tag_id == Tag.id)
+                .filter(func.lower(Tag.slug).in_(normalized_tags))
+                .group_by(TagHistoricSite.Historic_Site_id)
+                .having(func.count(func.distinct(Tag.id)) == len(normalized_tags))
+                .subquery()
+            )
+            query = query.filter(HistoricSite.id.in_(tags_subquery))
+
+        if latitude is not None and longitude is not None and radius_km is not None:
+            lat_col = cast(HistoricSite.latitude, Float)
+            lon_col = cast(HistoricSite.longitude, Float)
+            km_per_lat = 111.32
+            km_per_lon = max(abs(111.32 * math.cos(math.radians(latitude))), 1e-6)
+            distance_expr = func.sqrt(
+                func.pow((lat_col - latitude) * km_per_lat, 2) +
+                func.pow((lon_col - longitude) * km_per_lon, 2)
+            )
+            query = query.filter(distance_expr <= radius_km)
+
+        if order_by == 'latest':
+            query = query.order_by(desc(HistoricSite.created_at))
+        elif order_by == 'oldest':
+            query = query.order_by(asc(HistoricSite.created_at))
+        elif order_by == 'rating-5-1':
+            rating_expr = literal(0)
+            query = query.order_by(desc(rating_expr), desc(HistoricSite.created_at))
+        elif order_by == 'rating-1-5':
+            rating_expr = literal(0)
+            query = query.order_by(asc(rating_expr), desc(HistoricSite.created_at))
+        else:
+            query = query.order_by(desc(HistoricSite.created_at))
+
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        sites_payload = []
+        for site in pagination.items:
+            site_lat = self._safe_float(site.latitude)
+            site_lon = self._safe_float(site.longitude)
+            distance_value = None
+            if latitude is not None and longitude is not None and site_lat is not None and site_lon is not None:
+                distance_value = self._distance_between(latitude, longitude, site_lat, site_lon)
+
+            site_data = {
+                'id': site.id,
+                'name': site.name,
+                'brief_description': site.brief_description,
+                'complete_description': site.complete_description,
+                'city': site.city.name if site.city else None,
+                'province': site.city.province.name if site.city and site.city.province else None,
+                'latitude': site_lat,
+                'longitude': site_lon,
+                'created_at': site.created_at.isoformat() if site.created_at else None,
+                'tags': self._get_site_tags(site.id),
+                'rating': None
+            }
+            if distance_value is not None:
+                site_data['distance_km'] = round(distance_value, 3)
+
+            sites_payload.append(site_data)
+
+        return {
+            'sites': sites_payload,
+            'pagination': {
+                'page': pagination.page,
+                'pages': pagination.pages,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev,
+                'next_num': pagination.next_num,
+                'prev_num': pagination.prev_num
+            }
+        }
+
+    def _get_site_tags(self, site_id: int) -> list[dict]:
+        """Obtiene los tags activos asociados a un sitio histórico."""
+        tags_q = Tag.query.join(TagHistoricSite).\
+            filter(
+                TagHistoricSite.Historic_Site_id == site_id,
+                Tag.deleted == False
+            ).all()
+        return [{'id': t.id, 'name': t.name, 'slug': t.slug} for t in tags_q]
+
+    @staticmethod
+    def _safe_float(value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _distance_between(lat1, lon1, lat2, lon2):
+        """Calcula distancia Haversine aproximada en KM."""
+        from math import radians, sin, cos, sqrt, atan2
+
+        if lat2 is None or lon2 is None:
+            return None
+
+        r = 6371.0
+        lat1_rad = radians(lat1)
+        lon1_rad = radians(lon1)
+        lat2_rad = radians(lat2)
+        lon2_rad = radians(lon2)
+
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+
+        a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return r * c
 
     def get_filter_options(self):
         """
@@ -766,11 +900,7 @@ class HistoricSiteService:
         
         # Escribir datos
         for site in sites:
-            # Obtener tags del sitio (solo no eliminados)
-            from src.core.models.tag import Tag
-            tags_q = Tag.query.join(TagHistoricSite).\
-                filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
-            site_tags = [t.name for t in tags_q]
+            site_tags = [tag['name'] for tag in self._get_site_tags(site.id)]
             
             # Formatear coordenadas
             coordinates = f"{site.latitude},{site.longitude}"

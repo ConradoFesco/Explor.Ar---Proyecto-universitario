@@ -94,7 +94,6 @@ def create_permissions():
 def create_roles():
     """Crear los roles del sistema"""
     roles = {
-        "superAdmin": "Super Administrador - acceso total al sistema incluyendo gestión de flags",
         "admin": "Administrador del sistema - acceso completo",
         "editor": "Editor - puede crear, editar y eliminar contenido",
         "usuario": "Usuario autenticado - solo puede ver contenido"
@@ -119,7 +118,6 @@ def assign_permissions_to_roles(roles):
     
     # Definir qué permisos tiene cada rol
     role_permissions = {
-        
         "admin": [
             # Todos los permisos excepto gestión de flags
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 

@@ -19,7 +19,7 @@ def register_hooks(app):
     def check_admin_maintenance():
         """
         Verifica antes de cada petición si el modo mantenimiento está activo.
-        Solo los superAdmin pueden acceder cuando está activo.
+        Solo los super administradores pueden acceder cuando está activo.
         """
         # Ignorar rutas públicas (login, static, logout, archivos estáticos)
         public_endpoints = [
@@ -61,14 +61,12 @@ def register_hooks(app):
                 message=maintenance_message or "El sitio de administración está temporalmente inactivo."
             )
         
-        # Verificar permiso explícito (patrón módulo-acción)
+        # Solo los super administradores pueden acceder cuando el flag está activo
         try:
-            perms = user_service.get_user_permissions(user_id)
-            # Permisos que pueden bypassear mantenimiento (ej: gestión de flags)
-            if 'flag_admin' in perms:
+            user_dict = user_service.get_user(user_id)
+            if user_dict.get('is_super_admin'):
                 return None
         except Exception:
-            # Error al obtener permisos, asumir sin privilegios
             pass
         
         # Usuario normal: mostrar página de mantenimiento
@@ -95,13 +93,15 @@ def register_hooks(app):
                 name = user_dict.get('name') or ''
                 last_name = user_dict.get('last_name') or ''
                 initials = (f"{name[:1]}{last_name[:1]}".upper()) if name and last_name else "U"
+                is_super_admin = bool(user_dict.get('is_super_admin'))
                 return {
                     'current_user': user_dict,
                     'user_roles': role_names,
                     'user_permissions': perms,
                     'user_initials': initials,
-                    # Consideramos admin si tiene algún permiso de administración
-                    'is_admin': any(p in perms for p in ['get_all_users','create_user','update_user','delete_user','flag_admin'])
+                    'is_super_admin': is_super_admin,
+                    # Consideramos admin si es super admin o tiene algún permiso de administración
+                    'is_admin': is_super_admin or any(p in perms for p in ['get_all_users','create_user','update_user','delete_user','flag_admin'])
                 }
             except Exception:
                 pass
@@ -109,6 +109,7 @@ def register_hooks(app):
             'current_user': None,
             'user_roles': [],
             'user_initials': '',
-            'is_admin': False
+            'is_admin': False,
+            'is_super_admin': False
         }
 
