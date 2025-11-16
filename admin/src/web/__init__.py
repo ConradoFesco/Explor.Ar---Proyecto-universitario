@@ -4,6 +4,7 @@ Factory para crear y configurar la aplicación Flask.
 """
 import os
 from flask import Flask
+from flask_cors import CORS
 from .storage import storage
 from dotenv import load_dotenv
 from sqlalchemy import inspect
@@ -35,6 +36,9 @@ def create_app(env="development", static_folder="../../static"):
 
     #Inicializar storage
     storage.init_app(app)
+    
+    # Habilitar CORS para API pública
+    CORS(app, resources={ r"/api/*": {"origins": "*"} })
     
     # Registrar blueprints
     register_blueprints(app)
