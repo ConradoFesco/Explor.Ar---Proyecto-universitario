@@ -18,7 +18,8 @@ def permission_required(permission_name):
             if not current_user:
                 return jsonify({"error": "Usuario no autenticado"}), 401
 
-            if not current_user.user_roles:
+            # Los super admins no requieren roles asignados
+            if not current_user.is_super_admin and not current_user.user_roles:
                 return jsonify({"error": "Usuario no tiene roles asignados"}), 403
 
             if not current_user.has_permission(permission_name):
@@ -107,7 +108,8 @@ def web_permission_required(permission_name):
                 flash('Usuario no encontrado.', 'error')
                 return redirect(url_for('main.index'))
 
-            if not current_user.user_roles:
+            # Los super admins no requieren roles asignados
+            if not current_user.is_super_admin and not current_user.user_roles:
                 flash('Acceso denegado: sin roles asignados.', 'error')
                 return redirect(url_for('main.home'))
 

@@ -1,11 +1,12 @@
 """
 Rutas Web para sitios históricos (SSR de listados, formularios y fragmentos).
 """
-from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify
 from src.web.auth.decorators import web_permission_required
 from src.core.services.state_service import state_service
 from src.core.services.category_service import category_service
 from src.core.services.historic_site_service import historic_site_service
+from src.core.services.site_image_service import site_image_service
 from src.core.validators.listing_validator import validate_site_list_params
 from src.web import exceptions as exc
 
@@ -334,4 +335,164 @@ def export_sites_csv_web():
     except Exception as e:
         flash('Error al exportar CSV: ' + str(e), 'error')
         return redirect(url_for('sites_web.lista_sitios'))
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes/fragment")
+@web_permission_required("get_historic_site")
+def listar_imagenes_sitio(site_id: int):
+    """Redirige a la página de modificación donde se muestran las imágenes."""
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes", methods=["GET"])
+@web_permission_required("get_historic_site")
+def obtener_imagenes_sitio(site_id: int):
+    """Obtiene todas las imágenes de un sitio en formato JSON."""
+    if "user_id" not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    
+    try:
+        images = site_image_service.get_images_by_site(site_id)
+        return jsonify({'success': True, 'images': images})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes", methods=["POST"])
+@web_permission_required("update_historic_site")
+def subir_imagen_sitio(site_id: int):
+    """Sube una nueva imagen para un sitio histórico."""
+    if "user_id" not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    
+    data_user = session.get('user_id')
+    
+    # Validar que se envió un archivo
+    if 'imagen' not in request.files:
+        return jsonify({'success': False, 'error': 'No se proporcionó ningún archivo'}), 400
+    
+    file = request.files['imagen']
+    titulo_alt = request.form.get('titulo_alt', '').strip()
+    descripcion = request.form.get('descripcion', '').strip() or None
+    
+    if not titulo_alt:
+        return jsonify({'success': False, 'error': 'El título/alt es obligatorio'}), 400
+    
+    try:
+        image = site_image_service.upload_image(
+            site_id=site_id,
+            file=file,
+            titulo_alt=titulo_alt,
+            descripcion=descripcion,
+            user_id=data_user
+        )
+        return jsonify({'success': True, 'image': image.to_dict()})
+    except exc.ValidationError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except exc.NotFoundError as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error al subir imagen: {str(e)}'}), 500
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>", methods=["DELETE"])
+@web_permission_required("update_historic_site")
+def eliminar_imagen_sitio(site_id: int, image_id: int):
+    """Elimina una imagen de un sitio histórico."""
+    if "user_id" not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    
+    data_user = session.get('user_id')
+    
+    try:
+        site_image_service.delete_image(image_id, user_id=data_user)
+        return jsonify({'success': True})
+    except exc.ValidationError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except exc.NotFoundError as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error al eliminar imagen: {str(e)}'}), 500
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/portada", methods=["POST"])
+@web_permission_required("update_historic_site")
+def marcar_portada_imagen(site_id: int, image_id: int):
+    """Marca una imagen como portada del sitio."""
+    if "user_id" not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    
+    data_user = session.get('user_id')
+    
+    try:
+        image = site_image_service.set_cover_image(image_id, user_id=data_user)
+        return jsonify({'success': True, 'image': image.to_dict()})
+    except exc.NotFoundError as e:
+        return jsonify({'success': False, 'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error al marcar portada: {str(e)}'}), 500
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes/reordenar", methods=["POST"])
+@web_permission_required("update_historic_site")
+def reordenar_imagenes_sitio(site_id: int):
+    """Reordena las imágenes de un sitio histórico."""
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    
+    data_user = session.get('user_id')
+    
+    try:
+        # Obtener órdenes desde form data en lugar de JSON
+        image_orders = []
+        for key in request.form.keys():
+            if key.startswith('orden_'):
+                image_id = int(key.replace('orden_', ''))
+                nuevo_orden = int(request.form.get(key))
+                image_orders.append({'id': image_id, 'orden': nuevo_orden})
+        
+        if not image_orders:
+            flash('No se proporcionaron órdenes', 'error')
+            return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
+        
+        site_image_service.reorder_images(site_id, image_orders, user_id=data_user)
+        flash('Imágenes reordenadas correctamente', 'success')
+    except exc.NotFoundError as e:
+        flash('Error: ' + str(e), 'error')
+    except Exception as e:
+        flash('Error al reordenar imágenes: ' + str(e), 'error')
+    
+    return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
+
+
+@sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/actualizar", methods=["POST"])
+@web_permission_required("update_historic_site")
+def actualizar_metadatos_imagen(site_id: int, image_id: int):
+    """Actualiza los metadatos (título/alt y descripción) de una imagen."""
+    if "user_id" not in session:
+        return redirect(url_for("main.index"))
+    
+    data_user = session.get('user_id')
+    
+    try:
+        titulo_alt = request.form.get('titulo_alt', '').strip() or None
+        descripcion = request.form.get('descripcion', '').strip() or None
+        
+        image = site_image_service.update_image_metadata(
+            image_id,
+            titulo_alt=titulo_alt,
+            descripcion=descripcion,
+            user_id=data_user
+        )
+        flash('Metadatos actualizados correctamente', 'success')
+    except exc.ValidationError as e:
+        flash('Error: ' + str(e), 'error')
+    except exc.NotFoundError as e:
+        flash('Error: ' + str(e), 'error')
+    except Exception as e:
+        flash('Error al actualizar metadatos: ' + str(e), 'error')
+    
+    return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
 

@@ -53,6 +53,12 @@
             </form>
         </div>
         
+        <!-- Gestión de imágenes -->
+        {% if site_edit and site_edit.id %}
+            {% import 'features/sites/_images_manager.html.jinja' as imgmgr %}
+            {{ imgmgr.render_images_manager(site_edit.id) }}
+        {% endif %}
+        
     </div>
 </section>
 
@@ -67,6 +73,7 @@
   };
 </script>
 <script src="{{ url_for('static', filename='js/edit_site.js') }}"></script>
+<script src="{{ url_for('static', filename='js/images_manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sidebar_fix.js') }}"></script>
 
 <!-- Pasar datos del usuario al JavaScript -->
