@@ -16,6 +16,17 @@ const router = createRouter({
       component: SitesListView,
     },
     {
+      path: '/sitios/:id',
+      name: 'site-detail',
+      component: () => import('../views/SiteDetailView.vue'),
+      props: true,
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue'),
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting

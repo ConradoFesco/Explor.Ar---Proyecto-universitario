@@ -2,6 +2,8 @@
 import type { HistoricSite } from '@/lib/api'
 import { useSitesStore } from '@/stores/sites'
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useFavorite } from '@/composables/useFavorite'
 import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from '@/components/ui/card'
 import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Badge } from '@/components/ui/badge'
@@ -12,17 +14,38 @@ const props = defineProps<{
 }>()
 
 const store = useSitesStore()
+const router = useRouter()
+const { toggleSiteFavorite } = useFavorite()
 const tagsToShow = computed(() => (props.site.tags || []).slice(0, 5))
 const hasImage = computed(() => !!props.site.cover_image_url)
 const aspectRatio = computed(() => (hasImage.value ? 16 / 9 : 4 / 3))
 
-async function onToggleFavorite() {
-  const next = !props.site.is_favorite
+async function onToggleFavorite(e: Event) {
+  e.stopPropagation()
+  e.preventDefault()
+  
+  const previousState = props.site.is_favorite
+  
   try {
-    await store.setFavorite(props.site.id, next)
-  } catch (e) {
-    // Error handling is done in the store
+    await toggleSiteFavorite(
+      props.site.id,
+      previousState,
+      (newState) => {
+        // Actualizar en el store
+        const idx = store.items.findIndex(s => s.id === props.site.id)
+        if (idx >= 0) {
+          store.items[idx] = { ...store.items[idx], is_favorite: newState } as HistoricSite
+        }
+      }
+    )
+  } catch {
+    // El error ya fue manejado en useFavorite
+    console.error('Error toggling favorite')
   }
+}
+
+function handleView() {
+  router.push({ name: 'site-detail', params: { id: props.site.id } })
 }
 </script>
 
@@ -50,17 +73,26 @@ async function onToggleFavorite() {
         Estado: {{ site.state }}
       </div>
     </CardContent>
-    <CardFooter class="flex justify-between items-center">
+    <CardFooter class="flex justify-between items-center gap-2">
       <span class="text-xs text-gray-500">#{{ site.id }}</span>
-      <Button 
-        variant="outline" 
-        size="sm" 
-        @click="onToggleFavorite" 
-        :title="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
-      >
-        <span v-if="site.is_favorite">★ Favorito</span>
-        <span v-else>☆ Favorito</span>
-      </Button>
+      <div class="flex items-center gap-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          @click="onToggleFavorite" 
+          :title="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
+        >
+          <span v-if="site.is_favorite">★</span>
+          <span v-else>☆</span>
+        </Button>
+        <Button 
+          variant="default" 
+          size="sm" 
+          @click="handleView"
+        >
+          Ver
+        </Button>
+      </div>
     </CardFooter>
   </Card>
 </template>

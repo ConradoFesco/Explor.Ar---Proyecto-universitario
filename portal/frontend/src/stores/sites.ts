@@ -203,11 +203,23 @@ export const useSitesStore = defineStore('sites', {
       }
     },
     async setFavorite(siteId: number, makeFav: boolean) {
-      await toggleFavorite(siteId, makeFav)
       const idx = this.items.findIndex(s => s.id === siteId)
-      if (idx >= 0) {
-        const current = this.items[idx]
-        this.items[idx] = { ...current, is_favorite: makeFav } as HistoricSite
+      const currentItem = idx >= 0 ? this.items[idx] : null
+      const previousState = currentItem?.is_favorite ?? false
+      
+      // Optimistic update
+      if (currentItem) {
+        this.items[idx] = { ...currentItem, is_favorite: makeFav } as HistoricSite
+      }
+      
+      try {
+        await toggleFavorite(siteId, makeFav)
+      } catch (error) {
+        // Revertir cambio optimista si falla
+        if (currentItem) {
+          this.items[idx] = { ...currentItem, is_favorite: previousState } as HistoricSite
+        }
+        throw error // Re-lanzar para que el componente maneje el error
       }
     },
   },
