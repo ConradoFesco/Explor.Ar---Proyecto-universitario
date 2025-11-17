@@ -25,6 +25,41 @@ class SiteImageService:
     def __init__(self):
         self._minio_client = None
     
+    def _extract_object_path_from_url(self, url_publica: str, bucket_name: str) -> str:
+        """
+        Extrae la ruta completa del objeto en MinIO desde la URL almacenada.
+        
+        Args:
+            url_publica: URL almacenada en la base de datos
+            bucket_name: Nombre del bucket de MinIO
+            
+        Returns:
+            str: Ruta completa del objeto en MinIO (ej: "sites/1/jujutsu kaisen.png")
+        """
+        # Remover query params si existen
+        url_str = url_publica.split('?')[0]
+        url_parts = url_str.split('/')
+        
+        # Buscar el índice del bucket name en la URL
+        bucket_index = -1
+        for i, part in enumerate(url_parts):
+            if part == bucket_name:
+                bucket_index = i
+                break
+        
+        if bucket_index >= 0 and bucket_index < len(url_parts) - 1:
+            # Extraer todo después del bucket name (puede incluir subdirectorios)
+            object_path = '/'.join(url_parts[bucket_index + 1:])
+            return object_path
+        else:
+            # Si no encontramos el bucket, intentar extraer usando el patrón
+            if f'/{bucket_name}/' in url_str:
+                object_path = url_str.split(f'/{bucket_name}/', 1)[1]
+                return object_path
+            else:
+                # Fallback: asumir que la última parte es el filename
+                return url_parts[-1]
+    
     @property
     def minio_client(self):
         """Obtiene el cliente de MinIO desde la aplicación Flask."""
@@ -242,18 +277,28 @@ class SiteImageService:
             img_dict = img.to_dict()
             # Generar URL firmada (presigned) para acceso público
             try:
-                # Extraer el nombre del archivo de la URL almacenada
-                filename = img.url_publica.split('/')[-1]
+                # Extraer la ruta completa del objeto en MinIO
+                object_path = self._extract_object_path_from_url(img.url_publica, bucket_name)
+                
                 # Generar URL firmada válida por 7 días
                 presigned_url = self.minio_client.presigned_get_object(
                     bucket_name,
-                    filename,
+                    object_path,
                     expires=timedelta(days=7)
                 )
                 img_dict['url_publica'] = presigned_url
             except Exception as e:
                 # Si falla la generación de URL firmada, usar la URL original
-                current_app.logger.warning(f"Error al generar URL firmada para imagen {img.id}: {e}")
+                error_msg = str(e)
+                if '10061' in error_msg or 'Connection refused' in error_msg or 'denegó expresamente' in error_msg:
+                    current_app.logger.warning(
+                        f"MinIO no está disponible. Usando URL original para imagen {img.id}. "
+                        f"Para generar URLs presignadas, asegúrate de que MinIO esté corriendo en {current_app.config.get('MINIO_SERVER', '127.0.0.1:9000')}"
+                    )
+                else:
+                    current_app.logger.warning(f"Error al generar URL firmada para imagen {img.id}: {e}")
+                # Usar la URL original como fallback
+                img_dict['url_publica'] = img.url_publica
             
             result.append(img_dict)
         
@@ -278,18 +323,28 @@ class SiteImageService:
         
         # Generar URL firmada (presigned) para acceso público
         try:
-            # Extraer el nombre del archivo de la URL almacenada
-            filename = cover.url_publica.split('/')[-1]
+            # Extraer la ruta completa del objeto en MinIO
+            object_path = self._extract_object_path_from_url(cover.url_publica, bucket_name)
+            
             # Generar URL firmada válida por 7 días
             presigned_url = self.minio_client.presigned_get_object(
                 bucket_name,
-                filename,
+                object_path,
                 expires=timedelta(days=7)
             )
             cover_dict['url_publica'] = presigned_url
         except Exception as e:
             # Si falla la generación de URL firmada, usar la URL original
-            current_app.logger.warning(f"Error al generar URL firmada para imagen portada {cover.id}: {e}")
+            error_msg = str(e)
+            if '10061' in error_msg or 'Connection refused' in error_msg or 'denegó expresamente' in error_msg:
+                current_app.logger.warning(
+                    f"MinIO no está disponible. Usando URL original para imagen portada {cover.id}. "
+                    f"Para generar URLs presignadas, asegúrate de que MinIO esté corriendo en {current_app.config.get('MINIO_SERVER', '127.0.0.1:9000')}"
+                )
+            else:
+                current_app.logger.warning(f"Error al generar URL firmada para imagen portada {cover.id}: {e}")
+            # Usar la URL original como fallback
+            cover_dict['url_publica'] = cover.url_publica
         
         return cover_dict
     
@@ -322,10 +377,10 @@ class SiteImageService:
         try:
             # Eliminar de MinIO
             bucket_name = self._get_bucket_name()
-            # Extraer el nombre del archivo de la URL
-            filename = image.url_publica.split('/')[-1]
+            # Extraer la ruta completa del objeto en MinIO
+            object_path = self._extract_object_path_from_url(image.url_publica, bucket_name)
             try:
-                self.minio_client.remove_object(bucket_name, filename)
+                self.minio_client.remove_object(bucket_name, object_path)
             except S3Error:
                 # Si falla la eliminación en MinIO, continuar (puede que ya no exista)
                 pass

@@ -685,6 +685,9 @@ class HistoricSiteService:
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         sites_payload = []
+        # Importar el servicio de imágenes una sola vez
+        from src.core.services.site_image_service import site_image_service
+        
         for site in pagination.items:
             site_lat = self._safe_float(site.latitude)
             site_lon = self._safe_float(site.longitude)
@@ -692,6 +695,9 @@ class HistoricSiteService:
             if latitude is not None and longitude is not None and site_lat is not None and site_lon is not None:
                 distance_value = self._distance_between(latitude, longitude, site_lat, site_lon)
 
+            # Obtener imagen portada con URL firmada
+            cover_image = site_image_service.get_cover_image(site.id)
+            
             site_data = {
                 'id': site.id,
                 'name': site.name,
@@ -703,7 +709,9 @@ class HistoricSiteService:
                 'longitude': site_lon,
                 'created_at': site.created_at.isoformat() if site.created_at else None,
                 'tags': self._get_site_tags(site.id),
-                'rating': None
+                'rating': None,
+                'cover_image': cover_image,
+                'cover_image_url': cover_image['url_publica'] if cover_image else None
             }
             if distance_value is not None:
                 site_data['distance_km'] = round(distance_value, 3)
