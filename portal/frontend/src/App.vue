@@ -21,7 +21,6 @@ import { RouterLink, RouterView } from 'vue-router'
     </div>
   </div>
 </template>
-
 <style scoped>
 .app-container {
   max-width: 1200px;
@@ -38,3 +37,4 @@ import { RouterLink, RouterView } from 'vue-router'
   background-color: #f3f4f6;
 }
 </style>
+
