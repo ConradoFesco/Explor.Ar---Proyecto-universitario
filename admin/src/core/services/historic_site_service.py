@@ -153,6 +153,13 @@ class HistoricSiteService:
         site_data['state_name'] = site.state_site.state if hasattr(site, 'state_site') and site.state_site else None
         site_data['category_name'] = site.category.name if hasattr(site, 'category') and site.category else None
         
+        # Agregar imágenes del sitio
+        from src.core.services.site_image_service import site_image_service
+        site_data['images'] = site_image_service.get_images_by_site(site.id)
+        
+        # Agregar imagen portada (si existe) con URL firmada
+        site_data['cover_image'] = site_image_service.get_cover_image(site.id)
+        
         # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site_data
     
@@ -270,6 +277,9 @@ class HistoricSiteService:
         sites_data = []
         for site in sites:
             site_tags = self._get_site_tags(site.id)
+            # Obtener imagen portada con URL firmada
+            from src.core.services.site_image_service import site_image_service
+            cover_image = site_image_service.get_cover_image(site.id)
             sites_data.append({
                 'id': site.id, 
                 'name': site.name, 
@@ -279,7 +289,8 @@ class HistoricSiteService:
                 'province_name': site.city.province.name if site.city and site.city.province else None,
                 'state_name': site.state_site.state if site.state_site else None,
                 'visible': site.visible,
-                'tags': site_tags
+                'tags': site_tags,
+                'cover_image': cover_image
             })
         
         return {
@@ -619,15 +630,15 @@ class HistoricSiteService:
         query = HistoricSite.query.join(City).join(Province)
         query = query.filter(HistoricSite.deleted == False, HistoricSite.visible == True)
 
-        if name:
-            like_name = f"%{name}%"
-            query = query.filter(HistoricSite.name.ilike(like_name))
-
-        if description:
-            like_desc = f"%{description}%"
+        # Búsqueda por texto: busca en nombre O descripción (OR, no AND)
+        # Si ambos parámetros están presentes, se usa el mismo texto para ambos
+        search_text = name or description
+        if search_text:
+            # Búsqueda "comienza con" (no "contiene")
+            like_pattern = f"{search_text}%"
             query = query.filter(or_(
-                HistoricSite.brief_description.ilike(like_desc),
-                HistoricSite.complete_description.ilike(like_desc)
+                HistoricSite.name.ilike(like_pattern),
+                HistoricSite.brief_description.ilike(like_pattern),
             ))
 
         if city:

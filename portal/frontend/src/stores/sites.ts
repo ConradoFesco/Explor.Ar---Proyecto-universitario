@@ -16,8 +16,6 @@ export type SitesState = {
   isLoading: boolean
   isNextLoading: boolean
   error: string | null
-
-  // filters
   text: string
   city: string
   province: string
@@ -32,6 +30,37 @@ export type SitesState = {
 function parseNumber(value: unknown): number | null {
   const n = typeof value === 'string' ? Number(value) : (value as number)
   return Number.isFinite(n) ? (n as number) : null
+}
+
+function parseSort(sortRaw: string): SortOption {
+  const [field, dir] = sortRaw.split(':')
+  if ((field === 'created_at' || field === 'name' || field === 'rating') && (dir === 'asc' || dir === 'desc')) {
+    return { field, dir } as SortOption
+  }
+  return { field: 'created_at', dir: 'desc' }
+}
+
+function sortByName(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
+  return [...items].sort((a, b) => {
+    const an = (a.name || '').toLowerCase()
+    const bn = (b.name || '').toLowerCase()
+    return dir === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
+  })
+}
+
+function filterFavorites(items: HistoricSite[], text: string, city: string, province: string, tags: string[]): HistoricSite[] {
+  const textLower = text.toLowerCase()
+  return items.filter((s) => {
+    const matchesText = !text ||
+      s.name?.toLowerCase().startsWith(textLower) ||
+      (s.brief_description || '').toLowerCase().startsWith(textLower)
+    const matchesCity = !city || (s.city || '').toLowerCase() === city.toLowerCase()
+    const matchesProvince = !province || (s.province || '').toLowerCase() === province.toLowerCase()
+    const matchesTags = !tags.length || tags.every(t => 
+      s.tags?.map(x => x.toLowerCase()).includes(t.toLowerCase())
+    )
+    return matchesText && matchesCity && matchesProvince && matchesTags
+  })
 }
 
 export const useSitesStore = defineStore('sites', {
@@ -84,22 +113,12 @@ export const useSitesStore = defineStore('sites', {
       const rawTags = (query.tags as string) || ''
       this.tags = rawTags ? rawTags.split(',').map(t => t.trim()).filter(Boolean) : []
       this.favoritesOnly = (query.fav as string) === '1'
-      this.lat = parseNumber(query.lat) 
+      this.lat = parseNumber(query.lat)
       this.long = parseNumber(query.long)
       this.radius = parseNumber(query.radius)
-      const sortRaw = (query.sort as string) || 'created_at:desc'
-      const [field, dir] = sortRaw.split(':')
-      if ((field === 'created_at' || field === 'name' || field === 'rating') && (dir === 'asc' || dir === 'desc')) {
-        this.sort = { field, dir } as SortOption
-      } else {
-        this.sort = { field: 'created_at', dir: 'desc' }
-      }
-      const qp = (v: unknown, fb: number) => {
-        const n = parseNumber(v)
-        return n ?? fb
-      }
-      this.page = qp(query.page, 1)
-      this.perPage = qp(query.perPage, 20)
+      this.sort = parseSort((query.sort as string) || 'created_at:desc')
+      this.page = parseNumber(query.page) ?? 1
+      this.perPage = parseNumber(query.perPage) ?? 20
     },
     toSearchParams(): SiteSearchParams {
       return {
@@ -148,42 +167,27 @@ export const useSitesStore = defineStore('sites', {
       try {
         const params = this.toSearchParams()
         let response: PaginatedResponse<HistoricSite>
+        
         if (params.favoritesOnly) {
           response = await fetchMyFavorites(params.page ?? 1, params.perPage ?? 20)
-          // Optional: apply client-side additional filters when in favorites mode
-          const filtered = response.items.filter((s) => {
-            const matchesText =
-              !this.text ||
-              s.name?.toLowerCase().includes(this.text.toLowerCase()) ||
-              (s.brief_description || '').toLowerCase().includes(this.text.toLowerCase())
-            const matchesCity = !this.city || (s.city || '').toLowerCase().includes(this.city.toLowerCase())
-            const matchesProvince = !this.province || (s.province || '').toLowerCase().includes(this.province.toLowerCase())
-            const matchesTags = !this.tags.length || this.tags.every(t => s.tags?.map(x => x.toLowerCase()).includes(t.toLowerCase()))
-            return matchesText && matchesCity && matchesProvince && matchesTags
-          })
-          // client-side sort when sorting by name
-          const sorted = this.sort.field === 'name'
-            ? filtered.sort((a, b) => {
-                const an = (a.name || '').toLowerCase()
-                const bn = (b.name || '').toLowerCase()
-                return this.sort.dir === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
-              })
-            : filtered
-          response.items = sorted
+          let filtered = filterFavorites(response.items, this.text, this.city, this.province, this.tags)
+          
+          if (this.sort.field === 'name') {
+            filtered = sortByName(filtered, this.sort.dir)
+          }
+          
+          response.items = filtered
           response.total = filtered.length
           response.total_pages = Math.max(1, Math.ceil(filtered.length / (params.perPage ?? 20)))
         } else {
           response = await fetchPublicSites(params)
         }
+        
         let pageItems = response.items
-        // for public list, if sorting by name, apply client sort for current page
         if (!params.favoritesOnly && this.sort.field === 'name') {
-          pageItems = [...pageItems].sort((a, b) => {
-            const an = (a.name || '').toLowerCase()
-            const bn = (b.name || '').toLowerCase()
-            return this.sort.dir === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
-          })
+          pageItems = sortByName(pageItems, this.sort.dir)
         }
+        
         if (replace) {
           this.items = pageItems
         } else {
@@ -202,25 +206,9 @@ export const useSitesStore = defineStore('sites', {
       await toggleFavorite(siteId, makeFav)
       const idx = this.items.findIndex(s => s.id === siteId)
       if (idx >= 0) {
-        const current = this.items[idx] as HistoricSite
-        this.items[idx] = {
-          id: current.id,
-          name: current.name,
-          brief_description: current.brief_description ?? null,
-          city: current.city ?? null,
-          province: current.province ?? null,
-          state: current.state ?? null,
-          tags: current.tags,
-          cover_image_url: current.cover_image_url ?? null,
-          rating: current.rating ?? null,
-          created_at: current.created_at,
-          latitude: current.latitude ?? null,
-          longitude: current.longitude ?? null,
-          is_favorite: makeFav,
-        }
+        const current = this.items[idx]
+        this.items[idx] = { ...current, is_favorite: makeFav } as HistoricSite
       }
     },
   },
 })
-
-

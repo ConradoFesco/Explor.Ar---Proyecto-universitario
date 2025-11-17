@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { onMounted, watch, ref, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDebounceFn } from '@vueuse/core'
 import { useSitesStore } from '@/stores/sites'
 import SiteFilters from '@/components/site/SiteFilters.vue'
 import SiteCard from '@/components/site/SiteCard.vue'
-import SearchMap from '@/components/map/SearchMap.vue'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
@@ -14,7 +13,6 @@ const route = useRoute()
 const router = useRouter()
 const store = useSitesStore()
 
-// hydrate from URL on mount
 onMounted(async () => {
   store.fromRouteQuery(route.query as Record<string, any>)
   await store.loadFirstPage()
@@ -25,11 +23,19 @@ onMounted(async () => {
 watch(
   () => ({ ...store.queryParams }),
   (qp) => {
-    // reflect in URL
     router.replace({ query: { ...qp } })
   },
   { deep: true }
 )
+
+const debouncedMapSearch = useDebounceFn(() => {
+  if (store.lat != null && store.long != null) {
+    store.page = 1
+    store.loadFirstPage()
+  }
+}, 300)
+
+watch([() => store.lat, () => store.long, () => store.radius], debouncedMapSearch)
 
 const gridCols = computed(() => 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')
 const sentinel = ref<HTMLDivElement | null>(null)
@@ -55,14 +61,7 @@ onBeforeUnmount(() => {
   if (io) io.disconnect()
 })
 
-function applyFilters() {
-  store.loadFirstPage()
-}
-function resetFilters() {
-  store.loadFirstPage()
-}
-
-function changeSort(field: 'created_at'|'name'|'rating') {
+function changeSort(field: 'created_at' | 'name' | 'rating') {
   if (store.sort.field === field) {
     store.sort.dir = store.sort.dir === 'asc' ? 'desc' : 'asc'
   } else {
@@ -80,50 +79,37 @@ function changeSort(field: 'created_at'|'name'|'rating') {
       <div class="text-sm text-gray-600">{{ store.total }} resultados</div>
     </div>
 
-    <!-- Mobile: Accordion for filters -->
     <div class="lg:hidden mb-3">
       <Accordion type="single" collapsible>
         <AccordionItem value="filters">
           <AccordionTrigger class="px-3 py-2 border rounded text-sm">Buscar y filtros</AccordionTrigger>
           <AccordionContent class="border rounded p-3 mt-2">
-            <SiteFilters @apply="applyFilters" @reset="resetFilters" />
+            <SiteFilters />
           </AccordionContent>
         </AccordionItem>
       </Accordion>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-4">
-      <!-- Sidebar on desktop -->
       <aside class="hidden lg:block">
         <div class="sticky top-3 border rounded p-3">
-          <SiteFilters @apply="applyFilters" @reset="resetFilters" />
+          <SiteFilters />
         </div>
       </aside>
 
       <div class="space-y-3">
-        <SearchMap
-          v-model:lat="store.lat"
-          v-model:long="store.long"
-          v-model:radius="store.radius"
-        />
-
-        <Separator />
-
         <div class="flex flex-wrap gap-2 items-center justify-between">
           <div class="flex items-center gap-2 text-sm">
             <span class="text-gray-500">Ordenar:</span>
             <Button variant="outline" size="sm" @click="changeSort('created_at')">
-              Fecha {{ store.sort.field==='created_at' ? (store.sort.dir==='asc'?'↑':'↓') : '' }}
+              Fecha {{ store.sort.field === 'created_at' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
             </Button>
             <Button variant="outline" size="sm" @click="changeSort('name')">
-              Nombre {{ store.sort.field==='name' ? (store.sort.dir==='asc'?'↑':'↓') : '' }}
+              Nombre {{ store.sort.field === 'name' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
             </Button>
             <Button variant="outline" size="sm" @click="changeSort('rating')">
-              Ranking {{ store.sort.field==='rating' ? (store.sort.dir==='asc'?'↑':'↓') : '' }}
+              Ranking {{ store.sort.field === 'rating' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
             </Button>
-          </div>
-          <div class="flex items-center gap-2 text-sm">
-            <Button variant="outline" size="sm" @click="resetFilters">Limpiar</Button>
           </div>
         </div>
 
@@ -156,8 +142,3 @@ function changeSort(field: 'created_at'|'name'|'rating') {
     </div>
   </section>
 </template>
-
-<style scoped>
-</style>
-
-

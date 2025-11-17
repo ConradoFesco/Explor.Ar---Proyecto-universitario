@@ -46,6 +46,18 @@ def list_public_historic_sites():
         current_app.logger.exception("Error al listar sitios públicos", exc_info=error)
         return _json_response({'error': 'Error interno al listar sitios'}, 500)
 
+@site_api.route('/sites/filter-options', methods=['GET'])
+def get_public_filter_options():
+    """Endpoint público para obtener opciones de filtros (ciudades, provincias, tags)."""
+    try:
+        result = historic_site_service.get_filter_options()
+        return _json_response(result, 200)
+    except exc.DatabaseError as error:
+        return _json_response({'error': str(error)}, 500)
+    except Exception as error:
+        current_app.logger.exception("Error al obtener opciones de filtro", exc_info=error)
+        return _json_response({'error': 'Error interno al obtener opciones'}, 500)
+
 @site_api.route('/sites', methods=['POST'])
 @token_or_session_required
 @permission_required("create_historic_site")

@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
+import { useDebounceFn, onClickOutside } from '@vueuse/core'
 import { useSitesStore } from '@/stores/sites'
+import { fetchFilterOptions, type FilterOptions } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { NativeSelect } from '@/components/ui/native-select'
 import {
   Accordion,
   AccordionContent,
@@ -10,6 +13,9 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { MapPin, Settings } from 'lucide-vue-next'
+import SearchMap from '@/components/map/SearchMap.vue'
 
 const emit = defineEmits<{
   (e: 'apply'): void
@@ -19,55 +25,120 @@ const emit = defineEmits<{
 const store = useSitesStore()
 
 const text = ref(store.text)
-const city = ref(store.city)
-const province = ref(store.province)
-const tagsInput = ref(store.tags.join(', '))
+const city = ref<string>('')
+const province = ref<string>('')
+const selectedTags = ref<string[]>(store.tags)
 const favoritesOnly = ref(store.favoritesOnly)
 
 const lat = ref(store.lat)
 const long = ref(store.long)
 const radius = ref(store.radius ?? 1000)
 
-watch([text, city, province, tagsInput, favoritesOnly, lat, long, radius], () => {
-  // no-op reactive
+const mapAccordionOpen = ref<string | undefined>(undefined)
+const radiusDropdownOpen = ref(false)
+const radiusDropdownRef = ref<HTMLDivElement | null>(null)
+
+const filterOptions = ref<FilterOptions | null>(null)
+const isLoadingOptions = ref(false)
+
+// Computed para opciones de selectores (sin incluir la opción "Todas", se maneja con placeholder)
+const cityOptions = computed(() => 
+  (filterOptions.value?.cities || []).map(c => ({ value: c.name, label: c.name }))
+)
+
+const provinceOptions = computed(() => 
+  (filterOptions.value?.provinces || []).map(p => ({ value: p.name, label: p.name }))
+)
+
+onMounted(async () => {
+  isLoadingOptions.value = true
+  try {
+    filterOptions.value = await fetchFilterOptions()
+  } catch (e) {
+    console.error('Error al cargar opciones de filtro:', e)
+  } finally {
+    isLoadingOptions.value = false
+  }
+  
+  // Sincronizar con el store al montar
+  if (store.city) city.value = store.city
+  if (store.province) province.value = store.province
 })
 
-function parseTags(input: string): string[] {
-  return input
-    .split(',')
-    .map(t => t.trim())
-    .filter(Boolean)
+onClickOutside(radiusDropdownRef, () => {
+  radiusDropdownOpen.value = false
+})
+
+function applyTextSearch() {
+  store.text = text.value.trim()
+  store.page = 1
+  store.loadFirstPage()
+  emit('apply')
 }
 
-function apply() {
-  store.text = text.value.trim()
-  store.city = city.value.trim()
-  store.province = province.value.trim()
-  store.tags = parseTags(tagsInput.value)
-  store.favoritesOnly = !!favoritesOnly.value
+function applyMapFilters() {
   store.lat = lat.value != null ? Number(lat.value) : null
   store.long = long.value != null ? Number(long.value) : null
   store.radius = radius.value != null ? Number(radius.value) : null
   store.page = 1
+  store.loadFirstPage()
   emit('apply')
+}
+
+function applyManualFilters() {
+  store.city = city.value.trim()
+  store.province = province.value.trim()
+  store.tags = selectedTags.value
+  store.favoritesOnly = !!favoritesOnly.value
+  store.page = 1
+  store.loadFirstPage()
+  emit('apply')
+}
+
+const debouncedTextSearch = useDebounceFn(applyTextSearch, 500)
+
+watch([text], debouncedTextSearch)
+watch([lat, long, radius], applyMapFilters)
+
+function toggleTag(tagSlug: string) {
+  const idx = selectedTags.value.indexOf(tagSlug)
+  if (idx >= 0) {
+    selectedTags.value.splice(idx, 1)
+  } else {
+    selectedTags.value.push(tagSlug)
+  }
 }
 
 function reset() {
   text.value = ''
   city.value = ''
   province.value = ''
-  tagsInput.value = ''
+  selectedTags.value = []
   favoritesOnly.value = false
   lat.value = null
   long.value = null
   radius.value = 1000
+  mapAccordionOpen.value = undefined
+  radiusDropdownOpen.value = false
   store.resetFilters()
+  store.loadFirstPage()
   emit('reset')
+}
+
+function clearMapSelection() {
+  lat.value = null
+  long.value = null
+  radius.value = 1000
+  store.lat = null
+  store.long = null
+  store.radius = null
+  store.page = 1
+  store.loadFirstPage()
 }
 </script>
 
 <template>
-  <form @submit.prevent="apply" class="space-y-3">
+  <form @submit.prevent="applyManualFilters" class="space-y-3">
     <div>
       <label class="block text-sm font-medium mb-1">Buscar</label>
       <Input v-model="text" type="search" placeholder="Nombre o descripción" />
@@ -76,18 +147,51 @@ function reset() {
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label class="block text-sm font-medium mb-1">Ciudad</label>
-        <Input v-model="city" type="text" placeholder="Ciudad" />
+        <div v-if="isLoadingOptions" class="text-xs text-gray-500 py-2">Cargando ciudades...</div>
+        <NativeSelect
+          v-else
+          v-model="city"
+          :disabled="isLoadingOptions"
+          placeholder="Todas las ciudades"
+          :options="cityOptions"
+        />
+        <p v-if="!isLoadingOptions && filterOptions" class="text-xs text-gray-400 mt-1">
+          {{ filterOptions.cities?.length || 0 }} ciudades disponibles
+        </p>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Provincia</label>
-        <Input v-model="province" type="text" placeholder="Provincia" />
+        <div v-if="isLoadingOptions" class="text-xs text-gray-500 py-2">Cargando provincias...</div>
+        <NativeSelect
+          v-else
+          v-model="province"
+          :disabled="isLoadingOptions"
+          placeholder="Todas las provincias"
+          :options="provinceOptions"
+        />
+        <p v-if="!isLoadingOptions && filterOptions" class="text-xs text-gray-400 mt-1">
+          {{ filterOptions.provinces?.length || 0 }} provincias disponibles
+        </p>
       </div>
     </div>
 
     <div>
       <label class="block text-sm font-medium mb-1">Tags</label>
-      <Input v-model="tagsInput" type="text" placeholder="tag1, tag2, tag3" />
-      <p class="text-xs text-gray-500 mt-1">Separá por comas. Máximo 5 se muestran en tarjetas.</p>
+      <div v-if="isLoadingOptions" class="text-xs text-gray-500">Cargando tags...</div>
+      <div v-else class="flex flex-wrap gap-2">
+        <Badge
+          v-for="tag in filterOptions?.tags || []"
+          :key="tag.id"
+          :variant="selectedTags.includes(tag.slug) ? 'default' : 'outline'"
+          class="cursor-pointer"
+          @click="toggleTag(tag.slug)"
+        >
+          {{ tag.name }}
+        </Badge>
+      </div>
+      <p v-if="selectedTags.length" class="text-xs text-gray-500 mt-2">
+        Seleccionados: {{ selectedTags.length }}
+      </p>
     </div>
 
     <div class="flex items-center gap-2">
@@ -95,34 +199,85 @@ function reset() {
       <label for="fav" class="text-sm select-none">Favoritos</label>
     </div>
 
-    <Accordion type="single" collapsible>
-      <AccordionItem value="map">
-        <AccordionTrigger class="text-sm">Búsqueda por mapa (punto + radio)</AccordionTrigger>
-        <AccordionContent>
-          <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label class="block text-sm font-medium mb-1">Latitud</label>
-              <Input v-model.number="lat" type="number" step="any" placeholder="-34.6" />
+    <Accordion v-model="mapAccordionOpen" type="single" collapsible class="w-full">
+      <AccordionItem value="map" class="border rounded">
+        <AccordionTrigger class="px-3 py-2 text-sm">
+          <div class="flex items-center gap-2">
+            <MapPin class="h-4 w-4" />
+            <span>Búsqueda por mapa</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent class="px-3 pb-3 pt-0">
+          <div class="space-y-3 mt-3">
+            <div class="w-full">
+              <SearchMap
+                v-model:lat="lat"
+                v-model:long="long"
+                v-model:radius="radius"
+              />
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Longitud</label>
-              <Input v-model.number="long" type="number" step="any" placeholder="-58.4" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Radio (m)</label>
-              <Input v-model.number="radius" type="number" min="10" step="10" />
+            <div class="flex items-center justify-between">
+              <div v-if="lat != null && long != null" class="text-xs text-gray-600">
+                <p class="font-medium">Punto seleccionado:</p>
+                <p>{{ lat.toFixed(5) }}, {{ long.toFixed(5) }}</p>
+                <p class="mt-1">Radio: {{ radius }} m</p>
+              </div>
+              <div v-else class="text-xs text-gray-500">
+                Hacé clic en el mapa para seleccionar un punto
+              </div>
+              <div class="flex gap-2 items-center">
+                <div ref="radiusDropdownRef" class="relative">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    @click="radiusDropdownOpen = !radiusDropdownOpen"
+                  >
+                    <Settings class="h-4 w-4 mr-2" />
+                    Radio
+                  </Button>
+                  <div
+                    v-if="radiusDropdownOpen"
+                    class="absolute right-0 bottom-full mb-2 w-64 bg-white border rounded-md shadow-lg z-50 p-3"
+                  >
+                    <label class="block text-sm font-medium mb-1">Radio de búsqueda (metros)</label>
+                    <Input
+                      v-model.number="radius"
+                      type="number"
+                      min="100"
+                      max="50000"
+                      step="100"
+                      placeholder="1000"
+                      class="mb-2"
+                    />
+                    <p class="text-xs text-gray-500">
+                      El radio se aplicará desde el punto seleccionado en el mapa.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  v-if="lat != null && long != null"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  @click="clearMapSelection"
+                >
+                  Limpiar
+                </Button>
+              </div>
             </div>
           </div>
-          <p class="text-xs text-gray-500 mt-2">Sugerencia: podés tocar el mapa en la vista para completar estos campos.</p>
         </AccordionContent>
       </AccordionItem>
     </Accordion>
 
-    <div class="flex flex-wrap gap-2">
-      <Button type="submit">Aplicar</Button>
-      <Button type="button" variant="outline" @click="reset">Limpiar</Button>
+    <div class="flex items-center justify-end gap-2 pt-2 border-t">
+      <Button type="button" variant="outline" size="sm" @click="reset">
+        Limpiar
+      </Button>
+      <Button type="submit" size="sm">
+        Aplicar
+      </Button>
     </div>
   </form>
 </template>
-
-
