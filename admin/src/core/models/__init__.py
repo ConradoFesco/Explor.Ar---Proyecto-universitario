@@ -15,6 +15,7 @@ from .tag_historic_site import TagHistoricSite
 from .flag import Flag
 from .review import HistoricSiteReview
 from .favorite_site import FavoriteSite
+from .site_image import SiteImage
 
 __all__ = [
     'User',
@@ -32,5 +33,6 @@ __all__ = [
     'RolUserUser',
     'TagHistoricSite',
     'HistoricSiteReview',
-    'FavoriteSite'
+    'FavoriteSite',
+    'SiteImage'
 ]
