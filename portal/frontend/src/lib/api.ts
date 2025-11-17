@@ -1,5 +1,5 @@
 export type SiteSearchParams = {
-  text?: string; // applies to name and description
+  text?: string;
   city?: string | null;
   province?: string | null;
   tags?: string[] | null;
@@ -7,7 +7,7 @@ export type SiteSearchParams = {
   orderDir?: 'asc' | 'desc';
   lat?: number | null;
   long?: number | null;
-  radius?: number | null; // meters
+  radius?: number | null;
   page?: number;
   perPage?: number;
   favoritesOnly?: boolean;
@@ -19,7 +19,7 @@ export type HistoricSite = {
   brief_description?: string | null;
   city?: string | null;
   province?: string | null;
-  state?: string | null; // estado de conservación
+  state?: string | null;
   tags?: string[];
   cover_image_url?: string | null;
   rating?: number | null;
@@ -37,10 +37,16 @@ export type PaginatedResponse<T> = {
   total_pages: number;
 };
 
+export type FilterOptions = {
+  cities: Array<{ id: number; name: string }>;
+  provinces: Array<{ id: number; name: string }>;
+  tags: Array<{ id: number; name: string; slug: string }>;
+  states: Array<{ id: number; name: string }>;
+};
+
 const DEFAULT_PER_PAGE = 20;
 
 function getApiBaseUrl(): string {
-  // Use exact base from env if provided; otherwise default to same-origin '/api'
   const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
   return envUrl ?? '/api';
 }
@@ -51,7 +57,6 @@ function buildQuery(params: Record<string, unknown>): string {
     if (value === undefined || value === null || value === '') return;
     if (Array.isArray(value)) {
       if (value.length === 0) return;
-      // backend expects comma-separated for tags
       qp.set(key, value.join(','));
     } else {
       qp.set(key, String(value));
@@ -59,6 +64,38 @@ function buildQuery(params: Record<string, unknown>): string {
   });
   const s = qp.toString();
   return s ? `?${s}` : '';
+}
+
+function mapSiteFromBackend(s: any): HistoricSite {
+  return {
+    id: s.id,
+    name: s.name,
+    brief_description: s.brief_description ?? null,
+    city: s.city ?? null,
+    province: s.province ?? null,
+    state: s.state_name ?? s.state ?? null,
+    tags: Array.isArray(s.tags) 
+      ? s.tags.map((t: any) => t.name ?? t.slug ?? String(t)) 
+      : [],
+    cover_image_url: s.cover_image_url ?? null,
+    rating: s.rating ?? null,
+    created_at: s.created_at,
+    latitude: s.latitude ?? null,
+    longitude: s.longitude ?? null,
+    is_favorite: s.is_favorite ?? false,
+  };
+}
+
+function mapOrderBy(orderBy?: SiteSearchParams['orderBy'], dir?: SiteSearchParams['orderDir']): string | undefined {
+  if (!orderBy) return 'latest';
+  const direction = dir || 'desc';
+  if (orderBy === 'created_at') {
+    return direction === 'asc' ? 'oldest' : 'latest';
+  }
+  if (orderBy === 'rating') {
+    return direction === 'asc' ? 'rating-1-5' : 'rating-5-1';
+  }
+  return 'latest';
 }
 
 export async function fetchPublicSites(params: SiteSearchParams): Promise<PaginatedResponse<HistoricSite>> {
@@ -72,15 +109,15 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
     order_by: mapOrderBy(params.orderBy, params.orderDir),
     lat: params.lat,
     long: params.long,
-    // backend espera kilómetros; si vienen metros, convertir
-    radius: params.radius != null ? params.radius / 1000 : undefined,
+    radius: (params.lat != null && params.long != null && params.radius != null) 
+      ? params.radius / 1000 
+      : undefined,
     page: params.page ?? 1,
     per_page: params.perPage ?? DEFAULT_PER_PAGE,
   });
   const url = `${base}/sites${query}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    // listado público: evitar credenciales para simplificar CORS
     credentials: 'omit',
   });
   if (!res.ok) {
@@ -88,22 +125,7 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
     throw new Error(`Error al cargar sitios (${res.status}): ${text}`);
   }
   const raw = await res.json();
-  // Adapt backend shape { sites: [...], pagination: { page, pages, per_page, total } }
-  const items: HistoricSite[] = (raw.sites || []).map((s: any) => ({
-    id: s.id,
-    name: s.name,
-    brief_description: s.brief_description ?? null,
-    city: s.city ?? null,
-    province: s.province ?? null,
-    state: s.state_name ?? s.state ?? null,
-    tags: Array.isArray(s.tags) ? s.tags.map((t: any) => t.name ?? t.slug ?? String(t)) : [],
-    cover_image_url: s.cover_image_url ?? null,
-    rating: s.rating ?? null,
-    created_at: s.created_at,
-    latitude: s.latitude ?? null,
-    longitude: s.longitude ?? null,
-    is_favorite: s.is_favorite ?? false,
-  }));
+  const items: HistoricSite[] = (raw.sites || []).map(mapSiteFromBackend);
   const pagination = raw.pagination || {};
   return {
     items,
@@ -144,18 +166,16 @@ export async function toggleFavorite(siteId: number, favorite: boolean): Promise
   }
 }
 
-function mapOrderBy(orderBy?: SiteSearchParams['orderBy'], dir?: SiteSearchParams['orderDir']): string | undefined {
-  if (!orderBy) return 'latest';
-  const direction = dir || 'desc';
-  if (orderBy === 'created_at') {
-    return direction === 'asc' ? 'oldest' : 'latest';
+export async function fetchFilterOptions(): Promise<FilterOptions> {
+  const base = getApiBaseUrl();
+  const url = `${base}/sites/filter-options`;
+  const res = await fetch(url, {
+    headers: { 'Accept': 'application/json' },
+    credentials: 'omit',
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Error al cargar opciones de filtro (${res.status}): ${text}`);
   }
-  if (orderBy === 'rating') {
-    // 'rating-5-1' (mejor a peor), 'rating-1-5' (peor a mejor)
-    return direction === 'asc' ? 'rating-1-5' : 'rating-5-1';
-  }
-  // 'name' no está soportado en backend público; usar default y ordenar en cliente
-  return 'latest';
+  return res.json();
 }
-
-
