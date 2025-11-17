@@ -29,6 +29,51 @@ export type HistoricSite = {
   is_favorite?: boolean;
 };
 
+export type SiteImage = {
+  id: number;
+  id_site: number;
+  url_publica: string;
+  titulo_alt: string;
+  descripcion?: string | null;
+  orden: number;
+  es_portada: boolean;
+};
+
+export type HistoricSiteDetail = HistoricSite & {
+  complete_description?: string | null;
+  city_name?: string | null;
+  province_name?: string | null;
+  state_name?: string | null;
+  category_name?: string | null;
+  images?: SiteImage[];
+  cover_image?: SiteImage | null;
+  tags?: Array<{ id: number; name: string; slug: string }>;
+};
+
+export type Review = {
+  id: number;
+  site_id: number;
+  user: {
+    id: number | null;
+    mail: string | null;
+    name: string | null;
+  };
+  rating: number;
+  content: string;
+  status: string;
+  created_at: string | null;
+};
+
+export type ReviewsResponse = {
+  reviews: Review[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+    pages: number;
+  };
+};
+
 export type PaginatedResponse<T> = {
   items: T[];
   page: number;
@@ -46,7 +91,7 @@ export type FilterOptions = {
 
 const DEFAULT_PER_PAGE = 20;
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
   return envUrl ?? '/api';
 }
@@ -155,14 +200,30 @@ export async function toggleFavorite(siteId: number, favorite: boolean): Promise
   const base = getApiBaseUrl();
   const method = favorite ? 'PUT' : 'DELETE';
   const url = `${base}/sites/${siteId}/favorite`;
-  const res = await fetch(url, {
-    method,
-    headers: { 'Accept': 'application/json' },
-    credentials: 'include',
-  });
-  if (!res.ok && res.status !== 204) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al actualizar favorito (${res.status}): ${text}`);
+  
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    
+    if (!res.ok && res.status !== 204) {
+      const text = await res.text().catch(() => '');
+      
+      // Mejorar mensaje de error según el código de estado
+      if (res.status === 401) {
+        throw new Error('AUTH_REQUIRED: Debe iniciar sesión para marcar como favorito');
+      }
+      
+      throw new Error(`Error al actualizar favorito (${res.status}): ${text || 'Error desconocido'}`);
+    }
+  } catch (error: unknown) {
+    // Si es un error de red (CORS, conexión, etc.)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('NETWORK_ERROR: Error de conexión. Verifica tu conexión a internet.');
+    }
+    throw error;
   }
 }
 
@@ -176,6 +237,134 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Error al cargar opciones de filtro (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+export async function fetchSiteDetail(siteId: number, includeAuth = false): Promise<HistoricSiteDetail> {
+  const base = getApiBaseUrl();
+  const url = `${base}/sites/${siteId}`;
+  
+  try {
+    // Intentar primero con credenciales si se solicita (para obtener is_favorite)
+    // Si falla, intentar sin credenciales
+    let res = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      credentials: includeAuth ? 'include' : 'omit',
+    });
+    
+    // Si falla por autenticación y no se solicitó, intentar sin credenciales
+    if (!res.ok && res.status === 401 && includeAuth) {
+      res = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'omit',
+      });
+    }
+    
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Error al cargar sitio (${res.status}): ${text}`);
+    }
+    
+    // Verificar que la respuesta sea JSON
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Respuesta no es JSON. Content-Type: ${contentType}, Body: ${text.substring(0, 200)}`);
+    }
+    
+    const raw = await res.json();
+    
+    // Mapear el sitio del backend
+    const site: HistoricSiteDetail = {
+      id: raw.id,
+      name: raw.name,
+      brief_description: raw.brief_description ?? null,
+      complete_description: raw.complete_description ?? null,
+      city: raw.city_name ?? raw.city ?? null,
+      province: raw.province_name ?? raw.province ?? null,
+      state: raw.state_name ?? raw.state ?? null,
+      city_name: raw.city_name ?? null,
+      province_name: raw.province_name ?? null,
+      state_name: raw.state_name ?? null,
+      category_name: raw.category_name ?? null,
+      tags: Array.isArray(raw.tags) 
+        ? raw.tags.map((t: any) => ({ id: t.id, name: t.name, slug: t.slug }))
+        : [],
+      cover_image_url: raw.cover_image?.url_publica ?? raw.cover_image_url ?? null,
+      rating: raw.rating ?? null,
+      created_at: raw.created_at,
+      latitude: raw.latitude ? parseFloat(String(raw.latitude)) : null,
+      longitude: raw.longitude ? parseFloat(String(raw.longitude)) : null,
+      is_favorite: raw.is_favorite ?? false,
+      images: Array.isArray(raw.images) ? raw.images : [],
+      cover_image: raw.cover_image ?? null,
+    };
+    
+    return site;
+  } catch (error: any) {
+    // Mejorar el mensaje de error para debugging
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Error de red al cargar sitio: ${error.message}. Verifica que el servidor esté corriendo y la URL sea correcta.`);
+    }
+    throw error;
+  }
+}
+
+export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): Promise<ReviewsResponse> {
+  const base = getApiBaseUrl();
+  const query = buildQuery({ page, per_page: perPage });
+  const url = `${base}/sites/${siteId}/reviews${query}`;
+  
+  // Intentar primero con autenticación, luego sin
+  let res = await fetch(url, {
+    headers: { 'Accept': 'application/json' },
+    credentials: 'include',
+  });
+  
+  // Si falla por autenticación, intentar sin credentials
+  if (!res.ok && res.status === 401) {
+    res = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      credentials: 'omit',
+    });
+  }
+  
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Error al cargar reseñas (${res.status}): ${text}`);
+  }
+  const raw = await res.json();
+  
+  // Filtrar solo reseñas aprobadas
+  const approvedReviews = (raw.reviews || []).filter((r: Review) => r.status === 'approved');
+  
+  return {
+    reviews: approvedReviews,
+    pagination: raw.pagination || {
+      page: page,
+      per_page: perPage,
+      total: approvedReviews.length,
+      pages: Math.ceil(approvedReviews.length / perPage),
+    },
+  };
+}
+
+export async function createReview(siteId: number, rating: number, content: string): Promise<Review> {
+  const base = getApiBaseUrl();
+  const url = `${base}/sites/${siteId}/reviews`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ rating, content }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Error al crear reseña (${res.status}): ${text}`);
   }
   return res.json();
 }

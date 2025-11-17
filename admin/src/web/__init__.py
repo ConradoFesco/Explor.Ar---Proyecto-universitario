@@ -38,7 +38,39 @@ def create_app(env="development", static_folder="../../static"):
     storage.init_app(app)
     
     # Habilitar CORS para API pública
-    CORS(app, resources={ r"/api/*": {"origins": "*"} })
+    # Para desarrollo: permitir localhost con credenciales
+    # En producción, especifica los orígenes permitidos
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    
+    if cors_origins_env:
+        # Orígenes específicos desde variable de entorno
+        cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+        CORS(app, 
+             resources={ r"/api/*": {
+                 "origins": cors_origins,
+                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                 "allow_headers": ["Content-Type", "Authorization", "Accept"],
+                 "supports_credentials": True
+             }},
+             supports_credentials=True)
+    else:
+        # Desarrollo: permitir localhost en varios puertos comunes
+        dev_origins = [
+            "http://localhost:5173",  # Vite dev server
+            "http://localhost:3000",  # React/Next.js común
+            "http://localhost:8080",  # Vue CLI común
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8080",
+        ]
+        CORS(app, 
+             resources={ r"/api/*": {
+                 "origins": dev_origins,
+                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                 "allow_headers": ["Content-Type", "Authorization", "Accept"],
+                 "supports_credentials": True
+             }},
+             supports_credentials=True)
     
     # Registrar blueprints
     register_blueprints(app)
