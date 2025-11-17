@@ -619,15 +619,15 @@ class HistoricSiteService:
         query = HistoricSite.query.join(City).join(Province)
         query = query.filter(HistoricSite.deleted == False, HistoricSite.visible == True)
 
-        if name:
-            like_name = f"%{name}%"
-            query = query.filter(HistoricSite.name.ilike(like_name))
-
-        if description:
-            like_desc = f"%{description}%"
+        # Búsqueda por texto: busca en nombre O descripción (OR, no AND)
+        # Si ambos parámetros están presentes, se usa el mismo texto para ambos
+        search_text = name or description
+        if search_text:
+            # Búsqueda "comienza con" (no "contiene")
+            like_pattern = f"{search_text}%"
             query = query.filter(or_(
-                HistoricSite.brief_description.ilike(like_desc),
-                HistoricSite.complete_description.ilike(like_desc)
+                HistoricSite.name.ilike(like_pattern),
+                HistoricSite.brief_description.ilike(like_pattern),
             ))
 
         if city:

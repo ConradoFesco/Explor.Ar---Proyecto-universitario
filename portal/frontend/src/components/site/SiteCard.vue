@@ -21,7 +21,7 @@ async function onToggleFavorite() {
   try {
     await store.setFavorite(props.site.id, next)
   } catch (e) {
-    // swallow, store handles error logging elsewhere
+    // Error handling is done in the store
   }
 }
 </script>
@@ -34,13 +34,17 @@ async function onToggleFavorite() {
     </AspectRatio>
     <CardHeader>
       <CardTitle class="text-base">{{ site.name }}</CardTitle>
-      <CardDescription class="text-xs text-gray-500">{{ site.city }} <span v-if="site.city && site.province">·</span> {{ site.province }}</CardDescription>
+      <CardDescription class="text-xs text-gray-500">
+        {{ site.city }} <span v-if="site.city && site.province">·</span> {{ site.province }}
+      </CardDescription>
     </CardHeader>
     <CardContent class="flex-1">
       <p v-if="site.brief_description" class="text-sm line-clamp-3">{{ site.brief_description }}</p>
       <div class="mt-2 flex flex-wrap gap-1">
         <Badge v-for="t in tagsToShow" :key="t" variant="secondary" class="text-[11px]">{{ t }}</Badge>
-        <span v-if="(site.tags?.length || 0) > 5" class="text-xs text-gray-500">+{{ (site.tags?.length || 0) - 5 }}</span>
+        <span v-if="(site.tags?.length || 0) > 5" class="text-xs text-gray-500">
+          +{{ (site.tags?.length || 0) - 5 }}
+        </span>
       </div>
       <div v-if="site.state" class="mt-2 text-xs text-gray-600">
         Estado: {{ site.state }}
@@ -48,21 +52,15 @@ async function onToggleFavorite() {
     </CardContent>
     <CardFooter class="flex justify-between items-center">
       <span class="text-xs text-gray-500">#{{ site.id }}</span>
-      <Button variant="outline" size="sm" @click="onToggleFavorite" :title="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'">
+      <Button 
+        variant="outline" 
+        size="sm" 
+        @click="onToggleFavorite" 
+        :title="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
+      >
         <span v-if="site.is_favorite">★ Favorito</span>
         <span v-else>☆ Favorito</span>
       </Button>
     </CardFooter>
   </Card>
 </template>
-
-<style scoped>
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-</style>
-
-
