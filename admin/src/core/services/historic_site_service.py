@@ -154,13 +154,11 @@ class HistoricSiteService:
         site_data['category_name'] = site.category.name if hasattr(site, 'category') and site.category else None
         
         # Agregar imágenes del sitio
-        from src.core.models.site_image import SiteImage
-        site_images = SiteImage.query.filter_by(id_site=site.id).order_by(SiteImage.orden.asc()).all()
-        site_data['images'] = [img.to_dict() for img in site_images]
+        from src.core.services.site_image_service import site_image_service
+        site_data['images'] = site_image_service.get_images_by_site(site.id)
         
-        # Agregar imagen portada (si existe)
-        cover_image = SiteImage.query.filter_by(id_site=site.id, es_portada=True).first()
-        site_data['cover_image'] = cover_image.to_dict() if cover_image else None
+        # Agregar imagen portada (si existe) con URL firmada
+        site_data['cover_image'] = site_image_service.get_cover_image(site.id)
         
         # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site_data
@@ -279,9 +277,9 @@ class HistoricSiteService:
         sites_data = []
         for site in sites:
             site_tags = self._get_site_tags(site.id)
-            # Obtener imagen portada
-            from src.core.models.site_image import SiteImage
-            cover_image = SiteImage.query.filter_by(id_site=site.id, es_portada=True).first()
+            # Obtener imagen portada con URL firmada
+            from src.core.services.site_image_service import site_image_service
+            cover_image = site_image_service.get_cover_image(site.id)
             sites_data.append({
                 'id': site.id, 
                 'name': site.name, 
@@ -292,7 +290,7 @@ class HistoricSiteService:
                 'state_name': site.state_site.state if site.state_site else None,
                 'visible': site.visible,
                 'tags': site_tags,
-                'cover_image': cover_image.to_dict() if cover_image else None
+                'cover_image': cover_image
             })
         
         return {

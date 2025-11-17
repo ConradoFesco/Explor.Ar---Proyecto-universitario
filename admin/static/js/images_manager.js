@@ -8,6 +8,7 @@ let imagesManager = {
     images: [],
     
     init: function(siteId) {
+        console.log('imagesManager.init llamado con siteId:', siteId);
         this.siteId = siteId;
         this.setupUploadForm();
         this.loadImages();
@@ -21,6 +22,34 @@ let imagesManager = {
             e.preventDefault();
             this.uploadImage();
         });
+        
+        // Previsualización de imagen
+        const fileInput = document.getElementById('imagen-file');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.showImagePreview(e.target.files[0]);
+            });
+        }
+    },
+    
+    showImagePreview: function(file) {
+        const previewContainer = document.getElementById('image-preview-container');
+        const previewImg = document.getElementById('image-preview');
+        
+        if (!file || !previewContainer || !previewImg) return;
+        
+        // Validar que sea una imagen
+        if (!file.type.startsWith('image/')) {
+            previewContainer.classList.add('hidden');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewContainer.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
     },
     
     uploadImage: async function() {
@@ -64,7 +93,19 @@ let imagesManager = {
             if (data.success) {
                 this.showMessage('Imagen subida correctamente', 'success');
                 form.reset();
-                this.loadImages();
+                // Ocultar previsualización
+                const previewContainer = document.getElementById('image-preview-container');
+                if (previewContainer) {
+                    previewContainer.classList.add('hidden');
+                }
+                const previewImg = document.getElementById('image-preview');
+                if (previewImg) {
+                    previewImg.src = '';
+                }
+                // Esperar un momento para que la BD se actualice antes de recargar
+                setTimeout(() => {
+                    this.loadImages();
+                }, 500);
             } else {
                 this.showMessage(data.error || 'Error al subir imagen', 'error');
             }
@@ -74,46 +115,71 @@ let imagesManager = {
     },
     
     loadImages: async function() {
-        if (!this.siteId) return;
+        if (!this.siteId) {
+            console.error('imagesManager: siteId no está definido');
+            return;
+        }
         
         try {
             const response = await fetch(`/sitios/${this.siteId}/imagenes`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error al cargar imágenes:', response.status, errorText);
+                this.showMessage(`Error al cargar imágenes (${response.status})`, 'error');
+                return;
+            }
+            
             const data = await response.json();
+            console.log('Imágenes cargadas:', data);
             
             if (data.success) {
                 this.images = data.images || [];
+                console.log('Total de imágenes:', this.images.length);
                 this.renderImages();
             } else {
-                this.showMessage('Error al cargar imágenes', 'error');
+                this.showMessage(data.error || 'Error al cargar imágenes', 'error');
             }
         } catch (error) {
+            console.error('Error al cargar imágenes:', error);
             this.showMessage('Error al cargar imágenes: ' + error.message, 'error');
         }
     },
     
     renderImages: function() {
         const container = document.getElementById('images-grid');
-        if (!container) return;
+        if (!container) {
+            console.error('imagesManager: No se encontró el contenedor images-grid');
+            return;
+        }
         
         const noImagesMsg = document.getElementById('no-images-message');
         
         if (this.images.length === 0) {
-            if (noImagesMsg) noImagesMsg.style.display = 'block';
+            if (noImagesMsg) {
+                noImagesMsg.style.display = 'block';
+            }
             container.innerHTML = '<p class="text-gray-500 col-span-full">No hay imágenes cargadas aún.</p>';
+            console.log('No hay imágenes para mostrar');
             return;
         }
         
-        if (noImagesMsg) noImagesMsg.style.display = 'none';
+        if (noImagesMsg) {
+            noImagesMsg.style.display = 'none';
+        }
+        
+        console.log('Renderizando', this.images.length, 'imágenes');
         
         // Ordenar por orden
         const sortedImages = [...this.images].sort((a, b) => a.orden - b.orden);
         
-        container.innerHTML = sortedImages.map((img, index) => {
+        const html = sortedImages.map((img, index) => {
             const isCover = img.es_portada;
+            console.log(`Renderizando imagen ${index + 1}:`, img.id, img.titulo_alt, img.url_publica);
             return `
                 <div class="image-item ${isCover ? 'cover' : ''}" data-image-id="${img.id}">
                     ${isCover ? '<span class="cover-badge">PORTADA</span>' : ''}
-                    <img src="${img.url_publica}" alt="${img.titulo_alt}" loading="lazy">
+                    <img src="${img.url_publica}" alt="${img.titulo_alt}" loading="lazy" onerror="console.error('Error al cargar imagen:', this.src)">
                     <div class="image-info">
                         <p class="text-sm font-medium text-gray-800 truncate" title="${img.titulo_alt}">${img.titulo_alt}</p>
                         ${img.descripcion ? `<p class="text-xs text-gray-600 mt-1 truncate" title="${img.descripcion}">${img.descripcion}</p>` : ''}
@@ -128,6 +194,9 @@ let imagesManager = {
                 </div>
             `;
         }).join('');
+        
+        container.innerHTML = html;
+        console.log('HTML generado y insertado en el contenedor');
         
         // Configurar drag and drop para reordenar
         this.setupDragAndDrop();

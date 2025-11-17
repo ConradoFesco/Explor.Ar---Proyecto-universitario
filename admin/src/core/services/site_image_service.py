@@ -10,7 +10,7 @@ from flask import current_app
 from minio.error import S3Error
 import uuid
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from werkzeug.utils import secure_filename
 
@@ -226,28 +226,72 @@ class SiteImageService:
     def get_images_by_site(self, site_id: int) -> List[Dict[str, Any]]:
         """
         Obtiene todas las imágenes de un sitio ordenadas por orden.
+        Genera URLs firmadas (presigned) para acceso público a las imágenes.
         
         Args:
             site_id: ID del sitio histórico
             
         Returns:
-            List[Dict]: Lista de imágenes en formato dict
+            List[Dict]: Lista de imágenes en formato dict con URLs firmadas
         """
         images = SiteImage.query.filter_by(id_site=site_id).order_by(SiteImage.orden.asc()).all()
-        return [img.to_dict() for img in images]
+        bucket_name = self._get_bucket_name()
+        
+        result = []
+        for img in images:
+            img_dict = img.to_dict()
+            # Generar URL firmada (presigned) para acceso público
+            try:
+                # Extraer el nombre del archivo de la URL almacenada
+                filename = img.url_publica.split('/')[-1]
+                # Generar URL firmada válida por 7 días
+                presigned_url = self.minio_client.presigned_get_object(
+                    bucket_name,
+                    filename,
+                    expires=timedelta(days=7)
+                )
+                img_dict['url_publica'] = presigned_url
+            except Exception as e:
+                # Si falla la generación de URL firmada, usar la URL original
+                current_app.logger.warning(f"Error al generar URL firmada para imagen {img.id}: {e}")
+            
+            result.append(img_dict)
+        
+        return result
     
     def get_cover_image(self, site_id: int) -> Optional[Dict[str, Any]]:
         """
-        Obtiene la imagen portada de un sitio.
+        Obtiene la imagen portada de un sitio con URL firmada.
         
         Args:
             site_id: ID del sitio histórico
             
         Returns:
-            Optional[Dict]: Imagen portada o None
+            Optional[Dict]: Imagen portada con URL firmada o None
         """
         cover = SiteImage.query.filter_by(id_site=site_id, es_portada=True).first()
-        return cover.to_dict() if cover else None
+        if not cover:
+            return None
+        
+        cover_dict = cover.to_dict()
+        bucket_name = self._get_bucket_name()
+        
+        # Generar URL firmada (presigned) para acceso público
+        try:
+            # Extraer el nombre del archivo de la URL almacenada
+            filename = cover.url_publica.split('/')[-1]
+            # Generar URL firmada válida por 7 días
+            presigned_url = self.minio_client.presigned_get_object(
+                bucket_name,
+                filename,
+                expires=timedelta(days=7)
+            )
+            cover_dict['url_publica'] = presigned_url
+        except Exception as e:
+            # Si falla la generación de URL firmada, usar la URL original
+            current_app.logger.warning(f"Error al generar URL firmada para imagen portada {cover.id}: {e}")
+        
+        return cover_dict
     
     def delete_image(self, image_id: int, user_id: int = None) -> bool:
         """
