@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { SiteImage } from '@/lib/api'
-import type { CarouselApi } from '@/components/ui/carousel'
+import { type CarouselApi } from '@/components/ui/carousel'
 import {
   Carousel,
   CarouselContent,
@@ -34,9 +34,12 @@ function goToImage(index: number) {
 }
 
 // Inicializar el API del carrusel
-function onInit(carouselApi: CarouselApi) {
-  api.value = carouselApi
-  api.value.on('select', onSelect)
+// CAMBIO CLAVE: Renombramos el argumento a 'val' y verificamos que exista
+function onInit(val: CarouselApi) {
+  if (!val) return // <-- Esta línea soluciona el error "posiblemente undefined"
+
+  api.value = val
+  val.on('select', onSelect)
   onSelect() // Llamar una vez para inicializar el índice
 }
 
@@ -74,31 +77,29 @@ watch(() => props.images.length, (newLength, oldLength) => {
             v-for="(image, index) in images"
             :key="image.id"
           >
-            <AspectRatio :ratio="16 / 9" class="bg-gray-100 rounded overflow-hidden">
-              <img
-                :src="image.url_publica"
-                :alt="image.titulo_alt || `${siteName} - Imagen ${index + 1}`"
-                class="w-full h-full object-cover"
-              />
-            </AspectRatio>
+            <div class="p-1">
+              <AspectRatio :ratio="16 / 9" class="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700">
+                <img
+                  :src="image.url_publica"
+                  :alt="image.titulo_alt || `${siteName} - Imagen ${index + 1}`"
+                  class="w-full h-full object-contain"
+                />
+              </AspectRatio>
+            </div>
           </CarouselItem>
         </CarouselContent>
 
         <!-- Controles de Navegación -->
         <template v-if="hasMultipleImages">
-          <CarouselPrevious
-            class="left-2 bg-white/90 hover:bg-white shadow-md"
-          />
-          <CarouselNext
-            class="right-2 bg-white/90 hover:bg-white shadow-md"
-          />
+          <CarouselPrevious class="left-3 bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800 shadow-md backdrop-blur-sm" />
+          <CarouselNext class="right-3 bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800 shadow-md backdrop-blur-sm" />
         </template>
       </Carousel>
 
       <!-- Indicador de Imagen Actual -->
       <div
         v-if="hasMultipleImages"
-        class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-2 py-1 rounded text-xs z-10"
+        class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm z-10"
       >
         {{ currentIndex + 1 }} / {{ images.length }}
       </div>
@@ -111,25 +112,24 @@ watch(() => props.images.length, (newLength, oldLength) => {
         :key="image.id"
         @click="goToImage(index)"
         :class="[
-          'relative aspect-square rounded overflow-hidden border-2 transition-all cursor-pointer',
+          'relative aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer',
           currentIndex === index
-            ? 'border-blue-500 ring-2 ring-blue-200'
-            : 'border-transparent hover:border-gray-300'
+            ? 'border-blue-600 ring-2 ring-blue-600/20 opacity-100'
+            : 'border-transparent opacity-70 hover:opacity-100 hover:border-gray-300 dark:hover:border-gray-600'
         ]"
         :aria-label="`Ver imagen ${index + 1}: ${image.titulo_alt || siteName}`"
       >
         <img
           :src="image.url_publica"
-          :alt="image.titulo_alt || `${siteName} - Imagen ${index + 1}`"
+          :alt="image.titulo_alt || `${siteName} - Miniatura ${index + 1}`"
           class="w-full h-full object-cover"
         />
       </button>
     </div>
 
     <!-- Descripción de la Imagen Actual -->
-    <p v-if="currentImage?.descripcion" class="text-sm text-gray-600">
+    <p v-if="currentImage?.descripcion" class="text-sm text-gray-600 dark:text-gray-400 italic">
       {{ currentImage.descripcion }}
     </p>
   </section>
 </template>
-
