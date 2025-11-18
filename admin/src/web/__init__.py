@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from sqlalchemy import inspect
 
 from config import get_current_config
-from .extensions import db, migrate, session_ext
+from .extensions import db, migrate, session_ext, oauth
 
 # Cargar variables de entorno
 load_dotenv()
@@ -91,6 +91,16 @@ def initialize_extensions(app):
     db.init_app(app)
     migrate.init_app(app, db)
     session_ext.init_app(app)
+    oauth.init_app(app)
+    oauth.register(
+        name='google',
+        client_id=app.config.get('GOOGLE_CLIENT_ID'),
+        client_secret=app.config.get('GOOGLE_CLIENT_SECRET'),
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={
+            'scope': 'openid email profile'
+        }
+    )
     
     # Inicialización automática de BD en producción (solo si no existe)
     initialize_database_if_needed(app)
