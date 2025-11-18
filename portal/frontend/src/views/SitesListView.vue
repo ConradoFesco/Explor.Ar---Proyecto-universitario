@@ -73,7 +73,9 @@ function changeSort(field: 'created_at' | 'name' | 'rating') {
 </script>
 
 <template>
-  <section>
+  <!-- CAMBIO: Eliminada la <section> exterior. Se añade un div con padding -->
+  <!-- El <main> ahora está en App.vue -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="mb-3 md:mb-4 flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl md:text-2xl font-semibold">Sitios históricos</h1>
       <div class="text-sm text-gray-600">{{ store.total }} resultados</div>
@@ -140,5 +142,5 @@ function changeSort(field: 'created_at' | 'name' | 'rating') {
         <div ref="sentinel" class="h-1"></div>
       </div>
     </div>
-  </section>
+  </div>
 </template>

@@ -1,40 +1,22 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterView } from 'vue-router'
+// CAMBIO: Importamos el header global
+import AppHeader from '@/components/layout/AppHeader.vue'
 </script>
 
 <template>
-  <div class="min-h-screen bg-white text-gray-900">
-    <header class="border-b">
-      <div class="app-container py-3 flex items-center justify-between">
-        <RouterLink to="/" class="flex items-center gap-2">
-          <img alt="Logo" class="h-8 w-8" src="@/assets/logo.svg" />
-          <span class="font-semibold">Patrimonio</span>
-        </RouterLink>
-        <nav class="flex items-center gap-4 text-sm">
-          <RouterLink to="/" class="nav-link">Inicio</RouterLink>
-          <RouterLink to="/sitios" class="nav-link">Sitios</RouterLink>
-        </nav>
-      </div>
-    </header>
-    <div class="app-container py-4 md:py-6">
-      <RouterView />
-    </div>
-  </div>
-</template>
-<style scoped>
-.app-container {
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
-.nav-link {
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-}
-.nav-link.router-link-active {
-  background-color: #f3f4f6;
-}
-</style>
+  <!-- CAMBIO: AppHeader se pone aquí para que sea global a TODAS las vistas -->
+  <AppHeader />
 
+  <!-- El RouterView renderiza la vista actual (Home, Sitios, Detalle) -->
+  <!-- Damos un fondo base para toda la app -->
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <RouterView />
+  </main>
+
+  <!-- <AppFooter /> -->
+</template>
+
+<style scoped>
+/* Estilos globales (si son necesarios) eliminados para un layout limpio */
+</style>
