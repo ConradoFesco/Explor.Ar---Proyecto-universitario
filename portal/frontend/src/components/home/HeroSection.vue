@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Search } from 'lucide-vue-next'
 // import { useRouter } from 'vue-router' // Descomentar al implementar navegación
 
+// --- CAMBIO CLAVE: Importamos la imagen desde 'src/assets/' ---
+// Usamos el alias '@' que apunta a 'src/'
+import heroImageUrl from '@/assets/images/ImageHero.jpg'
+
+
 // const router = useRouter() // Descomentar al implementar navegación
 const searchTerm = ref('')
 
@@ -28,7 +33,7 @@ const handleSearch = () => {
 
 <template>
   <!--
-    Contenedor principal de la sección.
+    Contenido principal de la sección.
     Usamos 'relative' para posicionar el contenido y el overlay.
     AÑADIMOS 'isolate': Esto crea un nuevo contexto de apilamiento.
     Ahora, el 'z-10' de la imagen se quedará "atrás" pero DENTRO de esta sección,
@@ -38,10 +43,12 @@ const handleSearch = () => {
 
     <!--
       Imagen de Fondo
-      CAMBIO: Ahora usa la imagen local /ImagenHero.avif desde la carpeta 'public'.
+      CAMBIO CLAVE: Usamos ':src' (binding) para pasar la variable
+      'heroImageUrl' que importamos arriba en el script.
+      NO usamos src="assets/..."
     -->
     <img
-      src="/ImagenHero.avif"
+      :src="heroImageUrl"
       alt="Imagen de fondo de un sitio histórico emblemático"
       class="absolute inset-0 w-full h-full object-cover -z-10"
       onerror="this.src='https://placehold.co/1920x800/57534e/f5f5f4?text=Error+Cargando+Imagen'"
@@ -49,10 +56,10 @@ const handleSearch = () => {
 
     <!--
       Overlay Oscuro
-      CAMBIO: Aumentamos la opacidad de 50% a 60% (bg-black/60)
-      para mejorar el contraste del texto sobre la imagen.
+      CAMBIO: Aumentamos la opacidad de 60% a 75% (bg-black/75)
+      para un contraste mucho más fuerte.
     -->
-    <div class="absolute inset-0 bg-black/60 z-0"></div>
+    <div class="absolute inset-0 bg-black/75 z-0"></div>
 
     <!-- Contenido Centrado -->
     <div class="relative z-10 h-full flex flex-col justify-center items-center text-center p-4">
@@ -63,12 +70,14 @@ const handleSearch = () => {
       </h1>
 
       <!-- Frase Invitacional -->
-      <p class="mt-4 text-lg md:text-2xl text-gray-200 drop-shadow-md max-w-2xl">
+      <!-- CAMBIO: Se redujo el tamaño de la fuente para mejor jerarquía visual -->
+      <p class="mt-4 text-base md:text-xl text-gray-200 drop-shadow-md max-w-2xl">
         Descubre los sitios históricos y el patrimonio cultural de nuestro país.
       </p>
 
       <!-- Buscador Rápido -->
-      <form @submit.prevent="handleSearch" class="mt-8 w-full max-w-lg">
+      <!-- CAMBIO: Aumentamos el margen superior de mt-8 a mt-10 para separarlo del subtítulo -->
+      <form @submit.prevent="handleSearch" class="mt-10 w-full max-w-lg">
         <div class="flex w-full items-center space-x-2 rounded-lg bg-white/90 p-2 shadow-lg backdrop-blur-sm">
 
           <!-- Input de shadcn/vue -->
@@ -87,7 +96,7 @@ const handleSearch = () => {
           >
             <Search class="h-5 w-5" />
             <!-- Texto del botón opcional en pantallas pequeñas -->
-            <span class="ml-2 hidden sm:inline">Buscar</span>
+            <span class="ml-2 hidden sm:inline"></span>
           </Button>
 
         </div>
