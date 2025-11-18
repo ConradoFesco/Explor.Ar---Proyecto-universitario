@@ -1,0 +1,108 @@
+{# templates/features/reviews/reviews.html.jinja #}
+{% extends "layouts/app.html.jinja" %}
+
+{% block title %}Moderación de Reseñas{% endblock %}
+
+{% block content %}
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" aria-labelledby="reviews-heading" role="region">
+    {% from 'shared/components/search_filters.html' import render_search_filters %}
+    {{ render_search_filters({
+        'search_placeholder': 'Buscar por email o contenido...',
+        'search_param': 'user',
+        'sort_options': [
+            {'value': 'created_at', 'label': 'Fecha'},
+            {'value': 'rating', 'label': 'Calificación'}
+        ],
+        'filters': [
+            {'name': 'status', 'label': 'Estado', 'type': 'select', 'placeholder': 'Todos', 'default': 'pending', 'options': [
+                {'value': 'pending', 'label': 'Pendiente'},
+                {'value': 'approved', 'label': 'Aprobada'},
+                {'value': 'rejected', 'label': 'Rechazada'},
+                {'value': 'deleted', 'label': 'Eliminada'}
+            ]},
+            {'name': 'site_id', 'label': 'Sitio', 'type': 'select', 'placeholder': 'Todos los sitios', 'options': site_options},
+            {'name': 'rating', 'label': 'Calificación', 'type': 'select', 'placeholder': 'Todos', 'options': [
+                {'value': '', 'label': 'Todos'},
+                {'value': '1', 'label': '1'},
+                {'value': '2', 'label': '2'},
+                {'value': '3', 'label': '3'},
+                {'value': '4', 'label': '4'},
+                {'value': '5', 'label': '5'}
+            ]},
+            {'name': 'date_from', 'label': 'Fecha desde', 'type': 'date', 'placeholder': 'Desde'},
+            {'name': 'date_to', 'label': 'Fecha hasta', 'type': 'date', 'placeholder': 'Hasta'}
+        ]
+    }) }}
+
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        {% import 'components/breadcrumbs.html.jinja' as bc %}
+        {{ bc.render_breadcrumbs([
+            {'label': 'Inicio', 'url': url_for('main.home')},
+            {'label': 'Moderación de Reseñas', 'current': True}
+        ]) }}
+        {% from 'components/page_header.html.jinja' import render_page_header %}
+        {% call render_page_header('Moderación de Reseñas', 'reviews-heading') %}
+            <span class="text-sm text-gray-500">Listá, revisá y moderá reseñas públicas</span>
+        {% endcall %}
+        <div id="ssr-list-container">
+            {% include 'features/reviews/_list_fragment.html.jinja' %}
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+    {% from 'shared/components/modal.html' import render_modal_content, render_confirm_modal %}
+    {% call render_modal_content('reviewDetailModal','Detalle de Reseña','md') %}
+            <div id="review-detail-body">
+                <p class="text-sm text-gray-600">Cargando...</p>
+            </div>
+            <div id="reject-section" class="hidden mt-4 border-t pt-4">
+                <label class="block text-sm font-medium text-gray-700">Motivo de rechazo</label>
+                <textarea id="rejectReason" rows="4" class="w-full mt-2 p-2 border rounded"></textarea>
+                <p id="rejectMsg" class="text-red-500 text-sm mt-2 hidden"></p>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button id="cancelReject" type="button" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
+                    <button id="saveReject" type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Confirmar rechazo</button>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+            <button id="modal-close" type="button" onclick="closeModal('reviewDetailModal')" class="px-4 py-2 rounded border hover:bg-gray-100">Cerrar</button>
+                <button id="modal-approve" type="button" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 hidden">Aprobar</button>
+                <button id="modal-reject" type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 hidden">Rechazar</button>
+                <button id="modal-delete" type="button" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 hidden">Eliminar</button>
+            </div>
+        {% endcall %}
+
+        {# Modal de confirmación de acción exitosa #}
+        {% call render_modal_content('actionConfirmModal', 'Acción realizada', 'sm') %}
+            <div id="action-confirm-message" class="text-center text-lg py-4">Acción realizada correctamente.</div>
+            <div class="flex justify-center mt-4">
+                <button type="button" onclick="closeModal('actionConfirmModal')" class="px-4 py-2 rounded border hover:bg-gray-100">Cerrar</button>
+            </div>
+        {% endcall %}
+
+        {# Modal de confirmación para eliminar #}
+        {% call render_modal_content('deleteConfirmModal', 'Confirmar eliminación', 'sm') %}
+            <div class="text-center text-lg py-4">¿Estás seguro que deseas eliminar esta reseña? Esta acción no se puede deshacer.</div>
+            <div class="flex justify-center gap-4 mt-4">
+                <button id="cancelDelete" type="button" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
+                <button id="confirmDelete" type="button" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Eliminar</button>
+            </div>
+        {% endcall %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.REVIEWS_CONFIG = {
+    perPage: 25,
+    pageUrl: {{ url_for('reviews_web.list_reviews_page') | tojson }},
+    fragmentUrl: {{ url_for('reviews_web.list_reviews_fragment') | tojson }},
+    detailFragmentUrl: {{ url_for('reviews_web.review_detail_fragment', review_id=0).replace('/0/fragment', '') | tojson }}
+  };
+
+  window.CURRENT_USER_ID = {{ session.get('user_id') | tojson }};
+</script>
+
+<script src="{{ url_for('static', filename='js/reviews.js') }}"></script>
+{% endblock %}
+
