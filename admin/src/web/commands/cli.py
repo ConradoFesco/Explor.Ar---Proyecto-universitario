@@ -1,3 +1,4 @@
+
 """
 Comandos CLI personalizados para la aplicación Flask.
 """
@@ -43,9 +44,9 @@ def register_commands(app):
         """
         db.drop_all()
         click.echo("Tablas eliminadas.")
-        db.create_all()
-        click.echo("Tablas creadas.")
+        #db.create_all()
+        #click.echo("Tablas creadas.")
         from src.web.commands.seeds import main as seed_db
-        seed_db()
-        click.echo("Seeds ejecutados. Base de datos reseteada correctamente.")
+       #seed_db()
+        #click.echo("Seeds ejecutados. Base de datos reseteada correctamente.")
 
