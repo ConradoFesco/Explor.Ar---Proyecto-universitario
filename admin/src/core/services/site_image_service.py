@@ -448,6 +448,155 @@ class SiteImageService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al reordenar imágenes: {e}")
     
+    def upload_multiple_images(self, site_id: int, files_data: List[Dict[str, Any]], 
+                              user_id: int = None) -> List[SiteImage]:
+        """
+        Sube múltiples imágenes a MinIO y crea los registros en la base de datos.
+        
+        Args:
+            site_id: ID del sitio histórico
+            files_data: Lista de diccionarios con {'file': FileStorage, 'titulo_alt': str, 'descripcion': Optional[str]}
+            user_id: ID del usuario que realiza la acción
+            
+        Returns:
+            List[SiteImage]: Lista de imágenes creadas
+            
+        Raises:
+            NotFoundError: Si el sitio no existe
+            ValidationError: Si hay errores de validación
+            DatabaseError: Si falla la operación
+        """
+        # Validar que el sitio existe
+        site = HistoricSite.query.get(site_id)
+        if not site or site.deleted:
+            raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
+        
+        # Validar límite de imágenes
+        current_count = SiteImage.query.filter_by(id_site=site_id).count()
+        if current_count + len(files_data) > MAX_IMAGES_PER_SITE:
+            raise exc.ValidationError(f"Se alcanzaría el límite máximo de {MAX_IMAGES_PER_SITE} imágenes por sitio.")
+        
+        uploaded_images = []
+        
+        try:
+            # Asegurar que el bucket existe
+            self._ensure_bucket_exists()
+            bucket_name = self._get_bucket_name()
+            
+            for file_data in files_data:
+                file = file_data.get('file')
+                titulo_alt = file_data.get('titulo_alt', '').strip()
+                descripcion = file_data.get('descripcion', '').strip() or None
+                
+                # Validar campos obligatorios
+                if not titulo_alt:
+                    raise exc.ValidationError("El título/alt es obligatorio para todas las imágenes")
+                
+                if len(titulo_alt) > 255:
+                    raise exc.ValidationError(f"El título/alt '{titulo_alt}' excede 255 caracteres")
+                
+                # Validar archivo
+                is_valid, error_msg = self._validate_file(file)
+                if not is_valid:
+                    raise exc.ValidationError(f"Error en archivo '{file.filename}': {error_msg}")
+                
+                # Generar nombre único
+                unique_filename = self._generate_unique_filename(file.filename, site_id)
+                
+                # Subir archivo a MinIO
+                file.seek(0, os.SEEK_END)
+                file_size = file.tell()
+                file.seek(0)
+                
+                file_data_bytes = file.read(file_size)
+                file.seek(0)
+                
+                extension = file.filename.rsplit('.', 1)[-1].lower()
+                content_type_map = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'webp': 'image/webp'
+                }
+                content_type = content_type_map.get(extension, 'image/jpeg')
+                
+                from io import BytesIO
+                file_stream = BytesIO(file_data_bytes)
+                
+                self.minio_client.put_object(
+                    bucket_name,
+                    unique_filename,
+                    file_stream,
+                    length=file_size,
+                    content_type=content_type
+                )
+                
+                # Construir URL pública
+                minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
+                if minio_server.startswith('http://') or minio_server.startswith('https://'):
+                    url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
+                else:
+                    url_publica = f"http://{minio_server}/{bucket_name}/{unique_filename}"
+                
+                # Obtener el orden desde los datos o calcular el siguiente
+                orden_from_data = file_data.get('order')
+                if orden_from_data is not None:
+                    # El orden viene relativo (0, 1, 2...), sumamos al máximo existente
+                    max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
+                    nuevo_orden = max_orden + orden_from_data + 1
+                else:
+                    max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
+                    nuevo_orden = max_orden + 1
+                
+                # Determinar si es portada
+                # Si es la primera imagen y no hay otras imágenes, o si está marcada explícitamente
+                is_cover = file_data.get('is_cover', False)
+                if not is_cover and current_count == 0 and len(uploaded_images) == 0:
+                    # Primera imagen del sitio, marcarla como portada
+                    is_cover = True
+                
+                # Crear registro en BD
+                new_image = SiteImage(
+                    id_site=site_id,
+                    url_publica=url_publica,
+                    titulo_alt=titulo_alt,
+                    descripcion=descripcion,
+                    orden=nuevo_orden,
+                    es_portada=is_cover
+                )
+                
+                db.session.add(new_image)
+                uploaded_images.append(new_image)
+            
+            # Si se marcó alguna como portada, asegurarse de que solo haya una
+            cover_images = [img for img in uploaded_images if img.es_portada]
+            if len(cover_images) > 1:
+                # Dejar solo la primera como portada
+                for img in cover_images[1:]:
+                    img.es_portada = False
+            elif len(cover_images) == 0 and uploaded_images:
+                # Si ninguna es portada pero hay imágenes, marcar la primera
+                uploaded_images[0].es_portada = True
+            
+            # Crear evento si se proporciona user_id
+            if user_id and uploaded_images:
+                event_data = {
+                    'id_site': site_id,
+                    'id_user': user_id,
+                    'type_Action': 'UPDATE'
+                }
+                event_service.create_event(event_data, commit=False)
+            
+            db.session.commit()
+            return uploaded_images
+            
+        except S3Error as e:
+            db.session.rollback()
+            raise exc.DatabaseError(f"Error al subir imágenes a MinIO: {e}")
+        except Exception as e:
+            db.session.rollback()
+            raise exc.DatabaseError(f"Error al crear imágenes: {e}")
+    
     def update_image_metadata(self, image_id: int, titulo_alt: Optional[str] = None, 
                               descripcion: Optional[str] = None, user_id: int = None) -> SiteImage:
         """
