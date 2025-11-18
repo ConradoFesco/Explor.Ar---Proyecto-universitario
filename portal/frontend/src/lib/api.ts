@@ -122,7 +122,7 @@ function mapSiteFromBackend(s: any): HistoricSite {
     tags: Array.isArray(s.tags) 
       ? s.tags.map((t: any) => t.name ?? t.slug ?? String(t)) 
       : [],
-    cover_image_url: s.cover_image_url ?? null,
+    cover_image_url: s.cover_image_url ?? s.cover_image?.url_publica ?? null,
     rating: s.rating ?? null,
     created_at: s.created_at,
     latitude: s.latitude ?? null,
@@ -202,14 +202,14 @@ export async function toggleFavorite(siteId: number, favorite: boolean): Promise
   const url = `${base}/sites/${siteId}/favorite`;
   
   try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Accept': 'application/json' },
-      credentials: 'include',
-    });
+  const res = await fetch(url, {
+    method,
+    headers: { 'Accept': 'application/json' },
+    credentials: 'include',
+  });
     
-    if (!res.ok && res.status !== 204) {
-      const text = await res.text().catch(() => '');
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text().catch(() => '');
       
       // Mejorar mensaje de error según el código de estado
       if (res.status === 401) {
