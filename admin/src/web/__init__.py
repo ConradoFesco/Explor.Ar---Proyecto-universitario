@@ -37,8 +37,13 @@ def create_app(env="development", static_folder="../../static"):
     #Inicializar storage
     storage.init_app(app)
     
-    # Habilitar CORS para API pública
-    CORS(app, resources={ r"/api/*": {"origins": "*"} })
+    # Habilitar CORS para API pública con soporte para cookies
+    CORS(app, resources={ 
+        r"/api/*": {
+            "origins": "*",
+            "supports_credentials": True  # Permite el envío de cookies en peticiones cross-origin
+        } 
+    })
     
     # Registrar blueprints
     register_blueprints(app)
