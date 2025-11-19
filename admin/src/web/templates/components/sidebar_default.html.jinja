@@ -21,8 +21,10 @@
     <span class="font-medium">Validación de Propuestas</span>
 </a>
 
-<!-- Moderación -->
-<a href="#" 
+{# Moderación de Reseñas - solo para roles con permiso 'moderate_reviews' o admins #}
+{% if (current_user and (is_admin or 'moderator' in user_roles or ('usuario' not in user_roles and 'editor' in user_roles))) or
+      (current_user and current_user.has_permission('moderate_reviews') if current_user else False) %}
+    <a href="{{ url_for('reviews_web.list_reviews_page') }}"
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
     <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
@@ -30,7 +32,7 @@
     </svg>
     <span class="font-medium">Moderación de Reseñas</span>
 </a>
-
+{% endif %}
 <!-- Gestión de Tags (NO accesible para usuario común) -->
 {% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
 <a href="{{ url_for('tags_web.lista_tags') }}" 

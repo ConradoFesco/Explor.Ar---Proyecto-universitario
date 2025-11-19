@@ -13,7 +13,8 @@ class HistoricSiteReview(db.Model):
     content = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
+    rejection_reason = db.Column(db.String(200), nullable=True)  
+    
     def __repr__(self) -> str:
         return f'<HistoricSiteReview site={self.site_id} user={self.user_id} rating={self.rating}>'
 
