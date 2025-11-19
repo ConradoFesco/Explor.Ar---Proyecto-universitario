@@ -205,6 +205,8 @@ class ReviewService:
             'mail': user.mail if user else None,
             'name': user.name if user else None
         }
+        # Agregar site_name para el template
+        data['site_name'] = review.site.name if review.site else None
         return data
 
     def approve_review(self, *, review_id: int) -> None:

@@ -66,4 +66,6 @@ def register_blueprints(app):
     from .blueprints.web.tags_pages import tags_web
     app.register_blueprint(tags_web)
 
-
+    # Blueprint Web para reseñas
+    from .blueprints.web.reviews_pages import reviews_web
+    app.register_blueprint(reviews_web)

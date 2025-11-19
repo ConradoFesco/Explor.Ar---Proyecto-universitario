@@ -140,14 +140,14 @@ function clearMapSelection() {
 <template>
   <form @submit.prevent="applyManualFilters" class="space-y-3">
     <div>
-      <label class="block text-sm font-medium mb-1">Buscar</label>
+      <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Buscar</label>
       <Input v-model="text" type="search" placeholder="Nombre o descripción" />
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
-        <label class="block text-sm font-medium mb-1">Ciudad</label>
-        <div v-if="isLoadingOptions" class="text-xs text-gray-500 py-2">Cargando ciudades...</div>
+        <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Ciudad</label>
+        <div v-if="isLoadingOptions" class="text-xs text-gray-500 dark:text-gray-400 py-2">Cargando ciudades...</div>
         <NativeSelect
           v-else
           v-model="city"
@@ -155,13 +155,13 @@ function clearMapSelection() {
           placeholder="Todas las ciudades"
           :options="cityOptions"
         />
-        <p v-if="!isLoadingOptions && filterOptions" class="text-xs text-gray-400 mt-1">
+        <p v-if="!isLoadingOptions && filterOptions" class="text-xs text-gray-400 dark:text-gray-300 mt-1">
           {{ filterOptions.cities?.length || 0 }} ciudades disponibles
         </p>
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">Provincia</label>
-        <div v-if="isLoadingOptions" class="text-xs text-gray-500 py-2">Cargando provincias...</div>
+        <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Provincia</label>
+        <div v-if="isLoadingOptions" class="text-xs text-gray-500 dark:text-gray-400 py-2">Cargando provincias...</div>
         <NativeSelect
           v-else
           v-model="province"
@@ -169,15 +169,15 @@ function clearMapSelection() {
           placeholder="Todas las provincias"
           :options="provinceOptions"
         />
-        <p v-if="!isLoadingOptions && filterOptions" class="text-xs text-gray-400 mt-1">
+        <p v-if="!isLoadingOptions && filterOptions" class="text-xs text-gray-400 dark:text-gray-300 mt-1">
           {{ filterOptions.provinces?.length || 0 }} provincias disponibles
         </p>
       </div>
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1">Tags</label>
-      <div v-if="isLoadingOptions" class="text-xs text-gray-500">Cargando tags...</div>
+      <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Tags</label>
+      <div v-if="isLoadingOptions" class="text-xs text-gray-500 dark:text-gray-400">Cargando tags...</div>
       <div v-else class="flex flex-wrap gap-2">
         <Badge
           v-for="tag in filterOptions?.tags || []"
@@ -189,19 +189,19 @@ function clearMapSelection() {
           {{ tag.name }}
         </Badge>
       </div>
-      <p v-if="selectedTags.length" class="text-xs text-gray-500 mt-2">
+      <p v-if="selectedTags.length" class="text-xs text-gray-500 dark:text-gray-400 mt-2">
         Seleccionados: {{ selectedTags.length }}
       </p>
     </div>
 
     <div class="flex items-center gap-2">
       <Checkbox id="fav" v-model:checked="favoritesOnly" />
-      <label for="fav" class="text-sm select-none">Favoritos</label>
+      <label for="fav" class="text-sm select-none text-gray-900 dark:text-gray-100">Favoritos</label>
     </div>
 
     <Accordion v-model="mapAccordionOpen" type="single" collapsible class="w-full">
-      <AccordionItem value="map" class="border rounded">
-        <AccordionTrigger class="px-3 py-2 text-sm">
+      <AccordionItem value="map" class="border border-gray-200 dark:border-gray-700 rounded">
+        <AccordionTrigger class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
           <div class="flex items-center gap-2">
             <MapPin class="h-4 w-4" />
             <span>Búsqueda por mapa</span>
@@ -217,12 +217,12 @@ function clearMapSelection() {
               />
             </div>
             <div class="flex items-center justify-between">
-              <div v-if="lat != null && long != null" class="text-xs text-gray-600">
+              <div v-if="lat != null && long != null" class="text-xs text-gray-600 dark:text-gray-300">
                 <p class="font-medium">Punto seleccionado:</p>
                 <p>{{ lat.toFixed(5) }}, {{ long.toFixed(5) }}</p>
                 <p class="mt-1">Radio: {{ radius }} m</p>
               </div>
-              <div v-else class="text-xs text-gray-500">
+              <div v-else class="text-xs text-gray-500 dark:text-gray-400">
                 Hacé clic en el mapa para seleccionar un punto
               </div>
               <div class="flex gap-2 items-center">
@@ -238,9 +238,9 @@ function clearMapSelection() {
                   </Button>
                   <div
                     v-if="radiusDropdownOpen"
-                    class="absolute right-0 bottom-full mb-2 w-64 bg-white border rounded-md shadow-lg z-50 p-3"
+                    class="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 p-3"
                   >
-                    <label class="block text-sm font-medium mb-1">Radio de búsqueda (metros)</label>
+                    <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Radio de búsqueda (metros)</label>
                     <Input
                       v-model.number="radius"
                       type="number"
@@ -250,7 +250,7 @@ function clearMapSelection() {
                       placeholder="1000"
                       class="mb-2"
                     />
-                    <p class="text-xs text-gray-500">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
                       El radio se aplicará desde el punto seleccionado en el mapa.
                     </p>
                   </div>
@@ -271,7 +271,7 @@ function clearMapSelection() {
       </AccordionItem>
     </Accordion>
 
-    <div class="flex items-center justify-end gap-2 pt-2 border-t">
+    <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
       <Button type="button" variant="outline" size="sm" @click="reset">
         Limpiar
       </Button>

@@ -115,7 +115,7 @@ def list_reviews_page():
         )
         items = result.get('items', [])
         pagination = result.get('pagination', {})
-    except exc.ApplicationError as e:
+    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         flash('Error al cargar reseñas: ' + str(e), 'error')
         items = []
         pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0}
@@ -150,7 +150,7 @@ def list_reviews_fragment():
         )
         items = result.get('items', [])
         pagination = result.get('pagination', {})
-    except exc.ApplicationError as e:
+    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         items = []
         pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0}
     
@@ -186,7 +186,7 @@ def review_detail_fragment(review_id):
         )
         
         return render_template('features/reviews/_detail_fragment.html.jinja', review=review_data)
-    except exc.ApplicationError as e:
+    except (exc.ValidationError, exc.NotFoundError, exc.ForbiddenError, exc.DatabaseError) as e:
         flash('Error al cargar reseña: ' + str(e), 'error')
         return redirect(url_for('reviews_web.list_reviews_page'))
     except Exception as e:
@@ -206,7 +206,7 @@ def aprobar_review(review_id):
     try:
         review_service.approve_review(review_id=review_id)
         flash('Reseña aprobada correctamente', 'success')
-    except exc.ApplicationError as e:
+    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         flash('Error al aprobar reseña: ' + str(e), 'error')
     except Exception as e:
         flash('Error inesperado: ' + str(e), 'error')
@@ -230,7 +230,7 @@ def rechazar_review(review_id):
     try:
         review_service.reject_review(review_id=review_id, reason=reason)
         flash('Reseña rechazada correctamente', 'success')
-    except exc.ApplicationError as e:
+    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         flash('Error al rechazar reseña: ' + str(e), 'error')
     except Exception as e:
         flash('Error inesperado: ' + str(e), 'error')
@@ -248,7 +248,7 @@ def eliminar_review(review_id):
     try:
         review_service.delete_review_admin(review_id=review_id)
         flash('Reseña eliminada correctamente', 'success')
-    except exc.ApplicationError as e:
+    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         flash('Error al eliminar reseña: ' + str(e), 'error')
     except Exception as e:
         flash('Error inesperado: ' + str(e), 'error')

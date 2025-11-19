@@ -34,7 +34,7 @@ function handleChange(event: Event) {
       @change="handleChange"
       :disabled="disabled"
       :class="cn(
-        'appearance-none w-full h-9 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
+        'appearance-none w-full h-9 rounded-md border border-input bg-transparent dark:bg-gray-700/50 dark:text-gray-100 px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
         'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
         'disabled:cursor-not-allowed disabled:opacity-50',
         'pr-8',
@@ -51,7 +51,7 @@ function handleChange(event: Event) {
       </option>
     </select>
     <ChevronDown
-      class="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none"
+      class="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 dark:opacity-70 pointer-events-none text-gray-900 dark:text-gray-100"
     />
   </div>
 </template>

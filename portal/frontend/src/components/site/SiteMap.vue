@@ -117,7 +117,7 @@ onBeforeUnmount(() => {
 <template>
   <div 
     ref="mapContainer" 
-    class="w-full h-64 md:h-96 rounded border overflow-hidden"
+    class="w-full h-64 md:h-80 lg:h-96 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm"
     role="img"
     :aria-label="`Mapa mostrando la ubicación de ${siteName}`"
   ></div>

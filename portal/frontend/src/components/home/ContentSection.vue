@@ -22,7 +22,7 @@ defineProps<{
 
 <template>
   <section class="py-12 md:py-16">
-    <div class="max-w-7xl mx-auto px-4 md:px-8">
+    <div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
 
       <!-- Encabezado de la Sección -->
       <div class="flex items-center justify-between mb-8">
