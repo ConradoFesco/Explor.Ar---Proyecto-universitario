@@ -58,10 +58,10 @@ watch(() => props.images.length, (newLength, oldLength) => {
 
 <template>
   <section class="space-y-3">
-    <h2 class="text-xl font-semibold">Galería de Imágenes</h2>
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Galería de Imágenes</h2>
 
     <!-- Carrusel Principal -->
-    <div class="relative">
+    <div class="relative w-full">
       <Carousel
         class="w-full"
         :opts="{
@@ -69,6 +69,7 @@ watch(() => props.images.length, (newLength, oldLength) => {
           loop: hasMultipleImages,
           dragFree: false,
           containScroll: 'trimSnaps',
+          slidesToScroll: 1,
         }"
         @init-api="onInit"
       >
@@ -76,9 +77,10 @@ watch(() => props.images.length, (newLength, oldLength) => {
           <CarouselItem
             v-for="(image, index) in images"
             :key="image.id"
+            class="basis-full md:basis-1/2 lg:basis-1/3"
           >
             <div class="p-1">
-              <AspectRatio :ratio="16 / 9" class="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border dark:border-gray-700">
+              <AspectRatio :ratio="4 / 3" class="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                 <img
                   :src="image.url_publica"
                   :alt="image.titulo_alt || `${siteName} - Imagen ${index + 1}`"
@@ -103,28 +105,6 @@ watch(() => props.images.length, (newLength, oldLength) => {
       >
         {{ currentIndex + 1 }} / {{ images.length }}
       </div>
-    </div>
-
-    <!-- Miniaturas -->
-    <div v-if="hasMultipleImages" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-      <button
-        v-for="(image, index) in images"
-        :key="image.id"
-        @click="goToImage(index)"
-        :class="[
-          'relative aspect-square rounded-md overflow-hidden border-2 transition-all cursor-pointer',
-          currentIndex === index
-            ? 'border-blue-600 ring-2 ring-blue-600/20 opacity-100'
-            : 'border-transparent opacity-70 hover:opacity-100 hover:border-gray-300 dark:hover:border-gray-600'
-        ]"
-        :aria-label="`Ver imagen ${index + 1}: ${image.titulo_alt || siteName}`"
-      >
-        <img
-          :src="image.url_publica"
-          :alt="image.titulo_alt || `${siteName} - Miniatura ${index + 1}`"
-          class="w-full h-full object-cover"
-        />
-      </button>
     </div>
 
     <!-- Descripción de la Imagen Actual -->

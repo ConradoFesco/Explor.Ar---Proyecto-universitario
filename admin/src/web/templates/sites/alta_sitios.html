@@ -38,19 +38,25 @@
             <form id="site-form" class="space-y-4">
                 {% import 'features/sites/_form_fields.html.jinja' as sitef %}
                 {{ sitef.render_site_form_fields(True, False) }}
-
-                <!-- Botones de acción -->
-                <div class="flex justify-end space-x-3 pt-4">
-                    <button type="button" onclick="cancelCreate()" 
-                            class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200">
-                        Cancelar
-                    </button>
-                    <button type="submit" 
-                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200">
-                        Guardar Sitio Histórico
-                    </button>
-                </div>
             </form>
+        </div>
+        
+        <!-- Gestión de imágenes -->
+        <div id="images-section">
+            {% import 'features/sites/_images_manager.html.jinja' as imgmgr %}
+            {{ imgmgr.render_images_manager() }}
+        </div>
+        
+        <!-- Botones de acción (movidos al final) -->
+        <div class="flex justify-end space-x-3 pt-4 mt-6">
+            <button type="button" onclick="cancelCreate()" 
+                    class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200">
+                Cancelar
+            </button>
+            <button type="submit" form="site-form"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200">
+                Guardar Sitio Histórico
+            </button>
         </div>
         
     </div>
@@ -68,6 +74,7 @@
   </script>
 <script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
 <script src="{{ url_for('static', filename='js/create_site.js') }}"></script>
+<script src="{{ url_for('static', filename='js/images_manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sidebar_fix.js') }}"></script>
 
 <!-- Los datos del usuario se obtienen del backend a través de la sesión -->

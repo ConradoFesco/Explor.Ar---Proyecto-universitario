@@ -11,55 +11,45 @@
         </p>
     </div>
     
-    <!-- Formulario para subir imagen -->
+    <!-- Formulario para subir imágenes -->
     <div class="mb-6 p-4 border border-gray-300 rounded-md bg-white">
-        <h4 class="text-md font-medium text-gray-700 mb-3">Subir Nueva Imagen</h4>
+        <h4 class="text-md font-medium text-gray-700 mb-3">Subir Imágenes</h4>
         <form id="upload-image-form" class="space-y-3" enctype="multipart/form-data">
             <input type="hidden" id="site-id-for-images" value="{{ site_id or '' }}">
             
             <div>
-                <label for="imagen-file" class="block text-sm font-medium text-gray-700 mb-1">Archivo de Imagen *</label>
-                <input type="file" id="imagen-file" name="imagen" accept=".jpg,.jpeg,.png,.webp" required
+                <label for="imagen-file" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Imágenes *</label>
+                <input type="file" id="imagen-file" name="imagenes" accept=".jpg,.jpeg,.png,.webp" multiple
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <small class="text-gray-500">Formatos: JPG, PNG, WEBP (máx. 5 MB)</small>
+                <small class="text-gray-500">Formatos: JPG, PNG, WEBP (máx. 5 MB cada una). Puede seleccionar múltiples imágenes.</small>
             </div>
             
-            <!-- Previsualización de imagen -->
-            <div id="image-preview-container" class="hidden">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Vista Previa</label>
-                <div class="border border-gray-300 rounded-md p-2 bg-gray-50">
-                    <img id="image-preview" src="" alt="Vista previa" class="max-w-full max-h-48 mx-auto rounded-md">
-                </div>
+            <!-- Lista de imágenes seleccionadas (previsualización antes de subir) -->
+            <div id="selected-images-preview" class="space-y-3 mt-4" style="display: none;">
+                <h5 class="text-sm font-medium text-gray-700">Imágenes seleccionadas:</h5>
+                <div id="selected-images-list" class="space-y-2"></div>
             </div>
             
-            <div>
-                <label for="titulo-alt" class="block text-sm font-medium text-gray-700 mb-1">Título/Alt Text *</label>
-                <input type="text" id="titulo-alt" name="titulo_alt" required maxlength="255"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                       placeholder="Descripción breve de la imagen">
-            </div>
-            
-            <div>
-                <label for="descripcion-imagen" class="block text-sm font-medium text-gray-700 mb-1">Descripción (opcional)</label>
-                <textarea id="descripcion-imagen" name="descripcion" rows="2"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Descripción adicional de la imagen"></textarea>
-            </div>
-            
-            <button type="submit" 
+            <button type="button" id="btn-upload-images" 
                     class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-200">
-                Cargar Imagen
+                Cargar Imágenes
+            </button>
+            <button type="button" id="btn-clear-selection" 
+                    class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200 ml-2" style="display: none;">
+                Limpiar Selección
             </button>
         </form>
     </div>
     
-    <!-- Lista de imágenes existentes -->
+    <!-- Lista de imágenes existentes (solo se muestra cuando hay site_id, es decir, en edición) -->
+    {% if site_id %}
     <div id="images-list-container">
         <h4 class="text-md font-medium text-gray-700 mb-3">Imágenes del Sitio</h4>
         <div id="images-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <p class="text-gray-500 col-span-full" id="no-images-message">No hay imágenes cargadas aún.</p>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <style>
@@ -114,6 +104,27 @@
 
 .drag-handle:hover {
     color: #374151;
+}
+
+.preview-image-item {
+    transition: all 0.2s ease;
+}
+
+.preview-image-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.preview-image-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.drag-handle-preview {
+    z-index: 10;
+}
+
+.drag-handle-preview:hover {
+    background-color: rgba(0, 0, 0, 0.7) !important;
 }
 </style>
 {% endmacro %}

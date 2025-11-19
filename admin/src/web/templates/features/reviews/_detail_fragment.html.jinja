@@ -3,7 +3,7 @@
     <h4 class="text-lg font-semibold text-gray-800 mb-2">Reseña #{{ review.id }}</h4>
     <div class="flex items-center gap-4 text-sm text-gray-600">
       <span><strong>Sitio:</strong> {{ review.site_name or 'N/A' }}</span>
-      <span><strong>Usuario:</strong> {{ review.user.mail if review.user else 'N/A' }}</span>
+      <span><strong>Usuario:</strong> {{ review.user.mail if review.user and review.user.mail else 'N/A' }}</span>
     </div>
   </div>
 
@@ -55,7 +55,7 @@
       <span class="font-medium text-blue-700">Fecha de creación</span>
       <p class="text-blue-600">{{ review.created_at | default('N/A') }}</p>
     </div>
-    {% if review.user %}
+    {% if review.user and (review.user.name or review.user.mail) %}
     <div class="text-center p-2 bg-green-50 rounded">
       <span class="font-medium text-green-700">Usuario</span>
       <p class="text-green-600">{{ review.user.name or review.user.mail }}</p>

@@ -76,7 +76,8 @@ class ReviewService:
             if filters.get('user'):
                 user_filter = str(filters['user']).strip()
                 if user_filter:
-                    query = query.filter(User.mail.ilike(f"%{user_filter}%"))
+                    # Buscar solo al inicio del email (no contiene)
+                    query = query.filter(User.mail.ilike(f"{user_filter}%"))
 
         # Contar total sin order_by (para evitar el error de PostgreSQL)
         total = query.with_entities(func.count(HistoricSiteReview.id)).scalar()
@@ -200,11 +201,16 @@ class ReviewService:
 
         user = User.query.get(review.user_id)
         data = review.to_dict()
+        # Agregar rejection_reason si no está en to_dict
+        if not 'rejection_reason' in data:
+            data['rejection_reason'] = review.rejection_reason
         data['user'] = {
             'id': user.id if user else None,
             'mail': user.mail if user else None,
             'name': user.name if user else None
         }
+        # Agregar site_name para el template
+        data['site_name'] = review.site.name if review.site else None
         return data
 
     def approve_review(self, *, review_id: int) -> None:

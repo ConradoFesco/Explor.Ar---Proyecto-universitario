@@ -22,7 +22,7 @@ class HistoricSite(db.Model):
     # Relaciones
     events = db.relationship('Event', backref='historic_site', lazy=True)
     tag_historic_sites = db.relationship('TagHistoricSite', backref='historic_site', lazy=True)
-    reviews = db.relationship('HistoricSiteReview', backref='site', lazy=True)
+    reviews = db.relationship('HistoricSiteReview', backref='site', lazy='joined')
     favorites = db.relationship('FavoriteSite', backref='site', lazy=True)
     
     def __repr__(self) -> str:
