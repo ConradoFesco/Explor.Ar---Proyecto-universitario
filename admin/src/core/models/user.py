@@ -10,7 +10,7 @@ class User(db.Model):
     mail = db.Column(db.String, nullable=False, unique=True)
     name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
-    password = db.Column(db.String, nullable=False)
+    password = db.Column(db.String, nullable=True)
     active = db.Column(db.Boolean)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     blocked = db.Column(db.Boolean)
@@ -19,6 +19,7 @@ class User(db.Model):
     deleted_at = db.Column(db.DateTime, nullable=True)
     deletion_reason = db.Column(db.String(255), nullable=True)
     deleted_by_id = db.Column(db.Integer, nullable=True)
+    avatar_url = db.Column(db.String, nullable=True)
 
     # Relaciones
     events = db.relationship('Event', backref='user', lazy=True)

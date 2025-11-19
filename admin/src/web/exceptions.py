@@ -14,3 +14,7 @@ class ForbiddenError(Exception):
 class DatabaseError(Exception):
     """Error para problemas inesperados con la base de datos."""
     pass
+
+class AuthenticationError(Exception):
+    """Error para problemas de autenticación."""
+    pass
