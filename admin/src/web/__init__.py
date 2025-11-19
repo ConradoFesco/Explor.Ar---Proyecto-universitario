@@ -70,8 +70,7 @@ def create_app(env="development", static_folder="../../static"):
                  "allow_headers": ["Content-Type", "Authorization", "Accept"],
                  "supports_credentials": True
              }},
-             supports_credentials=True)
-    
+            supports_credentials=True)
     # Registrar blueprints
     register_blueprints(app)
     

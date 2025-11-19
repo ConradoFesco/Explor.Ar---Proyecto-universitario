@@ -1,7 +1,15 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
-// CAMBIO: Importamos el header global
 import AppHeader from '@/components/layout/AppHeader.vue'
+import { useAuth } from '@/composables/useAuth'
+
+const auth = useAuth()
+
+// Verificar autenticación al cargar la app
+onMounted(async () => {
+  await auth.checkAuth()
+})
 </script>
 
 <template>

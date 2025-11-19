@@ -39,7 +39,8 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'blocked': self.blocked,
             'deleted': self.deleted,
-            'is_super_admin': self.is_super_admin
+            'is_super_admin': self.is_super_admin,
+            'avatar_url': self.avatar_url
         }
 
     # --- Métodos de password ---
