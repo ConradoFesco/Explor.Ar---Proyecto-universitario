@@ -200,12 +200,23 @@ document.addEventListener('DOMContentLoaded', () => {
   function gatherFilters(prefix = '') {
     const f = {};
     const searchInput = document.getElementById(prefix + 'search-input');
-    if (searchInput) f[ (searchInput.getAttribute('name') || 'search') ] = searchInput.value.trim();
+    // El search_param es 'user' según el template de reviews
+    if (searchInput && searchInput.value.trim()) {
+      f['user'] = searchInput.value.trim();
+    }
 
     const sortBy = document.getElementById(prefix + 'sort-by');
-    if (sortBy) f.sort_by = sortBy.value;
+    if (sortBy && sortBy.value) {
+      f.sort_by = sortBy.value;
+    } else {
+      f.sort_by = 'created_at'; // Valor por defecto
+    }
     const sortOrder = document.getElementById(prefix + 'sort-order');
-    if (sortOrder) f.sort_order = sortOrder.value;
+    if (sortOrder && sortOrder.value) {
+      f.sort_order = sortOrder.value;
+    } else {
+      f.sort_order = 'desc'; // Valor por defecto
+    }
 
     // Collect selects and inputs for filters panels by convention: id = filter-<name>
     document.querySelectorAll('[id^="filter-"]').forEach(el => {
@@ -236,13 +247,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyBtn = document.getElementById(prefix + 'apply-filters');
     const clearBtn = document.getElementById(prefix + 'clear-filters');
     const searchInput = document.getElementById(prefix + 'search-input');
+    const sortBy = document.getElementById(prefix + 'sort-by');
+    const sortOrder = document.getElementById(prefix + 'sort-order');
+    
+    // Bind sort changes to trigger search
+    if (sortBy) {
+      sortBy.addEventListener('change', () => {
+        currentFilters = gatherFilters(prefix);
+        currentPage = 1;
+        fetchFragment(currentPage, currentFilters);
+      });
+    }
+    if (sortOrder) {
+      sortOrder.addEventListener('change', () => {
+        currentFilters = gatherFilters(prefix);
+        currentPage = 1;
+        fetchFragment(currentPage, currentFilters);
+      });
+    }
+    
     if (applyBtn) {
       applyBtn.onclick = () => {
         currentFilters = gatherFilters(prefix);
         currentPage = 1;
-        // Si el filtro de status es 'Todos', forzar status: ''
-        if (currentFilters.status === undefined || currentFilters.status === null || currentFilters.status === 'Todos') {
-          currentFilters.status = '';
+        // Si el filtro de status es 'Todos' o vacío, no incluir el filtro
+        if (currentFilters.status === undefined || currentFilters.status === null || currentFilters.status === '' || currentFilters.status === 'Todos') {
+          delete currentFilters.status;
         }
         fetchFragment(currentPage, currentFilters);
       };
@@ -287,12 +317,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const initialFilters = {};
   // populate initialFilters from current URL search params (so SSR values persist on first AJAX load)
   const urlParams = new URLSearchParams(window.location.search);
-  let hasStatus = false;
   urlParams.forEach((v,k) => {
     initialFilters[k]=v;
-    if (k === 'status') hasStatus = true;
   });
-  if (!hasStatus) initialFilters.status = 'pending';
+  // Establecer valores de ordenamiento desde URL o por defecto
+  if (!initialFilters.sort_by) initialFilters.sort_by = 'created_at';
+  if (!initialFilters.sort_order) initialFilters.sort_order = 'desc';
+  // No establecer status por defecto (mostrar todas)
   fetchFragment(1, initialFilters);
 
   // modal reject save/cancel handlers (bind directly - we're already in DOMContentLoaded)
