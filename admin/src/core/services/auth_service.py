@@ -71,17 +71,20 @@ class AuthService:
                 last_name=new_last_name,
                 avatar_url=new_avatar_url,
             )
+            db.session.add(user)
+            # Flush para obtener el ID del usuario antes de crear la relación
+            db.session.flush()
+            
             default_rol = RolUser.query.filter_by(name='Comun').first()
             if default_rol:
-                # Forma correcta
-                user.user_roles.append(RolUserUser(User_id=user.id, Rol_User_id=default_rol.id))
-            db.session.add(user)
+                # Crear la relación usando ambos IDs explícitamente
+                user.user_roles.append(RolUserUser(Rol_User_id=default_rol.id))
         # 4. Guarda los cambios (sea un update o un create)
         try:
             db.session.commit()
         except IntegrityError as e:
             db.session.rollback()
-            raise DatabaseError(f"Error al crear el usuario: {e}")
+            raise exc.DatabaseError(f"Error al crear el usuario: {e}")
         return user
 
 auth_service = AuthService()
