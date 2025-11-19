@@ -132,12 +132,11 @@ def _error_response(code, message, status_code=400):
 """
 @login_bp.route("/auth", methods=["POST"])
 def auth():
-    """
-    """
+    """"""
     Endpoint para autenticación con email y contraseña.
     Retorna un JWT en formato JSON.
     """
-    """
+"""
     data = request.get_json() or {}
     mail = (data.get("mail") or "").strip()
     password = data.get("password")
