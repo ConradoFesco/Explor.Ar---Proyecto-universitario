@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchSiteDetail, type HistoricSiteDetail } from '@/lib/api'
+import { fetchSiteDetail, type HistoricSiteDetail, type HistoricSite } from '@/lib/api'
 import { useSitesStore } from '@/stores/sites'
 import { useAuth } from '@/composables/useAuth'
-import { useFavorite } from '@/composables/useFavorite'
 import { useReviews } from '@/composables/useReviews'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,7 +23,6 @@ const sitesStore = useSitesStore()
 // Composables
 const siteId = computed(() => Number(route.params.id))
 const { isAuthenticated, checkAuth, redirectToLogin } = useAuth()
-const { toggleSiteFavorite } = useFavorite()
 const reviews = useReviews(() => siteId.value)
 
 // State
@@ -77,42 +75,14 @@ async function loadSite() {
   }
 }
 
-async function handleToggleFavorite() {
-  if (!site.value) return
-  
-  const previousState = site.value.is_favorite ?? false
-  
-  try {
-    const newState = await toggleSiteFavorite(
-      site.value.id,
-      previousState,
-      (newState) => {
-        // Callback de éxito: actualizar estado local
-        if (site.value) {
-          site.value.is_favorite = newState
-        }
-      }
-    )
-    
-    // Si no hubo error, el estado ya se actualizó en el callback
-    if (site.value) {
-      site.value.is_favorite = newState
-    }
-  } catch {
-    // El error ya fue manejado en useFavorite
-    // Revertir cambio optimista
-    if (site.value) {
-      site.value.is_favorite = previousState
-    }
-    
-    // Recargar sitio sin autenticación si falló por auth
-    if (site.value && !isAuthenticated.value) {
-      try {
-        site.value = await fetchSiteDetail(siteId.value, false)
-      } catch {
-        // Ignorar errores al recargar
-      }
-    }
+function handleFavoriteUpdate(newState: boolean) {
+  if (site.value) {
+    site.value = { ...site.value, is_favorite: newState }
+  }
+  // Actualizar en el store si el sitio está en la lista
+  const idx = sitesStore.items.findIndex(s => s.id === site.value?.id)
+  if (idx >= 0 && site.value) {
+    sitesStore.items[idx] = { ...sitesStore.items[idx], is_favorite: newState } as HistoricSite
   }
 }
 
@@ -197,7 +167,7 @@ onMounted(() => {
       <SiteHeader
         :site="site"
         :reviews-total="reviews.reviewsTotal.value"
-        @toggle-favorite="handleToggleFavorite"
+        @favorite-update="handleFavoriteUpdate"
       />
 
       <!-- Galería de Imágenes -->

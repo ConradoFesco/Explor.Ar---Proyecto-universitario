@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { HistoricSite, PaginatedResponse, SiteSearchParams } from '@/lib/api'
-import { fetchPublicSites, fetchMyFavorites, toggleFavorite } from '@/lib/api'
+import { fetchPublicSites, fetchMyFavorites } from '@/lib/api'
 
 export type SortOption = {
   field: 'created_at' | 'name' | 'rating'
@@ -48,20 +48,35 @@ function sortByName(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] 
   })
 }
 
-function filterFavorites(items: HistoricSite[], text: string, city: string, province: string, tags: string[]): HistoricSite[] {
+function filterSites(
+  items: HistoricSite[],
+  text: string,
+  city: string,
+  province: string,
+  tags: string[]
+): HistoricSite[] {
   const textLower = text.toLowerCase()
   return items.filter((s) => {
+    // Filtrar por texto (nombre o descripción)
     const matchesText = !text ||
-      s.name?.toLowerCase().startsWith(textLower) ||
-      (s.brief_description || '').toLowerCase().startsWith(textLower)
+      s.name?.toLowerCase().includes(textLower) ||
+      (s.brief_description || '').toLowerCase().includes(textLower)
+    
+    // Filtrar por ciudad
     const matchesCity = !city || (s.city || '').toLowerCase() === city.toLowerCase()
+    
+    // Filtrar por provincia
     const matchesProvince = !province || (s.province || '').toLowerCase() === province.toLowerCase()
+    
+    // Filtrar por tags
     const matchesTags = !tags.length || tags.every(t => 
       s.tags?.map(x => x.toLowerCase()).includes(t.toLowerCase())
     )
+    
     return matchesText && matchesCity && matchesProvince && matchesTags
   })
 }
+
 
 export const useSitesStore = defineStore('sites', {
   state: (): SitesState => ({
@@ -168,25 +183,73 @@ export const useSitesStore = defineStore('sites', {
         const params = this.toSearchParams()
         let response: PaginatedResponse<HistoricSite>
         
-        if (params.favoritesOnly) {
-          response = await fetchMyFavorites(params.page ?? 1, params.perPage ?? 20)
-          let filtered = filterFavorites(response.items, this.text, this.city, this.province, this.tags)
-          
-          if (this.sort.field === 'name') {
-            filtered = sortByName(filtered, this.sort.dir)
+        if (this.favoritesOnly) {
+          try {
+            // Obtener todos los favoritos del usuario
+            let allFavoritesItems: HistoricSite[] = []
+            const perPage = 100
+            let totalPages = 1
+            
+            const firstPage = await fetchMyFavorites(1, perPage)
+            allFavoritesItems = [...firstPage.items]
+            totalPages = firstPage.total_pages
+            
+            if (totalPages > 1) {
+              const remainingPages = []
+              for (let page = 2; page <= totalPages; page++) {
+                remainingPages.push(fetchMyFavorites(page, perPage))
+              }
+              const remainingResults = await Promise.all(remainingPages)
+              for (const result of remainingResults) {
+                allFavoritesItems = [...allFavoritesItems, ...result.items]
+              }
+            }
+            
+            // Aplicar filtros adicionales (texto, ciudad, provincia, tags)
+            let filtered = filterSites(
+              allFavoritesItems,
+              this.text,
+              this.city,
+              this.province,
+              this.tags
+            )
+            
+            // Aplicar ordenamiento si es necesario
+            if (this.sort.field === 'name') {
+              filtered = sortByName(filtered, this.sort.dir)
+            }
+            
+            // Aplicar paginación
+            const resultPerPage = params.perPage ?? 20
+            const resultCurrentPage = params.page ?? 1
+            const startIndex = (resultCurrentPage - 1) * resultPerPage
+            const endIndex = startIndex + resultPerPage
+            const paginatedItems = filtered.slice(startIndex, endIndex)
+            
+            response = {
+              items: paginatedItems,
+              total: filtered.length,
+              total_pages: Math.max(1, Math.ceil(filtered.length / resultPerPage)),
+              page: resultCurrentPage,
+              per_page: resultPerPage
+            }
+          } catch (authError: any) {
+            if (authError?.message?.includes('401') || authError?.message?.includes('autenticado')) {
+              this.favoritesOnly = false
+              response = await fetchPublicSites({ ...params, favoritesOnly: false })
+            } else {
+              throw authError
+            }
           }
-          
-          response.items = filtered
-          response.total = filtered.length
-          response.total_pages = Math.max(1, Math.ceil(filtered.length / (params.perPage ?? 20)))
         } else {
           response = await fetchPublicSites(params)
+          
+          if (this.sort.field === 'name') {
+            response.items = sortByName(response.items, this.sort.dir)
+          }
         }
         
         let pageItems = response.items
-        if (!params.favoritesOnly && this.sort.field === 'name') {
-          pageItems = sortByName(pageItems, this.sort.dir)
-        }
         
         if (replace) {
           this.items = pageItems
@@ -200,26 +263,6 @@ export const useSitesStore = defineStore('sites', {
       } finally {
         this.isLoading = false
         this.isNextLoading = false
-      }
-    },
-    async setFavorite(siteId: number, makeFav: boolean) {
-      const idx = this.items.findIndex(s => s.id === siteId)
-      const currentItem = idx >= 0 ? this.items[idx] : null
-      const previousState = currentItem?.is_favorite ?? false
-      
-      // Optimistic update
-      if (currentItem) {
-        this.items[idx] = { ...currentItem, is_favorite: makeFav } as HistoricSite
-      }
-      
-      try {
-        await toggleFavorite(siteId, makeFav)
-      } catch (error) {
-        // Revertir cambio optimista si falla
-        if (currentItem) {
-          this.items[idx] = { ...currentItem, is_favorite: previousState } as HistoricSite
-        }
-        throw error // Re-lanzar para que el componente maneje el error
       }
     },
   },

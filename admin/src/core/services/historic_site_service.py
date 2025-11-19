@@ -112,12 +112,13 @@ class HistoricSiteService:
 
         return historic_site
 
-    def get_historic_site(self, id):
+    def get_historic_site(self, id, user_id=None):
         """
         Obtiene un sitio histórico con datos relacionados y tags.
 
         Args:
             id (int): ID del sitio.
+            user_id (int, optional): ID del usuario para verificar si es favorito.
 
         Returns:
             dict: Representación del sitio con relaciones y tags.
@@ -126,6 +127,7 @@ class HistoricSiteService:
             NotFoundError: Si no existe.
         """
         from src.core.models.category_site import CategorySite
+        from src.core.models.favorite_site import FavoriteSite
         
         # Hacer join para obtener datos de relaciones
         site = HistoricSite.query.join(City, HistoricSite.id_ciudad == City.id)\
@@ -152,6 +154,13 @@ class HistoricSiteService:
         site_data['province_name'] = site.city.province.name if hasattr(site, 'city') and site.city and site.city.province else None
         site_data['state_name'] = site.state_site.state if hasattr(site, 'state_site') and site.state_site else None
         site_data['category_name'] = site.category.name if hasattr(site, 'category') and site.category else None
+        
+        # Verificar si es favorito del usuario (si está autenticado)
+        is_favorite = False
+        if user_id:
+            favorite = FavoriteSite.query.filter_by(site_id=id, user_id=user_id).first()
+            is_favorite = favorite is not None
+        site_data['is_favorite'] = is_favorite
         
         # Agregar imágenes del sitio
         from src.core.services.site_image_service import site_image_service
@@ -620,11 +629,15 @@ class HistoricSiteService:
 
     def search_public_sites(self, *, name=None, description=None, city=None, province=None,
                             tags=None, order_by='latest', latitude=None, longitude=None,
-                            radius_km=None, page=1, per_page=25):
+                            radius_km=None, page=1, per_page=25, user_id=None):
         """
         Devuelve sitios visibles para el portal público respetando filtros estandarizados.
+        
+        Args:
+            user_id (int, optional): ID del usuario para verificar favoritos.
         """
         from sqlalchemy import asc, desc, func, literal, or_, cast, Float
+        from src.core.models.favorite_site import FavoriteSite
 
         tags = tags or []
         query = HistoricSite.query.join(City).join(Province)
@@ -688,6 +701,12 @@ class HistoricSiteService:
         # Importar el servicio de imágenes una sola vez
         from src.core.services.site_image_service import site_image_service
         
+        # Obtener todos los IDs de sitios favoritos del usuario de una vez (si está autenticado)
+        favorite_site_ids = set()
+        if user_id:
+            favorites = FavoriteSite.query.filter_by(user_id=user_id).all()
+            favorite_site_ids = {f.site_id for f in favorites}
+        
         for site in pagination.items:
             site_lat = self._safe_float(site.latitude)
             site_lon = self._safe_float(site.longitude)
@@ -697,6 +716,9 @@ class HistoricSiteService:
 
             # Obtener imagen portada con URL firmada
             cover_image = site_image_service.get_cover_image(site.id)
+            
+            # Verificar si es favorito del usuario
+            is_favorite = site.id in favorite_site_ids if user_id else False
             
             site_data = {
                 'id': site.id,
@@ -711,7 +733,8 @@ class HistoricSiteService:
                 'tags': self._get_site_tags(site.id),
                 'rating': None,
                 'cover_image': cover_image,
-                'cover_image_url': cover_image['url_publica'] if cover_image else None
+                'cover_image_url': cover_image['url_publica'] if cover_image else None,
+                'is_favorite': is_favorite
             }
             if distance_value is not None:
                 site_data['distance_km'] = round(distance_value, 3)
