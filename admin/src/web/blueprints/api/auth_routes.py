@@ -145,6 +145,7 @@ def _error_response(code, message, status_code=400):
         }
     }), status_code
 
+
 @login_bp.route("/me", methods=["GET"])
 def get_current_user_info():
     """

@@ -1,98 +1,128 @@
 <script setup lang="ts">
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Star } from 'lucide-vue-next'
+import { ref, onMounted } from 'vue'
+import { useReviewsStore } from '@/stores/reviews'
+import ReviewForm from '@/components/review/ReviewForm.vue'
+import ReviewItem from '@/components/review/ReviewItem.vue'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { MessageSquarePlus } from 'lucide-vue-next'
+import type { Review } from '@/lib/api'
 
-// Datos de muestra para las reseñas
-const reviews = [
-  {
-    id: 'r1',
-    name: 'María Contreras',
-    initials: 'MC',
-    rating: 5.0,
-    text: '"Una experiencia inolvidable. El Cabildo superó todas mis expectativas. La historia y la belleza del lugar son impresionantes."',
-    date: 'Hace 2 días'
-  },
-  {
-    id: 'r2',
-    name: 'Juan Rodríguez',
-    initials: 'JR',
-    rating: 4.8,
-    text: '"Las Ruinas de San Ignacio son simplemente majestuosas. Caminar por donde los jesuitas vivieron hace siglos es una sensación única."',
-    date: 'Hace 5 días'
-  },
-  {
-    id: 'r3',
-    name: 'Ana López',
-    initials: 'AL',
-    rating: 5.0,
-    text: '"La Quebrada de Humahuaca al atardecer es algo que todos deberían ver al menos una vez en la vida. Absolutamente hermoso."',
-    date: 'Hace 1 semana'
-  }
-]
+const props = defineProps<{
+  siteId: number
+}>()
+
+const reviewsStore = useReviewsStore()
+
+// Estado local para manejar la visibilidad del formulario
+const showForm = ref(false)
+const editingReview = ref<Review | null>(null)
+
+// Cargar reseñas al montar
+onMounted(async () => {
+  await reviewsStore.fetchReviews(props.siteId)
+})
+
+// Abrir formulario para CREAR
+function handleCreateClick() {
+  editingReview.value = null
+  showForm.value = true
+}
+
+// Abrir formulario para EDITAR
+function handleEditClick(review: Review) {
+  editingReview.value = review
+  showForm.value = true
+}
+
+// Cancelar acción
+function handleCancelForm() {
+  showForm.value = false
+  editingReview.value = null
+}
+
+// Éxito al guardar (crear o editar)
+async function handleFormSuccess() {
+  showForm.value = false
+  editingReview.value = null
+  // Recargamos la lista para ver los cambios frescos
+  await reviewsStore.fetchReviews(props.siteId)
+}
+
+// Éxito al eliminar
+async function handleDeleteSuccess() {
+  await reviewsStore.fetchReviews(props.siteId)
+}
 </script>
 
 <template>
-  <section class="py-12 md:py-16 bg-gray-100 dark:bg-gray-800">
-    <div class="max-w-7xl mx-auto px-4 md:px-8">
+  <section class="py-8 border-t dark:border-gray-700 mt-8">
+    <div class="max-w-7xl mx-auto px-0 sm:px-6 lg:px-8">
 
-      <!-- Encabezado de la Sección -->
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Reseñas Recientes
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400">
-            Lo que dicen nuestros visitantes
-          </p>
-        </div>
+      <!-- Cabecera de la Sección -->
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          Reseñas ({{ reviewsStore.items.length }})
+        </h2>
+
+        <!-- Botón para agregar nueva reseña (si no estamos viendo el formulario) -->
+        <Button
+          v-if="!showForm"
+          @click="handleCreateClick"
+          size="sm"
+          class="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <MessageSquarePlus class="w-4 h-4 mr-2" />
+          Escribir opinión
+        </Button>
       </div>
 
-      <!-- Grid de Reseñas -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Estado de Carga -->
+      <div v-if="reviewsStore.isLoading && reviewsStore.items.length === 0" class="space-y-4">
+        <Skeleton class="h-32 w-full dark:bg-gray-800" />
+        <Skeleton class="h-32 w-full dark:bg-gray-800" />
+      </div>
 
-        <!-- Iteramos sobre las reseñas -->
-        <Card
-          v-for="review in reviews"
-          :key="review.id"
-          class="bg-white dark:bg-gray-900"
-        >
-          <CardContent class="p-6">
-            <!-- Encabezado de la reseña (Avatar y Nombre) -->
-            <div class="flex items-center gap-3 mb-4">
-              <Avatar>
-                <AvatarImage :src="`/avatars/${review.initials}.png`" :alt="review.name" />
-                <AvatarFallback class="bg-blue-600 text-white font-semibold">
-                  {{ review.initials }}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <p class="font-semibold text-gray-900 dark:text-gray-100">
-                  {{ review.name }}
-                </p>
-                <div class="flex items-center gap-1">
-                  <Star class="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  <span class="text-sm text-gray-600 dark:text-gray-400">
-                    {{ review.rating }}
-                  </span>
-                </div>
-              </div>
-            </div>
+      <!-- Estado de Error -->
+      <div v-else-if="reviewsStore.error" class="p-4 bg-red-50 text-red-600 rounded-md dark:bg-red-900/20 dark:text-red-400">
+        {{ reviewsStore.error }}
+      </div>
 
-            <!-- Texto de la Reseña -->
-            <p class="text-gray-700 dark:text-gray-300 text-sm mb-3">
-              {{ review.text }}
-            </p>
+      <!-- Contenido Principal -->
+      <div v-else>
 
-            <!-- Fecha -->
-            <p class="text-xs text-gray-500 dark:text-gray-500">
-              {{ review.date }}
-            </p>
-          </CardContent>
-        </Card>
+        <!-- 1. Formulario (Crear o Editar) -->
+        <!-- Se muestra solo cuando showForm es true -->
+        <div v-if="showForm" class="mb-8 animate-in fade-in slide-in-from-top-2 duration-300">
+          <ReviewForm
+            :site-id="siteId"
+            :existing-review="editingReview"
+            @success="handleFormSuccess"
+            @cancel="handleCancelForm"
+          />
+        </div>
+
+        <!-- 2. Lista de Reseñas -->
+
+        <!-- Caso A: No hay reseñas y no se está creando una -->
+        <div v-if="reviewsStore.items.length === 0 && !showForm" class="text-center text-gray-500 dark:text-gray-400 py-12 border-2 border-dashed rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          <p class="text-lg font-medium">No hay reseñas aún.</p>
+          <p class="text-sm mt-1">¡Sé el primero en compartir tu experiencia sobre este lugar!</p>
+          <Button variant="link" @click="handleCreateClick" class="mt-2 text-blue-600 dark:text-blue-400">
+            Escribir reseña ahora
+          </Button>
+        </div>
+
+        <!-- Caso B: Hay reseñas (Listado) -->
+        <div v-else class="space-y-4">
+          <ReviewItem
+            v-for="review in reviewsStore.items"
+            :key="review.id"
+            :review="review"
+            @edit="handleEditClick(review)"
+            @delete-success="handleDeleteSuccess"
+          />
+        </div>
 
       </div>
     </div>
