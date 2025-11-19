@@ -73,34 +73,35 @@ function changeSort(field: 'created_at' | 'name' | 'rating') {
 </script>
 
 <template>
-  <section>
-    <div class="mb-3 md:mb-4 flex flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl md:text-2xl font-semibold">Sitios históricos</h1>
-      <div class="text-sm text-gray-600">{{ store.total }} resultados</div>
-    </div>
+  <div class="w-full">
+    <div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-12">
+      <div class="mb-3 md:mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">Sitios históricos</h1>
+        <div class="text-sm text-gray-600 dark:text-gray-400">{{ store.total }} resultados</div>
+      </div>
 
-    <div class="lg:hidden mb-3">
-      <Accordion type="single" collapsible>
-        <AccordionItem value="filters">
-          <AccordionTrigger class="px-3 py-2 border rounded text-sm">Buscar y filtros</AccordionTrigger>
-          <AccordionContent class="border rounded p-3 mt-2">
+      <div class="lg:hidden mb-3">
+        <Accordion type="single" collapsible>
+          <AccordionItem value="filters">
+            <AccordionTrigger class="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-900 dark:text-gray-100">Buscar y filtros</AccordionTrigger>
+            <AccordionContent class="border border-gray-200 dark:border-gray-700 rounded p-3 mt-2 bg-white dark:bg-gray-800">
+              <SiteFilters />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-4 lg:gap-6">
+        <aside class="hidden lg:block">
+          <div class="sticky top-3 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 shadow-sm">
             <SiteFilters />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </div>
+          </div>
+        </aside>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-4">
-      <aside class="hidden lg:block">
-        <div class="sticky top-3 border rounded p-3">
-          <SiteFilters />
-        </div>
-      </aside>
-
-      <div class="space-y-3">
+        <div class="space-y-3 min-w-0">
         <div class="flex flex-wrap gap-2 items-center justify-between">
           <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-500">Ordenar:</span>
+            <span class="text-gray-500 dark:text-gray-400">Ordenar:</span>
             <Button variant="outline" size="sm" @click="changeSort('created_at')">
               Fecha {{ store.sort.field === 'created_at' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
             </Button>
@@ -113,12 +114,12 @@ function changeSort(field: 'created_at' | 'name' | 'rating') {
           </div>
         </div>
 
-        <div v-if="store.error" class="p-3 bg-red-50 text-red-700 rounded">
+        <div v-if="store.error" class="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded">
           {{ store.error }}
         </div>
 
         <div v-if="store.isLoading && !store.items.length" class="grid gap-3" :class="gridCols">
-          <div v-for="i in 8" :key="i" class="rounded border p-3 space-y-3">
+          <div v-for="i in 8" :key="i" class="rounded border border-gray-200 dark:border-gray-700 p-3 space-y-3">
             <Skeleton class="h-36 w-full" />
             <Skeleton class="h-4 w-2/3" />
             <Skeleton class="h-3 w-1/2" />
@@ -126,19 +127,20 @@ function changeSort(field: 'created_at' | 'name' | 'rating') {
         </div>
 
         <template v-else>
-          <div v-if="!store.items.length" class="p-6 text-center text-gray-500 border rounded">
+          <div v-if="!store.items.length" class="p-6 text-center text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded">
             No hay resultados con los filtros actuales.
           </div>
-          <div v-else class="grid gap-2 sm:gap-3" :class="gridCols">
+          <div v-else class="grid gap-2 sm:gap-3 mx-auto" :class="gridCols">
             <SiteCard v-for="s in store.items" :key="s.id" :site="s" />
           </div>
         </template>
 
-        <div v-if="store.isNextLoading" class="text-center py-4 text-gray-500">
+        <div v-if="store.isNextLoading" class="text-center py-4 text-gray-500 dark:text-gray-400">
           Cargando más...
         </div>
         <div ref="sentinel" class="h-1"></div>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>

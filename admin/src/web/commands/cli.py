@@ -1,3 +1,4 @@
+
 """
 Comandos CLI personalizados para la aplicación Flask.
 """
