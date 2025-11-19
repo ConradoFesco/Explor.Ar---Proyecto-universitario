@@ -67,7 +67,7 @@ function handleView() {
 
     <CardHeader>
       <CardTitle class="text-base text-gray-900 dark:text-gray-100">{{ site.name }}</CardTitle>
-      <CardDescription class="text-xs text-gray-500">
+      <CardDescription class="text-xs text-gray-500 dark:text-gray-400">
         {{ site.city }} <span v-if="site.city && site.province">·</span> {{ site.province }}
       </CardDescription>
     </CardHeader>
@@ -76,7 +76,7 @@ function handleView() {
       <p v-if="site.brief_description" class="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">{{ site.brief_description }}</p>
       <div class="mt-2 flex flex-wrap gap-1">
         <Badge v-for="t in tagsToShow" :key="t" variant="secondary" class="text-[11px]">{{ t }}</Badge>
-        <span v-if="(site.tags?.length || 0) > 5" class="text-xs text-gray-500">
+        <span v-if="(site.tags?.length || 0) > 5" class="text-xs text-gray-500 dark:text-gray-400">
           +{{ (site.tags?.length || 0) - 5 }}
         </span>
       </div>
@@ -86,7 +86,7 @@ function handleView() {
     </CardContent>
 
     <CardFooter class="flex justify-between items-center gap-2">
-      <span class="text-xs text-gray-500">#{{ site.id }}</span>
+      <span class="text-xs text-gray-500 dark:text-gray-400">#{{ site.id }}</span>
       <div class="flex items-center gap-2">
         <Button
           variant="outline"

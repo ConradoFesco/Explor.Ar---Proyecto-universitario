@@ -25,19 +25,19 @@ const hasMoreDescription = computed(() => {
 
 <template>
   <section class="space-y-2">
-    <h2 class="text-xl font-semibold">Descripción</h2>
-    <div class="prose prose-sm max-w-none">
-      <p class="whitespace-pre-wrap">{{ descriptionToShow }}</p>
-      <Button
-        v-if="hasMoreDescription"
-        variant="ghost"
-        size="sm"
-        @click="showFull = !showFull"
-        class="mt-2"
-      >
-        {{ showFull ? 'Ver menos' : 'Ver más' }}
-      </Button>
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Descripción</h2>
+    <div class="prose prose-sm max-w-none dark:prose-invert">
+      <p class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{ descriptionToShow }}</p>
     </div>
+    <Button
+      v-if="hasMoreDescription"
+      variant="ghost"
+      size="sm"
+      @click="showFull = !showFull"
+      class="mt-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+    >
+      {{ showFull ? 'Ver menos' : 'Ver más' }}
+    </Button>
   </section>
 </template>
 

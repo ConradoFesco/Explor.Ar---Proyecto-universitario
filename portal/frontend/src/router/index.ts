@@ -22,13 +22,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/auth/callback',
     name: 'AuthCallback',
     component: AuthCallback
+  },
+  {
+    path: '/sitio/:id',
+    name: 'site-detail',
+    component: () => import('@/views/SiteDetailView.vue')
   }
-  // Si tienes más vistas (como el detalle de un sitio), irían aquí
-  // {
-  //   path: '/sitio/:id',
-  //   name: 'site-detail',
-  //   component: () => import('@/views/SiteDetailView.vue')
-  // }
 ]
 
 // CAMBIO: Se descomentó la creación del router

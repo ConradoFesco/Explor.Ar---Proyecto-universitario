@@ -1,0 +1,85 @@
+{# templates/features/reviews/_list_fragment.html.jinja #}
+{# Fragmento: espera variables: items, total, page, pages. Se incluye desde reviews.html.jinja #}
+
+<div class="mb-4">
+  <p class="text-sm text-gray-600">Mostrando {{ items|length }} de {{ total }} reseñas</p>
+</div>
+
+<table class="min-w-full divide-y divide-gray-200">
+  <thead class="bg-gray-50">
+    <tr>
+      <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Sitio</th>
+      <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Usuario (email)</th>
+      <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Calificación</th>
+      <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Contenido</th>
+      <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Estado</th>
+      <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Fecha</th>
+      {% if items|selectattr('status', 'equalto', 'rejected')|list|length > 0 %}
+        <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Motivo de rechazo</th>
+      {% endif %}
+      <th class="px-4 py-2 text-right text-sm font-medium text-gray-500">Acciones</th>
+    </tr>
+  </thead>
+  <tbody class="bg-white divide-y divide-gray-200">
+    {% for r in items %}
+  <tr>
+      <td class="px-4 py-2 text-sm text-gray-700">{{ r.site_name or r.site_id }}</td>
+      <td class="px-4 py-2 text-sm text-gray-700">{{ r.user_mail or '—' }}</td>
+      <td class="px-4 py-2 text-sm text-gray-700">{{ r.rating }}</td>
+      <td class="px-4 py-2 text-sm text-gray-700">
+        {{ r.content[:120] ~ ('...' if r.content|length > 120 else '') }}
+      </td>
+      <td class="px-4 py-2 text-sm">
+        {% if r.status == 'pending' %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Pendiente</span>
+        {% elif r.status == 'approved' %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Aprobada</span>
+        {% elif r.status == 'rejected' %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Rechazada</span>
+        {% elif r.status == 'deleted' %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-300 text-gray-700">Eliminada</span>
+        {% else %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">{{ r.status }}</span>
+        {% endif %}
+      </td>
+      <td class="px-4 py-2 text-sm text-gray-700">{{ r.created_at | default('') }}</td>
+      {% if items|selectattr('status', 'equalto', 'rejected')|list|length > 0 %}
+        <td class="px-4 py-2 text-sm text-gray-700">
+          {% if r.status == 'rejected' %}
+            <span title="{{ r.rejection_reason }}">{{ r.rejection_reason or '—' }}</span>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      {% endif %}
+      <td class="px-4 py-2 text-sm text-right space-x-2">
+        <button data-id="{{ r.id }}" data-site-id="{{ r.site_id }}" class="btn-view inline-flex items-center px-2 py-1 border rounded text-sm">Ver</button>
+
+        {% if r.status == 'pending' %}
+          <button data-id="{{ r.id }}" class="btn-approve inline-flex items-center px-2 py-1 border rounded text-sm bg-green-50 hover:bg-green-100">Aprobar</button>
+          <button data-id="{{ r.id }}" data-site-id="{{ r.site_id }}" class="btn-reject inline-flex items-center px-2 py-1 border rounded text-sm bg-yellow-50 hover:bg-yellow-100">Rechazar</button>
+          <button data-id="{{ r.id }}" class="btn-delete inline-flex items-center px-2 py-1 border rounded text-sm bg-red-50 hover:bg-red-100">Eliminar</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">No se encontraron reseñas</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="mt-4 flex items-center justify-between">
+  <div class="text-sm text-gray-600">Página {{ page }} de {{ pages }} — {{ total }} reseñas</div>
+  <div>
+    <nav class="inline-flex -space-x-px">
+      {% if page > 1 %}
+        <button data-page="{{ page-1 }}" class="pagination-btn px-3 py-1 border rounded-l">Anterior</button>
+      {% endif %}
+      {% if page < pages %}
+        <button data-page="{{ page+1 }}" class="pagination-btn px-3 py-1 border rounded-r">Siguiente</button>
+      {% endif %}
+    </nav>
+  </div>
+</div>

@@ -21,7 +21,7 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
 <template>
   <!-- Header fijo y con efecto blur -->
   <header class="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
       <div class="flex justify-between items-center h-16">
 
         <!-- 1. Logo/Título (Izquierda) -->
