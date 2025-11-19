@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import type { HistoricSite } from '@/lib/api'
 import { useSitesStore } from '@/stores/sites'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useFavorite } from '@/composables/useFavorite'
 import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from '@/components/ui/card'
 import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-// Importamos los iconos que faltaban
-import { Star } from 'lucide-vue-next'
+import FavoriteButton from '@/components/site/FavoriteButton.vue'
 
 const props = defineProps<{
   site: HistoricSite
@@ -17,32 +15,22 @@ const props = defineProps<{
 
 const store = useSitesStore()
 const router = useRouter()
-const { toggleSiteFavorite } = useFavorite()
+
+// Obtener isFavorite del store si está disponible, sino del prop
+const isFavorite = computed(() => {
+  const storeItem = store.items.find(s => s.id === props.site.id)
+  return storeItem?.is_favorite ?? props.site.is_favorite ?? false
+})
+
 const tagsToShow = computed(() => (props.site.tags || []).slice(0, 5))
 const hasImage = computed(() => !!props.site.cover_image_url)
 const aspectRatio = computed(() => (hasImage.value ? 16 / 9 : 4 / 3))
 
-async function onToggleFavorite(e: Event) {
-  e.stopPropagation()
-  e.preventDefault()
-
-  const previousState = props.site.is_favorite ?? false
-
-  try {
-    await toggleSiteFavorite(
-      props.site.id,
-      previousState,
-      (newState) => {
-        // Actualizar en el store
-        const idx = store.items.findIndex(s => s.id === props.site.id)
-        if (idx >= 0) {
-          store.items[idx] = { ...store.items[idx], is_favorite: newState } as HistoricSite
-        }
-      }
-    )
-  } catch {
-    // El error ya fue manejado en useFavorite
-    console.error('Error toggling favorite')
+function handleFavoriteUpdate(newState: boolean) {
+  // Actualizar en el store si el sitio está en la lista
+  const idx = store.items.findIndex(s => s.id === props.site.id)
+  if (idx >= 0) {
+    store.items[idx] = { ...store.items[idx], is_favorite: newState } as HistoricSite
   }
 }
 
@@ -88,19 +76,11 @@ function handleView() {
     <CardFooter class="flex justify-between items-center gap-2">
       <span class="text-xs text-gray-500 dark:text-gray-400">#{{ site.id }}</span>
       <div class="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          @click="onToggleFavorite"
-          :title="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
-          class="dark:bg-gray-700"
-        >
-          <!-- Usamos el icono de Estrella -->
-          <Star
-            class="w-4 h-4 transition-colors"
-            :class="site.is_favorite ? 'text-yellow-400 fill-yellow-400' : 'text-gray-500'"
-          />
-        </Button>
+        <FavoriteButton
+          :site-id="site.id"
+          :is-favorite="isFavorite"
+          @update="handleFavoriteUpdate"
+        />
         <Button
           variant="default"
           size="sm"

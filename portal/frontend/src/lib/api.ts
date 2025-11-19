@@ -163,7 +163,7 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
   const url = `${base}/sites${query}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    credentials: 'omit',
+    credentials: 'include', // Incluir credenciales para que el backend pueda determinar is_favorite
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -193,7 +193,16 @@ export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Pr
     const text = await res.text().catch(() => '');
     throw new Error(`Error al cargar favoritos (${res.status}): ${text}`);
   }
-  return res.json();
+  const raw = await res.json();
+  // Mapear los items usando la misma función que fetchPublicSites
+  const items: HistoricSite[] = (raw.items || []).map(mapSiteFromBackend);
+  return {
+    items,
+    page: raw.page ?? page,
+    per_page: raw.per_page ?? perPage,
+    total: raw.total ?? items.length,
+    total_pages: raw.total_pages ?? 1,
+  };
 }
 
 export async function toggleFavorite(siteId: number, favorite: boolean): Promise<void> {
