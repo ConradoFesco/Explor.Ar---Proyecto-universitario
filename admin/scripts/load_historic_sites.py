@@ -6,6 +6,8 @@ Uso: python scripts/load_historic_sites.py
 
 import sys
 import os
+import random
+from datetime import datetime
 
 # Agregar el directorio raíz al path para importar los módulos
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -17,6 +19,8 @@ from src.core.models.city import City
 from src.core.models.province import Province
 from src.core.models.category_site import CategorySite
 from src.core.models.state_site import StateSite
+from src.core.models.review import HistoricSiteReview
+from src.core.models.user import User
 
 
 def get_or_create_province(name):
@@ -63,24 +67,24 @@ def create_historic_sites():
     """Crear 15 sitios históricos"""
     
     # Crear/obtener provincias
-    print("📍 Verificando provincias...")
+    print("[1/2] Verificando provincias...")
     provincia_ba = get_or_create_province("Buenos Aires")
     
     # Crear/obtener ciudades
-    print("🏙️  Verificando ciudades...")
+    print("[1/2] Verificando ciudades...")
     la_plata = get_or_create_city("La Plata", provincia_ba.id)
     buenos_aires = get_or_create_city("Ciudad Autónoma de Buenos Aires", provincia_ba.id)
     tigre = get_or_create_city("Tigre", provincia_ba.id)
     san_isidro = get_or_create_city("San Isidro", provincia_ba.id)
     
     # Crear/obtener categorías
-    print("🏛️  Verificando categorías...")
+    print("[1/2] Verificando categorias...")
     arquitectura = get_or_create_category("Arquitectura")
     infraestructura = get_or_create_category("Infraestructura")
     arqueologico = get_or_create_category("Sitio arqueologico")
     
     # Crear/obtener estados
-    print("📊 Verificando estados...")
+    print("[1/2] Verificando estados...")
     estado_bueno = get_or_create_state("Bueno")
     estado_regular = get_or_create_state("Regular")
     estado_malo = get_or_create_state("Malo")
@@ -270,23 +274,122 @@ def create_historic_sites():
     ]
     
     # Crear los sitios históricos
-    print(f"\n🏛️  Creando {len(sites_data)} sitios históricos...")
+    print(f"\n[2/2] Creando {len(sites_data)} sitios historicos...")
     created_count = 0
     skipped_count = 0
+    created_sites = []
     
     for site_data in sites_data:
         # Verificar si ya existe
         existing = HistoricSite.query.filter_by(name=site_data["name"]).first()
         if existing:
-            print(f"   ⚠️  '{site_data['name']}' ya existe, omitiendo...")
+            print(f"   [SKIP] '{site_data['name']}' ya existe, omitiendo...")
             skipped_count += 1
             continue
         
         # Crear el sitio
         site = HistoricSite(**site_data, deleted=False)
         db.session.add(site)
+        db.session.flush()  # Para obtener el ID
+        created_sites.append(site)
         created_count += 1
-        print(f"   ✓ Creado: {site_data['name']}")
+        print(f"   [OK] Creado: {site_data['name']}")
+    
+    return created_count, skipped_count, created_sites
+
+
+def create_reviews_for_sites():
+    """Crea reseñas para los sitios históricos en distintos estados"""
+    print("\n[REVIEWS] Creando resenas para sitios historicos...")
+    
+    # Obtener todos los sitios históricos
+    sites = HistoricSite.query.filter_by(deleted=False).all()
+    if not sites:
+        print("   [SKIP] No hay sitios historicos para crear resenas")
+        return 0, 0
+    
+    # Obtener usuarios existentes o crear uno dummy si no hay
+    users = User.query.filter_by(deleted=False).all()
+    if not users:
+        # Crear un usuario dummy para las reseñas
+        dummy_user = User(
+            mail="reviewer@example.com",
+            name="Reviewer",
+            last_name="Test",
+            active=True,
+            blocked=False,
+            deleted=False,
+            is_super_admin=False
+        )
+        dummy_user.set_password("password123")
+        db.session.add(dummy_user)
+        db.session.flush()
+        users = [dummy_user]
+        print("   [INFO] Usuario dummy creado para resenas")
+    
+    # Textos de ejemplo para las reseñas
+    review_texts = [
+        "Excelente lugar, muy recomendado para visitar. La arquitectura es impresionante.",
+        "Me gustó mucho, aunque podría estar mejor mantenido. Vale la pena conocerlo.",
+        "Un sitio histórico muy interesante con mucha historia detrás.",
+        "No me pareció tan interesante como esperaba, pero está bien conservado.",
+        "Muy descuidado, necesita más mantenimiento. La experiencia fue regular.",
+        "La arquitectura es impresionante y el lugar está muy bien cuidado.",
+        "Buena experiencia general, aunque faltan más explicaciones sobre su historia.",
+        "Un lugar único que refleja nuestra cultura e historia.",
+        "Muy bonito pero muy concurrido. Mejor visitar en horarios menos transitados.",
+        "Recomendado para toda la familia. Muy educativo e interesante."
+    ]
+    
+    # Motivos de rechazo de ejemplo
+    rejection_reasons = [
+        "Contenido inapropiado o fuera de lugar.",
+        "Reseña no relacionada con el sitio histórico.",
+        "Lenguaje ofensivo o inadecuado.",
+        "Información incorrecta o engañosa.",
+        "Reseña duplicada o spam."
+    ]
+    
+    created_count = 0
+    skipped_count = 0
+    
+    # Crear entre 2 y 5 reseñas por sitio
+    for site in sites:
+        num_reviews = random.randint(2, 5)
+        user = random.choice(users)
+        
+        for i in range(num_reviews):
+            # Seleccionar estado aleatorio con distribución: 40% pending, 40% approved, 20% rejected
+            status_rand = random.random()
+            if status_rand < 0.4:
+                status = 'pending'
+                rejection_reason = None
+            elif status_rand < 0.8:
+                status = 'approved'
+                rejection_reason = None
+            else:
+                status = 'rejected'
+                rejection_reason = random.choice(rejection_reasons)
+            
+            # Seleccionar texto y rating aleatorio
+            content = random.choice(review_texts)
+            rating = random.randint(1, 5)
+            
+            # Crear la reseña
+            review = HistoricSiteReview(
+                site_id=site.id,
+                user_id=user.id,
+                rating=rating,
+                content=content,
+                status=status,
+                rejection_reason=rejection_reason,
+                created_at=datetime.utcnow()
+            )
+            
+            db.session.add(review)
+            created_count += 1
+        
+        print(f"   [OK] {num_reviews} resena(s) creada(s) para '{site.name}'")
     
     return created_count, skipped_count
 
@@ -294,7 +397,7 @@ def create_historic_sites():
 def main():
     """Función principal"""
     print("=" * 70)
-    print("🏛️  CARGA DE SITIOS HISTÓRICOS")
+    print("CARGA DE SITIOS HISTORICOS Y RESENAS")
     print("=" * 70)
     
     # Crear la aplicación Flask
@@ -303,25 +406,33 @@ def main():
     with app.app_context():
         try:
             # Crear los sitios históricos
-            created, skipped = create_historic_sites()
+            created, skipped, created_sites = create_historic_sites()
             
-            # Confirmar los cambios
+            # Confirmar los cambios de sitios
+            db.session.commit()
+            
+            # Crear reseñas para los sitios (todos los sitios, no solo los recién creados)
+            reviews_created, reviews_skipped = create_reviews_for_sites()
+            
+            # Confirmar los cambios de reseñas
             db.session.commit()
             
             # Resumen final
             print("\n" + "=" * 70)
-            print("✅ ¡Proceso completado exitosamente!")
-            print(f"\n📊 Resumen:")
+            print("[SUCCESS] Proceso completado exitosamente!")
+            print(f"\nResumen:")
             print(f"   - Sitios creados: {created}")
-            print(f"   - Sitios omitidos (ya existían): {skipped}")
+            print(f"   - Sitios omitidos (ya existian): {skipped}")
             print(f"   - Total de sitios en la BD: {HistoricSite.query.filter_by(deleted=False).count()}")
+            print(f"   - Resenas creadas: {reviews_created}")
+            print(f"   - Total de resenas en la BD: {HistoricSiteReview.query.count()}")
             print("=" * 70)
             
             return True
             
         except Exception as e:
             db.session.rollback()
-            print(f"\n❌ Error al cargar sitios históricos: {e}")
+            print(f"\n[ERROR] Error al cargar sitios historicos: {e}")
             import traceback
             traceback.print_exc()
             return False

@@ -42,12 +42,11 @@ def _resolve_review_list_params():
         # Preparar filtros
         filters = {}
         
-        # Status: por defecto 'pending' si no se especifica
+        # Status: solo filtrar si se especifica explícitamente
         status = raw_args['status']
         if status and status != '' and status != 'null':
             filters['status'] = status
-        elif status is None:
-            filters['status'] = 'pending'
+        # Si no se especifica, no filtrar por status (mostrar todas)
         
         if raw_args['site_id']:
             filters['site_id'] = raw_args['site_id']
@@ -73,7 +72,7 @@ def _resolve_review_list_params():
         flash('Parámetros inválidos en el listado: ' + str(error), 'error')
         # Retornar valores por defecto
         return {
-            'filters': {'status': 'pending'},
+            'filters': {},  # Sin filtros por defecto (mostrar todas)
             'page': 1,
             'per_page': 25,
             'sort_by': 'created_at',
@@ -187,9 +186,15 @@ def review_detail_fragment(review_id):
         
         return render_template('features/reviews/_detail_fragment.html.jinja', review=review_data)
     except (exc.ValidationError, exc.NotFoundError, exc.ForbiddenError, exc.DatabaseError) as e:
+        # Si es una petición AJAX/fetch, devolver HTML de error en lugar de redirect
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return f'<div class="text-red-600 p-4">Error al cargar reseña: {str(e)}</div>', 400
         flash('Error al cargar reseña: ' + str(e), 'error')
         return redirect(url_for('reviews_web.list_reviews_page'))
     except Exception as e:
+        # Si es una petición AJAX/fetch, devolver HTML de error en lugar de redirect
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return f'<div class="text-red-600 p-4">Error inesperado: {str(e)}</div>', 500
         flash('Error inesperado: ' + str(e), 'error')
         return redirect(url_for('reviews_web.list_reviews_page'))
 

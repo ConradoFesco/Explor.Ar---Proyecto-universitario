@@ -7,6 +7,8 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
+from datetime import datetime
+import random
 from src.web import create_app
 from src.web.extensions import db
 from src.core.models.permission import Permission
@@ -17,6 +19,8 @@ from src.core.models.user import User
 from src.core.models.category_site import CategorySite
 from src.core.models.state_site import StateSite
 from src.core.models.flag import Flag
+from src.core.models.historic_site import HistoricSite
+from src.core.models.review import HistoricSiteReview
 
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""
@@ -291,7 +295,7 @@ def create_super_admin():
 def create_dummy_users(existing_roles):
     """Crear 3 usuarios dummy y asignarles un rol distinto cada uno."""
     
-    print("👥 Verificando usuarios dummy...")
+    print("[USERS] Verificando usuarios dummy...")
 
     rol_admin = existing_roles["admin"]
     rol_editor = existing_roles["editor"]
@@ -309,7 +313,7 @@ def create_dummy_users(existing_roles):
     for mail, name, rol in user_data:
         existing_user = User.query.filter_by(mail=mail).first()
         if existing_user:
-            print(f"   ⚠ Usuario {mail} ya existe, saltando...")
+            print(f"   [SKIP] Usuario {mail} ya existe, saltando...")
             continue
 
         u = User(
@@ -331,7 +335,7 @@ def create_dummy_users(existing_roles):
         dummy_users.append(u)
 
     db.session.commit()
-    print(f"   ✓ Usuarios dummy creados: {len(dummy_users)}")
+    print(f"   [OK] Usuarios dummy creados: {len(dummy_users)}")
     return dummy_users
 
 
@@ -349,14 +353,14 @@ def ensure_category_and_state():
         category = CategorySite(name="Categoria Dummy", deleted=False)
         db.session.add(category)
         db.session.commit()
-        print("   ✓ Categoria dummy creada")
+        print("   [OK] Categoria dummy creada")
 
     state = StateSite.query.filter_by(deleted=False).first()
     if not state:
         state = StateSite(state="Bueno", deleted=False)
         db.session.add(state)
         db.session.commit()
-        print("   ✓ Estado dummy creado")
+        print("   [OK] Estado dummy creado")
 
     return category.id, state.id
 
@@ -369,10 +373,10 @@ def create_dummy_sites_if_needed(id_category, id_estado):
 
     sites = HistoricSite.query.filter_by(deleted=False).all()
     if sites:
-        print(f"   ✓ Sitios existentes: {len(sites)}")
+        print(f"   [OK] Sitios existentes: {len(sites)}")
         return sites
 
-    print("   ⚠️ No hay sitios históricos. Creando sitios dummy...")
+    print("   [WARNING] No hay sitios historicos. Creando sitios dummy...")
     dummy_sites = []
     for i in range(3):
         s = HistoricSite(
@@ -396,7 +400,7 @@ def create_dummy_sites_if_needed(id_category, id_estado):
         dummy_sites.append(s)
 
     db.session.commit()
-    print(f"   ✓ Sitios dummy creados: {len(dummy_sites)}")
+    print(f"   [OK] Sitios dummy creados: {len(dummy_sites)}")
     return dummy_sites
 
 def create_test_reviews(users):
@@ -405,18 +409,18 @@ def create_test_reviews(users):
     Usa strings para status ('pending','approved','rejected','deleted').
     """
   
-    print("📝 Creando reseñas de prueba...")
+    print("[REVIEWS] Creando resenas de prueba...")
 
    
     if not users:
-        print("   ❌ No hay usuarios y no se pudieron crear.")
+        print("   [ERROR] No hay usuarios y no se pudieron crear.")
         return 0
 
     # 2) Asegurar category/state y sitios
     category_id, state_id = ensure_category_and_state()
     sites = create_dummy_sites_if_needed(category_id, state_id)
     if not sites:
-        print("   ❌ No se pudieron crear sitios.")
+        print("   [ERROR] No se pudieron crear sitios.")
         return 0
 
     # 3) Crear reseñas
@@ -447,12 +451,12 @@ def create_test_reviews(users):
         created += 1
 
     db.session.commit()
-    print(f"   ✓ Reseñas creadas: {created}")
+    print(f"   [OK] Resenas creadas: {created}")
     return created
 
 def main():
     """Función principal para cargar todos los seeds"""
-    print("🌱 Iniciando carga de datos iniciales (seeds)...")
+    print("[SEEDS] Iniciando carga de datos iniciales (seeds)...")
     print("=" * 60)
     
     # Crear la aplicación Flask
@@ -461,73 +465,73 @@ def main():
     with app.app_context():
         try:
             # 1. Crear permisos
-            print("\n📋 Creando permisos...")
+            print("\n[1/7] Creando permisos...")
             permisos_creados = create_permissions()
-            print(f"   ✓ Permisos procesados: {permisos_creados} nuevos")
+            print(f"   [OK] Permisos procesados: {permisos_creados} nuevos")
             
             # 2. Crear roles
-            print("\n👥 Creando roles...")
+            print("\n[2/7] Creando roles...")
             roles, roles_creados = create_roles()
             db.session.commit() 
-            print(f"   ✓ Roles procesados: {roles_creados} nuevos")
+            print(f"   [OK] Roles procesados: {roles_creados} nuevos")
             
             # 3. Asignar permisos a roles
-            print("\n🔗 Asignando permisos a roles...")
+            print("\n[3/7] Asignando permisos a roles...")
             asignaciones = assign_permissions_to_roles(roles)
             db.session.commit()
-            print(f"   ✓ Relaciones permiso-rol creadas: {asignaciones}")
+            print(f"   [OK] Relaciones permiso-rol creadas: {asignaciones}")
             
             # 4. Crear usuarios dummy y reseñas
-            print("\n📝 Creando usuarios dummy y reseñas de prueba...")
+            print("\n[4/7] Creando usuarios dummy y reseñas de prueba...")
             users = create_dummy_users(roles)
             reviews = create_test_reviews(users)
             # 4. Crear categorías
-            print("\n🏛️  Creando categorías...")
+            print("\n[5/7] Creando categorias...")
             categorias = create_categories()
-            print(f"   ✓ Categorías creadas: {categorias}")
+            print(f"   [OK] Categorias creadas: {categorias}")
             
             # 5. Crear estados
-            print("\n📊 Creando estados de conservación...")
+            print("\n[6/7] Creando estados de conservacion...")
             estados = create_states()
-            print(f"   ✓ Estados creados: {estados}")
+            print(f"   [OK] Estados creados: {estados}")
             
             # 6. Crear flags
-            print("\n🚩 Creando flags del sistema...")
+            print("\n[7/7] Creando flags del sistema...")
             flags = create_flags()
-            print(f"   ✓ Flags creados: {flags}")
+            print(f"   [OK] Flags creados: {flags}")
             
             # 7. Crear super administrador
-            print("\n👤 Creando usuario super administrador...")
+            print("\n[ADMIN] Creando usuario super administrador...")
             super_admin_created = create_super_admin()
             if super_admin_created:
-                print(f"   ✓ Super Admin creado: grupo06@gmail.com")
+                print(f"   [OK] Super Admin creado: grupo06@gmail.com")
             else:
-                print(f"   - Super Admin ya existe")
+                print(f"   [SKIP] Super Admin ya existe")
             db.session.commit()
             
             # Resumen final
             print("\n" + "=" * 60)
-            print("✅ ¡Seeds cargados exitosamente!")
-            print("\n📝 Resumen del sistema:")
+            print("[SUCCESS] Seeds cargados exitosamente!")
+            print("\nResumen del sistema:")
             print(f"   - Permisos totales: {Permission.query.count()}")
             print(f"   - Roles totales: {RolUser.query.count()}")
             print(f"   - Relaciones permiso-rol: {PermissionRolUser.query.count()}")
-            print(f"   - Categorías: {CategorySite.query.filter_by(deleted=False).count()}")
+            print(f"   - Categorias: {CategorySite.query.filter_by(deleted=False).count()}")
             print(f"   - Estados: {StateSite.query.filter_by(deleted=False).count()}")
             print(f"   - Flags: {Flag.query.count()}")
             print(f"   - Usuarios: {User.query.filter_by(deleted=False).count()}")
             print(f"   - Relaciones usuario-rol: {RolUserUser.query.count()}")
             
-            print("\n🔐 Credenciales de acceso:")
+            print("\nCredenciales de acceso:")
             print(f"   Email: grupo06@gmail.com")
-            print(f"   Contraseña: grupo06")
-            print(f"   Super admin: Sí")
-            print("\n⚠️  IMPORTANTE: Cambiar estas credenciales en producción")
+            print(f"   Contrasena: grupo06")
+            print(f"   Super admin: Si")
+            print("\n[WARNING] IMPORTANTE: Cambiar estas credenciales en produccion")
             print("=" * 60)
             
         except Exception as e:
             db.session.rollback()
-            print(f"\n❌ Error al cargar seeds: {e}")
+            print(f"\n[ERROR] Error al cargar seeds: {e}")
             import traceback
             traceback.print_exc()
             return False
