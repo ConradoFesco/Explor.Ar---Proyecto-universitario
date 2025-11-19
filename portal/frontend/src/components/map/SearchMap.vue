@@ -141,7 +141,7 @@ onBeforeUnmount(() => {
   <div
     ref="mapEl"
     class="w-full h-64 sm:h-80 rounded border overflow-hidden bg-gray-100"
-    style="z-index: 0;"
+    style="position: relative; z-index: 1;"
   >
     <div v-if="!mapEl" class="h-full flex items-center justify-center text-gray-400 text-sm">
       Cargando mapa...

@@ -32,8 +32,8 @@ const ratingDisplay = computed(() => {
   <header class="space-y-3">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="flex-1 min-w-0">
-        <h1 class="text-2xl md:text-3xl font-bold">{{ site.name }}</h1>
-        <div v-if="locationText" class="flex flex-wrap items-center gap-2 mt-2 text-sm text-gray-600">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">{{ site.name }}</h1>
+        <div v-if="locationText" class="flex flex-wrap items-center gap-2 mt-2 text-sm text-gray-600 dark:text-gray-400">
           <MapPin class="h-4 w-4 shrink-0" />
           <span>{{ locationText }}</span>
         </div>

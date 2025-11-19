@@ -16,13 +16,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/sitios',
     name: 'SitesList', // Este 'name' lo usa el RouterLink de 'Sitios'
     component: SitesListView
+  },
+  {
+    path: '/sitio/:id',
+    name: 'site-detail',
+    component: () => import('@/views/SiteDetailView.vue')
   }
-  // Si tienes más vistas (como el detalle de un sitio), irían aquí
-  // {
-  //   path: '/sitio/:id',
-  //   name: 'site-detail',
-  //   component: () => import('@/views/SiteDetailView.vue')
-  // }
 ]
 
 // CAMBIO: Se descomentó la creación del router

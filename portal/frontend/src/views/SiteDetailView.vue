@@ -42,9 +42,10 @@ const allImages = computed(() => {
   
   // Agregar imagen de portada si no está en la lista
   if (site.value.cover_image) {
-    const coverExists = images.some(img => img.id === site.value.cover_image?.id)
+    const coverImage = site.value.cover_image
+    const coverExists = images.some(img => img.id === coverImage.id)
     if (!coverExists) {
-      images.unshift(site.value.cover_image)
+      images.unshift(coverImage)
     }
   }
   
@@ -79,7 +80,7 @@ async function loadSite() {
 async function handleToggleFavorite() {
   if (!site.value) return
   
-  const previousState = site.value.is_favorite
+  const previousState = site.value.is_favorite ?? false
   
   try {
     const newState = await toggleSiteFavorite(
@@ -141,11 +142,11 @@ async function handleSubmitReview(rating: number, content: string) {
 function handleTagClick(tagSlug: string) {
   sitesStore.tags = [tagSlug]
   sitesStore.page = 1
-  router.push({ name: 'sites', query: sitesStore.queryParams })
+  router.push({ name: 'SitesList', query: sitesStore.queryParams })
 }
 
 function handleBack() {
-  router.push({ name: 'sites', query: sitesStore.queryParams })
+  router.push({ name: 'SitesList', query: sitesStore.queryParams })
 }
 
 // Watchers
@@ -162,7 +163,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="w-full px-4 sm:px-6 lg:px-10 xl:px-20 2xl:px-32 py-6">
+    <div class="max-w-[1600px] mx-auto space-y-6">
     <!-- Botón Volver -->
     <Button variant="outline" size="sm" @click="handleBack" class="flex items-center gap-2">
       <ArrowLeft class="h-4 w-4" />
@@ -181,7 +183,7 @@ onMounted(() => {
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="p-4 bg-red-50 text-red-700 rounded border border-red-200">
+    <div v-else-if="error" class="p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded border border-red-200 dark:border-red-800">
       <p class="font-semibold">Error</p>
       <p>{{ error }}</p>
       <Button variant="outline" size="sm" @click="loadSite" class="mt-3">
@@ -213,7 +215,7 @@ onMounted(() => {
 
       <!-- Mapa -->
       <section v-if="site.latitude && site.longitude" class="space-y-2">
-        <h2 class="text-xl font-semibold">Ubicación</h2>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Ubicación</h2>
         <SiteMap
           :latitude="site.latitude"
           :longitude="site.longitude"
@@ -228,7 +230,7 @@ onMounted(() => {
         :is-loading="reviews.isLoadingReviews.value"
         :current-page="reviews.reviewsPage.value"
         :total-pages="reviews.reviewsTotalPages.value"
-        :is-authenticated="isAuthenticated.value"
+        :is-authenticated="isAuthenticated"
         @write-review="handleWriteReview"
         @page-change="reviews.loadReviews"
       />
@@ -242,5 +244,6 @@ onMounted(() => {
       @submit="handleSubmitReview"
       @close="showReviewForm = false"
     />
+    </div>
   </div>
 </template>
