@@ -228,6 +228,8 @@ def editar_tags_fragment(site_id: int):
 def crear_sitio_web():
     """Procesa la creación de un sitio a partir de datos de formulario."""
     if "user_id" not in session:
+        if request.is_json or request.headers.get('Content-Type') == 'application/json':
+            return jsonify({'success': False, 'error': 'No autorizado'}), 401
         return redirect(url_for("main.index"))
     data_user = session.get('user_id')
     form = request.form
@@ -245,11 +247,73 @@ def crear_sitio_web():
         'name_province': form.get('provincia')
     }
     try:
-        historic_site_service.create_historic_site(data_site, data_user)
-        flash('Sitio histórico creado', 'success')
-    except Exception as e:
+        # Obtener tags seleccionados del formulario
+        tag_ids = []
+        try:
+            tag_ids = [int(t) for t in form.getlist('tag_ids') if t.strip()]
+        except Exception:
+            tag_ids = []
+        data_site['tag_ids'] = tag_ids
+        
+        # Crear el sitio y obtener el objeto creado con su ID
+        created_site = historic_site_service.create_historic_site(data_site, data_user)
+        
+        # Procesar imágenes si se enviaron en el formulario
+        images_data = []
+        if 'images_data' in form:
+            import json
+            try:
+                images_data = json.loads(form.get('images_data'))
+            except:
+                images_data = []
+        
+        # Si hay imágenes, subirlas todas juntas
+        if images_data and created_site:
+            files_data = []
+            for img_data in images_data:
+                # Las imágenes vienen como base64 desde el cliente
+                # Necesitamos recibirlas como archivos o procesarlas de otra manera
+                # Por ahora, si vienen en request.files, las procesamos
+                pass
+            
+            # Procesar archivos de imagen si se enviaron
+            if 'imagenes' in request.files:
+                files = request.files.getlist('imagenes')
+                titulos = form.getlist('imagen_titulo[]')
+                descripciones = form.getlist('imagen_descripcion[]')
+                
+                for idx, file in enumerate(files):
+                    if file and file.filename:
+                        files_data.append({
+                            'file': file,
+                            'titulo_alt': titulos[idx] if idx < len(titulos) else file.filename,
+                            'descripcion': descripciones[idx] if idx < len(descripciones) and descripciones[idx] else None
+                        })
+                
+                if files_data:
+                    site_image_service.upload_multiple_images(created_site.id, files_data, data_user)
+        
+        # Si la petición es AJAX, retornar JSON con el site_id
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({
+                'success': True,
+                'message': 'Sitio histórico creado correctamente',
+                'site_id': created_site.id
+            })
+        
+        # Si es petición normal de formulario, redirigir (comportamiento por defecto)
+        flash('Sitio histórico creado correctamente. Ahora puede agregar imágenes.', 'success')
+        return redirect(url_for('sites_web.modificar_sitios', edit=created_site.id))
+    except exc.ValidationError as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 400
         flash('Error al crear sitio: ' + str(e), 'error')
-    return redirect(url_for('sites_web.lista_sitios'))
+        return redirect(url_for('sites_web.alta_sitios'))
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': f'Error al crear sitio: {str(e)}'}), 500
+        flash('Error al crear sitio: ' + str(e), 'error')
+        return redirect(url_for('sites_web.alta_sitios'))
 
 
 @sites_web.route('/sitios/<int:site_id>/editar', methods=['POST'])
@@ -363,13 +427,60 @@ def obtener_imagenes_sitio(site_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["POST"])
 @web_permission_required("update_historic_site")
 def subir_imagen_sitio(site_id: int):
-    """Sube una nueva imagen para un sitio histórico."""
+    """Sube una o múltiples imágenes para un sitio histórico."""
     if "user_id" not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     
     data_user = session.get('user_id')
     
-    # Validar que se envió un archivo
+    # Verificar si se están subiendo múltiples imágenes
+    if 'imagenes' in request.files:
+        files = request.files.getlist('imagenes')
+        if not files or not any(f.filename for f in files):
+            return jsonify({'success': False, 'error': 'No se proporcionaron archivos'}), 400
+        
+        # Obtener títulos y descripciones
+        titulos = request.form.getlist('titulo_alt[]')
+        descripciones = request.form.getlist('descripcion[]')
+        cover_index = request.form.get('cover_index', type=int)
+        
+        files_data = []
+        for idx, file in enumerate(files):
+            if file and file.filename:
+                titulo_alt = titulos[idx].strip() if idx < len(titulos) and titulos[idx] else file.filename
+                descripcion = descripciones[idx].strip() if idx < len(descripciones) and descripciones[idx] else None
+                
+                if not titulo_alt:
+                    return jsonify({'success': False, 'error': f'El título/alt es obligatorio para la imagen {idx + 1}'}), 400
+                
+                # Marcar como portada si corresponde
+                is_cover = (cover_index is not None and idx == cover_index)
+                
+                files_data.append({
+                    'file': file,
+                    'titulo_alt': titulo_alt,
+                    'descripcion': descripcion,
+                    'is_cover': is_cover
+                })
+        
+        if not files_data:
+            return jsonify({'success': False, 'error': 'No se proporcionaron archivos válidos'}), 400
+        
+        try:
+            images = site_image_service.upload_multiple_images(site_id, files_data, data_user)
+            return jsonify({
+                'success': True,
+                'images': [img.to_dict() for img in images],
+                'message': f'Se subieron {len(images)} imagen(es) correctamente'
+            })
+        except exc.ValidationError as e:
+            return jsonify({'success': False, 'error': str(e)}), 400
+        except exc.NotFoundError as e:
+            return jsonify({'success': False, 'error': str(e)}), 404
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Error al subir imágenes: {str(e)}'}), 500
+    
+    # Comportamiento anterior: una sola imagen
     if 'imagen' not in request.files:
         return jsonify({'success': False, 'error': 'No se proporcionó ningún archivo'}), 400
     

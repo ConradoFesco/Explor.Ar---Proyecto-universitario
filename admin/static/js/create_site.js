@@ -137,7 +137,62 @@ document.addEventListener('DOMContentLoaded', function(){
 
   function sendDataToBackend(_data){
     const form = document.getElementById('site-form');
-    if (form){ form.method='POST'; form.action='/sitios'; form.submit(); }
+    if (!form) return;
+    
+    // Crear FormData desde el formulario
+    const formData = new FormData(form);
+    
+    // Agregar los tags seleccionados
+    if (_data.tag_ids && Array.isArray(_data.tag_ids)) {
+      _data.tag_ids.forEach(tagId => {
+        formData.append('tag_ids', tagId);
+      });
+    }
+    
+    // Enviar vía AJAX para obtener el site_id sin redirigir
+    fetch('/sitios', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(async data => {
+      if (data.success) {
+        // Subir imágenes pendientes si las hay antes de redirigir
+        if (data.site_id && typeof imagesManager !== 'undefined') {
+          imagesManager.siteId = data.site_id;
+          if (imagesManager.pendingImages && imagesManager.pendingImages.length > 0) {
+            try {
+              await imagesManager.uploadPendingImages(data.site_id);
+            } catch (error) {
+              console.error('Error al subir imágenes pendientes:', error);
+              // Continuar con la redirección aunque falle la subida de imágenes
+            }
+          }
+        }
+        
+        // Mostrar mensaje de éxito y redirigir
+        Swal.fire({
+          icon: 'success',
+          title: '¡Sitio histórico creado!',
+          text: data.message || 'El sitio histórico se ha creado exitosamente',
+          confirmButtonColor: '#3B82F6',
+          timer: 2000,
+          showConfirmButton: false
+        }).then(() => {
+          // Redirigir al listado de sitios
+          window.location.href = '/sitios';
+        });
+      } else {
+        showErrorMessage(data.error || 'Error al crear el sitio');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showErrorMessage('Error al crear el sitio: ' + error.message);
+    });
   }
 
   function addNewSiteToMap(site){ if (!mapHandler?.map) return; mapHandler.createSiteMarker(site); mapHandler.centerOnSite(site); }
