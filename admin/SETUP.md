@@ -152,7 +152,7 @@ La aplicación estará disponible en: `http://localhost:5000`
 ### Terminal 2: Aplicación Pública (Portal)
 
 ```bash
-cd portal/frontend
+cd portal
 npm run dev
 ```
 
