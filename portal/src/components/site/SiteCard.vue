@@ -7,6 +7,7 @@ import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription }
 import { AspectRatio } from '@/components/ui/aspect-ratio'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Star } from 'lucide-vue-next'
 import FavoriteButton from '@/components/site/FavoriteButton.vue'
 
 const props = defineProps<{
@@ -25,6 +26,11 @@ const isFavorite = computed(() => {
 const tagsToShow = computed(() => (props.site.tags || []).slice(0, 5))
 const hasImage = computed(() => !!props.site.cover_image_url)
 const aspectRatio = computed(() => (hasImage.value ? 16 / 9 : 4 / 3))
+
+const ratingDisplay = computed(() => {
+  if (props.site.rating == null) return null
+  return Number(props.site.rating).toFixed(1)
+})
 
 function handleFavoriteUpdate(newState: boolean) {
   // Actualizar en el store si el sitio está en la lista
@@ -58,6 +64,10 @@ function handleView() {
       <CardDescription class="text-xs text-gray-500 dark:text-gray-400">
         {{ site.city }} <span v-if="site.city && site.province">·</span> {{ site.province }}
       </CardDescription>
+      <div v-if="ratingDisplay" class="flex items-center gap-1 mt-1">
+        <Star class="h-3 w-3 fill-yellow-400 text-yellow-400" />
+        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">{{ ratingDisplay }}</span>
+      </div>
     </CardHeader>
 
     <CardContent class="flex-1">
