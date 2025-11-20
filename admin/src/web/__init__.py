@@ -56,12 +56,8 @@ def create_app(env="development", static_folder="../../static"):
     else:
         # Desarrollo: permitir localhost en varios puertos comunes
         dev_origins = [
-            "http://localhost:5173",  # Vite dev server
-            "http://localhost:3000",  # React/Next.js común
-            "http://localhost:8080",  # Vue CLI común
+            "http://localhost:5173",  # Vite dev server  # React/Next.js común # Vue CLI común
             "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:8080",
         ]
         CORS(app, 
              resources={ r"/api/*": {
@@ -239,6 +235,9 @@ def initialize_database_if_needed(app):
                     app.logger.error(f"❌ Error al ejecutar seeds: {e}")
                     # No fallar si los seeds fallan, la BD ya está creada
             else:
+                from src.web.commands.cli import reset_db_command
+                # Borra y crea la base de datos
+                reset_db_command()
                 app.logger.info(f"✅ Base de datos ya inicializada ({len(tables)} tablas encontradas)")
                 
         except Exception as e:
