@@ -1,34 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-// Importamos los componentes de shadcn/vue que usaremos
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-// Importamos un ícono para el botón de búsqueda
-import { Search } from 'lucide-vue-next'
-// import { useRouter } from 'vue-router' // Descomentar al implementar navegación
-
 // --- CAMBIO CLAVE: Importamos la imagen desde 'src/assets/' ---
 // Usamos el alias '@' que apunta a 'src/'
 import heroImageUrl from '@/assets/images/ImageHero.jpg'
-
-
-// const router = useRouter() // Descomentar al implementar navegación
-const searchTerm = ref('')
-
-/**
- * Maneja el envío del formulario de búsqueda.
- * Redirige al listado de sitios aplicando el término de búsqueda como filtro.
- */
-const handleSearch = () => {
-  if (searchTerm.value.trim()) {
-    // Lógica de redirección con Vue Router
-    // router.push({ path: '/listado', query: { q: searchTerm.value } })
-
-    // Placeholder temporal hasta que se configure Vue Router
-    console.log(`Redirigiendo a /listado?q=${searchTerm.value}`)
-    // Se ha eliminado el alert()
-  }
-}
 </script>
 
 <template>
@@ -74,33 +47,6 @@ const handleSearch = () => {
       <p class="mt-4 text-base md:text-xl text-gray-200 drop-shadow-md max-w-2xl">
         Descubre los sitios históricos y el patrimonio cultural de nuestro país.
       </p>
-
-      <!-- Buscador Rápido -->
-      <!-- CAMBIO: Aumentamos el margen superior de mt-8 a mt-10 para separarlo del subtítulo -->
-      <form @submit.prevent="handleSearch" class="mt-10 w-full max-w-lg">
-        <div class="flex w-full items-center space-x-2 rounded-lg bg-white/90 p-2 shadow-lg backdrop-blur-sm">
-
-          <!-- Input de shadcn/vue -->
-          <Input
-            v-model="searchTerm"
-            type="text"
-            placeholder="Buscar un sitio, ciudad o provincia..."
-            class="flex-1 text-gray-900 border-none focus:ring-0 focus:outline-none bg-transparent placeholder:text-gray-600"
-          />
-
-          <!-- Button de shadcn/vue -->
-          <Button
-            type="submit"
-            class="bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-            aria-label="Buscar"
-          >
-            <Search class="h-5 w-5" />
-            <!-- Texto del botón opcional en pantallas pequeñas -->
-            <span class="ml-2 hidden sm:inline"></span>
-          </Button>
-
-        </div>
-      </form>
     </div>
   </section>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import SiteCard from '@/components/site/SiteCard.vue'
 import {
   Carousel,
@@ -9,15 +10,42 @@ import {
 } from '@/components/ui/carousel'
 import { Button } from '@/components/ui/button'
 import { ArrowRight } from 'lucide-vue-next'
-// CAMBIO: Importamos el tipo HistoricSite
 import type { HistoricSite } from '@/lib/api'
 
-// CAMBIO: El prop 'sites' ahora espera un array de 'HistoricSite'
-defineProps<{
+const props = defineProps<{
   title: string
   description: string
   sites: HistoricSite[]
+  category?: 'favorites' | 'best-rated' | 'recent'
 }>()
+
+const router = useRouter()
+
+function handleVerTodos() {
+  if (!props.category) {
+    // Si no hay categoría, ir al listado normal
+    router.push({ name: 'SitesList' })
+    return
+  }
+
+  // Navegar al listado con los filtros correspondientes
+  const query: Record<string, string> = {}
+  
+  if (props.category === 'favorites') {
+    query.fav = '1'
+  } else if (props.category === 'best-rated') {
+    query.sort = 'rating:desc'
+  } else if (props.category === 'recent') {
+    query.sort = 'created_at:desc'
+    // Para recientes, podríamos agregar un filtro de fecha si el backend lo soporta
+    // Por ahora, solo ordenamos por fecha descendente
+  }
+  
+  router.push({ 
+    name: 'SitesList',
+    query 
+  })
+}
 </script>
 
 <template>
@@ -35,7 +63,11 @@ defineProps<{
           </p>
         </div>
         <!-- Botón "Ver todos" que coincide con el diseño -->
-        <Button variant="ghost" class="text-blue-600 hover:text-blue-700 font-semibold">
+        <Button 
+          variant="ghost" 
+          class="text-blue-600 hover:text-blue-700 font-semibold"
+          @click="handleVerTodos"
+        >
           Ver todos
           <ArrowRight class="w-4 h-4 ml-2" />
         </Button>
