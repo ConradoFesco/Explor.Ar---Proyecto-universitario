@@ -16,6 +16,21 @@ from src.core.validators.listing_validator import _validate_sort
 class ReviewService:
     """Servicios para reseñas de sitios históricos."""
 
+    def _has_existing_review(self, site_id: int, user_id: int) -> bool:
+        """
+        Verifica si el usuario ya tiene una reseña (pending o approved) para el sitio.
+        Ignora reseñas rechazadas.
+        """
+        from sqlalchemy import and_
+        existing_review = HistoricSiteReview.query.filter(
+            and_(
+                HistoricSiteReview.site_id == site_id,
+                HistoricSiteReview.user_id == user_id,
+                HistoricSiteReview.status.in_(['pending', 'approved'])
+            )
+        ).first()
+        return existing_review is not None
+
     def list_reviews(self, filters=None, page=1, per_page=25, sort_by='created_at', sort_order='desc', site_id=None, only_approved=False):
         """
         Lista reseñas con filtros, orden y paginación.
@@ -182,14 +197,7 @@ class ReviewService:
 
         # Verificar si ya existe una reseña del usuario para este sitio
         # Ignorar reseñas rechazadas (solo considerar pending y approved)
-        existing_review = HistoricSiteReview.query.filter_by(
-            site_id=site_id,
-            user_id=user_id
-        ).filter(
-            HistoricSiteReview.status.in_(['pending', 'approved'])
-        ).first()
-        
-        if existing_review:
+        if self._has_existing_review(site_id, user_id):
             raise exc.ValidationError("Ya existe una reseña para este sitio. Use la opción de editar.")
 
         payload = validate_review_create_payload(rating=rating, content=content)
@@ -207,6 +215,12 @@ class ReviewService:
             db.session.commit()
         except Exception as error:
             db.session.rollback()
+            # Verificar si es un error de restricción única (posible condición de carrera)
+            error_str = str(error).lower()
+            if 'unique' in error_str or 'duplicate' in error_str or 'constraint' in error_str:
+                # Verificar nuevamente por si hubo una condición de carrera
+                if self._has_existing_review(site_id, user_id):
+                    raise exc.ValidationError("Ya existe una reseña para este sitio. Use la opción de editar.")
             raise exc.DatabaseError(f"Error al crear la reseña: {error}")
 
         return review
@@ -339,11 +353,13 @@ class ReviewService:
         
         # Obtener reseña del usuario, ignorando rechazadas y eliminadas
         # Solo considerar reseñas pending o approved
-        review = HistoricSiteReview.query.filter_by(
-            site_id=site_id,
-            user_id=user_id
-        ).filter(
-            HistoricSiteReview.status.in_(['pending', 'approved'])
+        from sqlalchemy import and_
+        review = HistoricSiteReview.query.filter(
+            and_(
+                HistoricSiteReview.site_id == site_id,
+                HistoricSiteReview.user_id == user_id,
+                HistoricSiteReview.status.in_(['pending', 'approved'])
+            )
         ).first()
         
         if not review:
@@ -406,9 +422,13 @@ class ReviewService:
         try:
             db.session.add(review)
             db.session.commit()
+            # Refrescar el objeto desde la BD para asegurar que tenemos los datos actualizados
+            db.session.refresh(review)
         except Exception as error:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al actualizar la reseña: {error}")
+        
+        return review
 
         return review
 

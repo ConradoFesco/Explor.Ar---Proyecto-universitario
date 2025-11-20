@@ -174,50 +174,69 @@ async function handleDeleteReview(reviewId: number) {
   }
 }
 
+/**
+ * Muestra confirmación para editar una reseña existente.
+ * Cierra el formulario actual y abre el formulario de edición si el usuario confirma.
+ */
+async function promptEditExistingReview(): Promise<void> {
+  showReviewForm.value = false
+  reviewToEdit.value = null
+  
+  if (!reviews.myReview.value) {
+    await reviews.loadMyReview()
+  }
+  
+  const result = await showConfirm(
+    'Reseña existente',
+    'Ya tiene una reseña para este sitio. ¿Desea editarla?'
+  )
+  
+  if (result.isConfirmed && reviews.myReview.value) {
+    await openReviewFormForEdit(reviews.myReview.value)
+  }
+}
+
 async function handleSubmitReview(rating: number, content: string) {
   if (!site.value || isSubmittingReview.value) return
   
   isSubmittingReview.value = true
   
   try {
-    // Usar reviewToEdit si existe (modo edición desde botón de editar)
-    // o reviews.myReview si existe (modo edición desde botón "Escribir reseña")
-    // Si ninguno existe, es modo creación
-    const reviewId = reviewToEdit.value?.id || reviews.myReview.value?.id
+    // Asegurarse de que myReview esté cargado antes de determinar el reviewId
+    if (!reviews.myReview.value) {
+      await reviews.loadMyReview()
+    }
+    
+    // Si reviewToEdit no está establecido pero myReview existe, establecerlo
+    // Esto puede pasar si el formulario se abrió en modo creación pero el usuario tiene una reseña
+    if (!reviewToEdit.value && reviews.myReview.value) {
+      reviewToEdit.value = reviews.myReview.value
+    }
+    
+    // Determinar el reviewId: si reviewToEdit está establecido, usar ese ID (modo edición)
+    const reviewId = reviewToEdit.value?.id || undefined
+    
+    // Validación: si no hay reviewId pero existe myReview, no permitir crear
+    // Esto previene el error 400 del backend
+    if (!reviewId && reviews.myReview.value) {
+      isSubmittingReview.value = false
+      await promptEditExistingReview()
+      return
+    }
+    
     await reviews.submitReview(rating, content, reviewId)
     // Cerrar el formulario inmediatamente después del éxito
     showReviewForm.value = false
-    reviewToEdit.value = null // Limpiar reseña a editar
+    reviewToEdit.value = null
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     
     // Si el error es que ya existe una reseña, mostrar confirmación para editarla
-    // Esto solo debería ocurrir cuando se intenta crear una nueva reseña
-    // pero ya existe una (no cuando se está editando)
     if (errorMsg === 'REVIEW_EXISTS') {
-      // Cerrar el formulario actual primero
-      showReviewForm.value = false
-      reviewToEdit.value = null
-      
-      // Cargar la reseña del usuario si no está cargada
-      if (!reviews.myReview.value) {
-        await reviews.loadMyReview()
-      }
-      
-      // Mostrar confirmación
-      const result = await showConfirm(
-        'Reseña existente',
-        'Ya tiene una reseña para este sitio. ¿Desea editarla?'
-      )
-      
-      if (result.isConfirmed && reviews.myReview.value) {
-        // Abrir formulario en modo edición
-        await openReviewFormForEdit(reviews.myReview.value)
-      }
+      await promptEditExistingReview()
     }
     // Otros errores ya fueron manejados en useReviews
   } finally {
-    // Siempre resetear el estado de envío
     isSubmittingReview.value = false
   }
 }

@@ -149,9 +149,7 @@ def get_my_review(site_id: int):
     user_id = get_current_user_id()
     try:
         review = review_service.get_user_review(site_id=site_id, user_id=user_id)
-        if not review:
-            return jsonify({'review': None}), 200
-        response = jsonify(review)
+        response = jsonify({'review': review})
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
     except exc.ValidationError as error:
