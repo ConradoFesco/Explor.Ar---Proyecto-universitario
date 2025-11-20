@@ -54,7 +54,7 @@ function handleDelete() {
           size="sm"
           :disabled="!areReviewsEnabled"
           @click="handleEdit"
-          class="h-8 w-8 p-0"
+          class="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           aria-label="Editar reseña"
         >
           <Edit class="h-4 w-4" />

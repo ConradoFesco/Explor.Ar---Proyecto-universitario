@@ -1,7 +1,6 @@
 <script setup lang="ts">
 // Importamos RouterLink para la navegación
 import { RouterLink } from 'vue-router'
-import ThemeToggle from '@/components/ui/theme/ThemeToggle.vue'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/composables/useAuth'
 
@@ -31,18 +30,24 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
         </RouterLink>
 
         <!-- 2. Menú de Navegación (Centro) -->
-        <nav class="hidden md:flex items-center space-x-10">
+        <nav class="hidden md:flex items-center space-x-8">
           <RouterLink
             :to="{ name: 'HomeView' }"
-            class="font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors"
-            active-class="text-blue-600 dark:text-blue-500"
+            class="relative px-8 py-3 rounded-lg text-lg font-semibold text-gray-700 dark:text-gray-300 
+                   hover:bg-gray-100 dark:hover:bg-gray-800 
+                   transition-all duration-200 ease-in-out
+                   hover:text-blue-600 dark:hover:text-blue-400"
+            active-class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
           >
             Inicio
           </RouterLink>
           <RouterLink
             :to="{ name: 'SitesList' }"
-            class="font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors"
-            active-class="text-blue-600 dark:text-blue-500"
+            class="relative px-8 py-3 rounded-lg text-lg font-semibold text-gray-700 dark:text-gray-300 
+                   hover:bg-gray-100 dark:hover:bg-gray-800 
+                   transition-all duration-200 ease-in-out
+                   hover:text-blue-600 dark:hover:text-blue-400"
+            active-class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
           >
             Sitios
           </RouterLink>
@@ -82,8 +87,6 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
               </div>
             </div>
           </div>
-          
-          <ThemeToggle />
         </div>
 
       </div>

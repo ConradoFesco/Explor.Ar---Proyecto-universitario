@@ -1,50 +1,106 @@
 <script setup lang="ts">
-// CAMBIO: Importamos 'onMounted' y 'computed'
-import { onMounted, computed } from 'vue'
-// Importamos los componentes de la página
+import { onMounted, ref } from 'vue'
 import HeroSection from '@/components/home/HeroSection.vue'
 import ContentSection from '@/components/home/ContentSection.vue'
-// import AppHeader from '@/components/AppHeader.vue' // <-- CAMBIO: Eliminado de aquí
-// Importamos el tipo (ajusta la ruta si es necesario)
 import type { HistoricSite } from '@/lib/api'
-// CAMBIO: Importamos el store de Pinia
-import { useSitesStore } from '@/stores/sites'
+import { fetchPublicSites, fetchMyFavorites } from '@/lib/api'
+import { useAuth } from '@/composables/useAuth'
 
-// CAMBIO: Inicializamos el store
-const sitesStore = useSitesStore()
+const { isAuthenticated } = useAuth()
 
-// CAMBIO: Eliminamos el array 'featuredSites' hardcodeado
+// Estados para los sitios del home
+const mejorPuntuados = ref<HistoricSite[]>([])
+const recientementeAgregados = ref<HistoricSite[]>([])
+const favoritos = ref<HistoricSite[]>([])
 
-// CAMBIO: Creamos propiedades computadas que leen del store
-// Asumimos que 'sitesStore.items' tiene TODOS los sitios
-const mejorPuntuados = computed(() => {
-  // Lógica de ejemplo: clonar, ordenar y tomar 5
-  // Asumo que tu 'HistoricSite' tiene una propiedad 'rating' o similar.
-  // Si no la tiene, tendrás que ajustar esta lógica de orden.
-  return [...sitesStore.items]
-    // @ts-ignore - Si 'rating' no existe en tu tipo, puedes borrar esta línea
-    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-    .slice(0, 5);
-})
+// Estados de carga independientes para cada sección
+const isLoadingMejorPuntuados = ref(true)
+const isLoadingRecientementeAgregados = ref(true)
+const isLoadingFavoritos = ref(true)
 
-const recientementeAgregados = computed(() => {
-  // Lógica de ejemplo: clonar, ordenar por ID (o fecha) y tomar 5
-  // Asumo que ID más alto = más nuevo
-  return [...sitesStore.items]
-    .sort((a, b) => (b.id || 0) - (a.id || 0))
-    .slice(0, 5);
-})
+// Función para obtener la fecha de hoy en formato ISO (solo fecha, sin hora)
+function getTodayDateString(): string {
+  const today = new Date()
+  const dateString = today.toISOString().split('T')[0] // Formato: YYYY-MM-DD
+  return dateString || today.toISOString().substring(0, 10) // Fallback si split falla
+}
 
-
-// CAMBIO: Cuando el componente se monta, llamamos al store
-onMounted(() => {
-  // Llamamos a la acción del store para que traiga los sitios
-  // Asumo que tienes una acción 'fetchItems' o similar
-  // ¡Asegúrate de que esta acción exista en tu store!
-  if (sitesStore.items.length === 0) {
-     // sitesStore.fetchItems(); // O como se llame tu acción
-     console.log("Llamando a fetchItems() desde HomeView [DESCOMENTAR]");
+// Cargar sitios mejor puntuados (carga independiente)
+async function loadMejorPuntuados() {
+  isLoadingMejorPuntuados.value = true
+  try {
+    const response = await fetchPublicSites({
+      orderBy: 'rating',
+      orderDir: 'desc',
+      page: 1,
+      perPage: 5,
+    })
+    mejorPuntuados.value = response.items
+  } catch (error) {
+    console.error('Error al cargar mejor puntuados:', error)
+    mejorPuntuados.value = []
+  } finally {
+    isLoadingMejorPuntuados.value = false
   }
+}
+
+// Cargar sitios recientemente agregados (del día actual) - carga independiente
+async function loadRecientementeAgregados() {
+  isLoadingRecientementeAgregados.value = true
+  try {
+    const response = await fetchPublicSites({
+      orderBy: 'created_at',
+      orderDir: 'desc',
+      page: 1,
+      perPage: 20, // Obtener más para filtrar por fecha
+    })
+    
+    // Filtrar solo los del día actual
+    const today = getTodayDateString()
+    const recientes = response.items.filter(site => {
+      if (!site.created_at) return false
+      const siteDate = site.created_at.split('T')[0] // Obtener solo la fecha
+      return siteDate === today
+    })
+    
+    recientementeAgregados.value = recientes.slice(0, 5)
+  } catch (error) {
+    console.error('Error al cargar recientemente agregados:', error)
+    recientementeAgregados.value = []
+  } finally {
+    isLoadingRecientementeAgregados.value = false
+  }
+}
+
+// Cargar favoritos del usuario (carga independiente)
+async function loadFavoritos() {
+  isLoadingFavoritos.value = true
+  if (!isAuthenticated.value) {
+    favoritos.value = []
+    isLoadingFavoritos.value = false
+    return
+  }
+  
+  try {
+    const response = await fetchMyFavorites(1, 5)
+    favoritos.value = response.items
+  } catch (error) {
+    // Si hay error (ej: no autenticado), simplemente no mostrar favoritos
+    console.warn('Error al cargar favoritos:', error)
+    favoritos.value = []
+  } finally {
+    isLoadingFavoritos.value = false
+  }
+}
+
+// Cargar todos los datos de forma independiente cuando se monta el componente
+// Cada sección se carga y muestra tan pronto como sus datos estén listos
+onMounted(() => {
+  // Cargar cada sección de forma independiente (sin esperar a las demás)
+  // Esto mejora la percepción de velocidad porque el usuario ve contenido apareciendo progresivamente
+  loadMejorPuntuados()
+  loadRecientementeAgregados()
+  loadFavoritos()
 })
 
 </script>
@@ -57,29 +113,44 @@ onMounted(() => {
   <!-- 1. Sección Hero (Héroe) -->
     <HeroSection />
 
-    <!-- CAMBIO: Loader mientras se cargan los datos -->
-    <div v-if="sitesStore.isLoading" class="text-center py-20">
-      <p class="text-gray-500 dark:text-gray-400">Cargando sitios destacados...</p>
-      <!-- Aquí iría un componente 'Spinner' si tuvieras -->
+    <!-- Secciones de Contenido (Sitios Destacados) -->
+    <!-- Cada sección se muestra tan pronto como sus datos estén listos -->
+    
+    <!-- Favoritos -->
+    <ContentSection
+      v-if="!isLoadingFavoritos && favoritos.length > 0"
+      title="Mis Favoritos"
+      description="Tus sitios favoritos guardados."
+      :sites="favoritos"
+      category="favorites"
+    />
+    <div v-else-if="isLoadingFavoritos && isAuthenticated" class="py-12 px-4">
+      <div class="text-center text-gray-500 dark:text-gray-400">Cargando favoritos...</div>
     </div>
 
-    <!-- 2. Sección de Contenido (Sitios Destacados) -->
-    <!-- CAMBIO: Modificamos el template para usar las propiedades computadas -->
-    <template v-if="!sitesStore.isLoading">
-      <ContentSection
-        v-if="mejorPuntuados.length > 0"
-        title="Mejor Puntuados"
-        description="Los sitios con las valoraciones más altas."
-        :sites="mejorPuntuados"
-      />
+    <!-- Mejor Puntuados -->
+    <ContentSection
+      v-if="!isLoadingMejorPuntuados && mejorPuntuados.length > 0"
+      title="Mejor Puntuados"
+      description="Los sitios con las valoraciones más altas."
+      :sites="mejorPuntuados"
+      category="best-rated"
+    />
+    <div v-else-if="isLoadingMejorPuntuados" class="py-12 px-4">
+      <div class="text-center text-gray-500 dark:text-gray-400">Cargando mejor puntuados...</div>
+    </div>
 
-      <ContentSection
-        v-if="recientementeAgregados.length > 0"
-        title="Recientemente Agregados"
-        description="Descubre los últimos sitios incorporados."
-        :sites="recientementeAgregados"
-      />
-    </template>
+    <!-- Recientemente Agregados -->
+    <ContentSection
+      v-if="!isLoadingRecientementeAgregados && recientementeAgregados.length > 0"
+      title="Recientemente Agregados"
+      description="Descubre los últimos sitios incorporados hoy."
+      :sites="recientementeAgregados"
+      category="recent"
+    />
+    <div v-else-if="isLoadingRecientementeAgregados" class="py-12 px-4">
+      <div class="text-center text-gray-500 dark:text-gray-400">Cargando recientemente agregados...</div>
+    </div>
 
   <!-- </main> --> <!-- <-- CAMBIO: Esta era la línea que causaba el error -->
 
