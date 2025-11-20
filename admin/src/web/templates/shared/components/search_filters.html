@@ -1,16 +1,17 @@
-{# Componente de filtros de búsqueda reutilizable #}
+{# templates/shared/components/search_filters.html #}
 {% macro render_search_filters(filters_config) %}
     {% set prefix = filters_config.id_prefix or '' %}
     <div class="bg-gray-50 rounded-lg p-4 mb-6">
         <!-- Barra de búsqueda y ordenamiento -->
-        <div class="flex flex-wrap gap-4 mb-4">
+        <div class="flex flex-wrap gap-4 mb-4 items-center">
             <!-- Búsqueda por texto -->
             <div class="flex-1 min-w-64">
                 <div class="relative">
                     {% set search_param = filters_config.search_param or 'search' %}
-                    <input type="text" 
-                           id="{{ prefix }}search-input" 
-                           placeholder="{{ filters_config.search_placeholder or 'Buscar...' }}" 
+                    <input type="text"
+                           id="{{ prefix }}search-input"
+                           name="{{ search_param }}"
+                           placeholder="{{ filters_config.search_placeholder or 'Buscar...' }}"
                            value="{{ request.args.get(search_param,'') }}"
                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -18,24 +19,26 @@
                     </div>
                 </div>
             </div>
+
             
+
             <!-- Ordenamiento (opcional) -->
             {% if filters_config.sort_options and filters_config.sort_options|length > 0 %}
             <div class="flex gap-2">
                 {% set current_sort_by = request.args.get('sort_by', 'created_at') %}
-                <select id="{{ prefix }}sort-by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="{{ prefix }}sort-by" name="sort_by" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     {% for option in filters_config.sort_options %}
                         <option value="{{ option.value }}" {% if current_sort_by == option.value %}selected{% endif %}>{{ option.label }}</option>
                     {% endfor %}
                 </select>
                 {% set current_sort_order = request.args.get('sort_order', 'desc') %}
-                <select id="{{ prefix }}sort-order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="{{ prefix }}sort-order" name="sort_order" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="desc" {% if current_sort_order == 'desc' %}selected{% endif %}>Descendente</option>
                     <option value="asc" {% if current_sort_order == 'asc' %}selected{% endif %}>Ascendente</option>
                 </select>
             </div>
             {% endif %}
-            
+
             <!-- Botón de filtros -->
             {% if filters_config.filters and filters_config.filters|length > 0 %}
             <button id="{{ prefix }}toggle-filters" type="button" onclick="(function(){var p=document.getElementById('{{ prefix }}filters-panel'); if(p){ if(p.classList){p.classList.toggle('hidden');} p.style.display = p.classList && p.classList.contains('hidden') ? 'none' : 'block'; } })()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
@@ -43,7 +46,7 @@
                 Filtros
             </button>
             {% endif %}
-            
+
             {% if filters_config.export_button %}
                 <button id="{{ prefix }}export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 flex items-center gap-2">
                     <i class="fas fa-download"></i>
@@ -59,47 +62,49 @@
                 {% for filter in filters_config.filters %}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ filter.label }}</label>
+                        {% set param_key = filter.param or filter.name %}
                         {% if filter.type == 'select' %}
-                            {% set param_key = filter.param or filter.name %}
                             {% set current_value = request.args.get(param_key, '') %}
-                            <select id="{{ prefix }}filter-{{ filter.name }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <select id="{{ prefix }}filter-{{ filter.name }}" name="{{ param_key }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="">{{ filter.placeholder or 'Todos' }}</option>
                                 {% for option in filter.options %}
-                                    <option value="{{ option.value }}" {% if current_value == option.value or (not current_value and option.value == '') %}selected{% endif %}>{{ option.label }}</option>
+                                    {% if option is mapping %}
+                                      <option value="{{ option.value }}" {% if current_value == option.value or (not current_value and option.value == '') %}selected{% endif %}>{{ option.label }}</option>
+                                    {% else %}
+                                      <option value="{{ option }}" {% if current_value == option or (not current_value and option == '') %}selected{% endif %}>{{ option }}</option>
+                                    {% endif %}
                                 {% endfor %}
                             </select>
                         {% elif filter.type == 'date' %}
-                            {% set param_key = filter.param or filter.name %}
-                            <input type="date" 
-                                   id="{{ prefix }}filter-{{ filter.name }}" 
+                            <input type="date"
+                                   id="{{ prefix }}filter-{{ filter.name }}"
+                                   name="{{ param_key }}"
                                    value="{{ request.args.get(param_key,'') }}"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         {% elif filter.type == 'checkbox' %}
-                            {% if filter.options and filter.options|length > 0 %}
-                                <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
-                                    {% for option in filter.options %}
-                                        <label class="flex items-center mr-4">
-                                            <input type="checkbox" value="{{ option.value }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {% if request.args.get(filter.param or filter.name, '') and (option.value in request.args.get(filter.param or filter.name).split(',')) %}checked{% endif %}>
-                                            <span class="ml-2 text-sm text-gray-700 cursor-pointer">{{ option.label }}</span>
-                                        </label>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2"></div>
-                            {% endif %}
+                            <div id="{{ prefix }}filter-{{ filter.name }}-container" class="flex flex-wrap gap-2">
+                                {% for option in filter.options %}
+                                    <label class="flex items-center mr-4">
+                                        <input type="checkbox" name="{{ param_key }}" value="{{ option.value }}" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        {% if request.args.get(param_key, '') and (option.value in request.args.get(param_key).split(',')) %}checked{% endif %}>
+                                        <span class="ml-2 text-sm text-gray-700 cursor-pointer">{{ option.label }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
                         {% elif filter.type == 'multiselect' %}
-                            {% set param_key = filter.param or filter.name %}
                             {% set selected_values = (request.args.get(param_key,'') or '').split(',') %}
-                            <select id="{{ prefix }}filter-{{ filter.name }}" multiple size="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <select id="{{ prefix }}filter-{{ filter.name }}" name="{{ param_key }}" multiple size="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 {% for option in filter.options %}
                                     <option value="{{ option.value }}" {% if option.value in selected_values %}selected{% endif %}>{{ option.label }}</option>
                                 {% endfor %}
                             </select>
+                        {% else %}
+                            <input type="text" id="{{ prefix }}filter-{{ filter.name }}" name="{{ param_key }}" value="{{ request.args.get(param_key,'') }}" placeholder="{{ filter.placeholder or '' }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         {% endif %}
                     </div>
                 {% endfor %}
             </div>
-            
+
             <!-- Botones de acción -->
             <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
                 <button id="{{ prefix }}clear-filters" type="button" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition duration-200">
@@ -113,3 +118,4 @@
         {% endif %}
     </div>
 {% endmacro %}
+

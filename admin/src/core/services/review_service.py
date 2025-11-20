@@ -128,6 +128,13 @@ class ReviewService:
             'items': items,
             'pagination': pagination
         }
+    def list_site_options(self):
+        """
+        Devuelve lista de opciones para el select de sitios:
+        [{ 'value': str(id), 'label': name }, ...]
+        """
+        sites = HistoricSite.query.filter_by(deleted=False).order_by(HistoricSite.name).all()
+        return [{'value': str(s.id), 'label': s.name} for s in sites]
 
     def create_review(self, *, site_id: int, user_id: int, rating, content):
         # Validar IDs

@@ -200,9 +200,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function gatherFilters(prefix = '') {
     const f = {};
     const searchInput = document.getElementById(prefix + 'search-input');
+    const citySearchInput = document.getElementById(prefix + 'city-search-input');
     // El search_param es 'user' según el template de reviews
     if (searchInput && searchInput.value.trim()) {
       f['user'] = searchInput.value.trim();
+    }
+    if (citySearchInput && citySearchInput.value.trim()) {
+      f['city'] = citySearchInput.value.trim();
     }
 
     const sortBy = document.getElementById(prefix + 'sort-by');
@@ -302,6 +306,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 400); // Espera 400ms tras dejar de tipear
       });
     }
+    // También reactivar al escribir en el buscador de ciudad si existe
+    const cityInput = document.getElementById(prefix + 'city-search-input');
+    if (cityInput) {
+      let cityTimeout;
+      cityInput.addEventListener('input', () => {
+        clearTimeout(cityTimeout);
+        cityTimeout = setTimeout(() => {
+          currentFilters = gatherFilters(prefix);
+          currentPage = 1;
+          fetchFragment(currentPage, currentFilters);
+        }, 400);
+      });
+    }
   }
 
   document.addEventListener('filters:apply', (ev) => {
@@ -310,9 +327,126 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchFragment(currentPage, currentFilters);
   });
 
+  // Autocomplete para ciudad: consulta /api/sites?city=... y muestra sitios
+  function bindCityAutocomplete(prefix = '') {
+    const input = document.getElementById(prefix + 'filter-city');
+    if (!input) return;
+    const suggestionsContainer = document.getElementById(prefix + 'filter-city-suggestions');
+
+    // Debounce helper
+    function debounce(fn, wait) {
+      let t;
+      return function(...args) {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
+
+    async function fetchCitySites(q) {
+      try {
+        const params = new URLSearchParams();
+        // Buscar por nombre de sitio (prefix) para devolver coincidencias por nombre
+        params.set('name', q);
+        params.set('per_page', 10);
+        const res = await fetch('/api/sites?' + params.toString(), { credentials: 'include' });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.sites || [];
+      } catch (err) {
+        console.error('Error fetching city sites', err);
+        return [];
+      }
+    }
+
+    function clearSuggestions() {
+      if (!suggestionsContainer) return;
+      suggestionsContainer.innerHTML = '';
+      suggestionsContainer.classList.add('hidden');
+    }
+
+    function ensureSiteOption(site) {
+      const siteSelect = document.getElementById(prefix + 'filter-site_id');
+      if (!siteSelect) return;
+      // add option if not present
+      if (!Array.from(siteSelect.options).some(o => String(o.value) === String(site.id))) {
+        const opt = document.createElement('option');
+        opt.value = site.id;
+        opt.text = site.name + (site.city ? ' — ' + site.city : '');
+        siteSelect.appendChild(opt);
+      }
+    }
+
+    async function onInput() {
+      const q = input.value.trim();
+      if (q.length < 2) {
+        clearSuggestions();
+        return;
+      }
+      const sites = await fetchCitySites(q);
+      if (!suggestionsContainer) return;
+      suggestionsContainer.innerHTML = '';
+      if (!sites || sites.length === 0) {
+        const div = document.createElement('div');
+        div.className = 'px-3 py-2 text-sm text-gray-500';
+        div.textContent = 'No se encontraron sitios en esa ciudad.';
+        suggestionsContainer.appendChild(div);
+        suggestionsContainer.classList.remove('hidden');
+        return;
+      }
+
+      sites.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'px-3 py-2 hover:bg-gray-100 text-sm border-b border-gray-100 flex justify-between items-center gap-2';
+
+        const left = document.createElement('div');
+        left.className = 'cursor-pointer flex-1';
+        left.textContent = s.name + (s.city ? ' — ' + s.city : '');
+        // clicking left opens site detail modal if available
+        left.onclick = (e) => {
+          e.stopPropagation();
+          if (typeof window.openSiteDetail === 'function') {
+            try { window.openSiteDetail(s.id); } catch(err) { console.error('openSiteDetail failed', err); }
+          }
+        };
+
+        const selectBtn = document.createElement('button');
+        selectBtn.type = 'button';
+        selectBtn.className = 'px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700';
+        selectBtn.textContent = 'Seleccionar';
+        selectBtn.onclick = (e) => {
+          e.stopPropagation();
+          // ensure option exists and select it
+          ensureSiteOption(s);
+          const siteSelect = document.getElementById(prefix + 'filter-site_id');
+          if (siteSelect) {
+            siteSelect.value = s.id;
+          }
+          // set city input to the normalized city name
+          input.value = s.city || q;
+          clearSuggestions();
+        };
+
+        item.appendChild(left);
+        item.appendChild(selectBtn);
+        suggestionsContainer.appendChild(item);
+      });
+      suggestionsContainer.classList.remove('hidden');
+    }
+
+    input.addEventListener('input', debounce(onInput, 300));
+    // close suggestions when clicking outside
+    document.addEventListener('click', (ev) => {
+      if (!suggestionsContainer) return;
+      if (ev.target === input || suggestionsContainer.contains(ev.target)) return;
+      clearSuggestions();
+    });
+  }
+
   // init
   // bind filter panel actions (no prefix was passed when rendering macro in page)
   bindFilterPanel('');
+  // bind city autocomplete (autocompleta sitios por ciudad)
+  try { bindCityAutocomplete && bindCityAutocomplete(''); } catch(e) { /* noop */ }
   // initial load: apply existing querystring filters if present
   const initialFilters = {};
   // populate initialFilters from current URL search params (so SSR values persist on first AJAX load)

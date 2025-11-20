@@ -7,8 +7,9 @@
 <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" aria-labelledby="reviews-heading" role="region">
     {% from 'shared/components/search_filters.html' import render_search_filters %}
     {{ render_search_filters({
-        'search_placeholder': 'Buscar por email o contenido...',
+        'search_placeholder': 'Buscar por email...',
         'search_param': 'user',
+        'city_search': True,
         'sort_options': [
             {'value': 'created_at', 'label': 'Fecha'},
             {'value': 'rating', 'label': 'Calificación'}
@@ -21,8 +22,16 @@
                 {'value': 'deleted', 'label': 'Eliminada'}
             ]},
             {'name': 'site_id', 'label': 'Sitio', 'type': 'select', 'placeholder': 'Todos los sitios', 'options': site_options},
-            {'name': 'rating', 'label': 'Calificación', 'type': 'select', 'placeholder': 'Todos', 'options': [
-                {'value': '', 'label': 'Todos'},
+            {'name': 'rating_from', 'label': 'Calificación desde', 'type': 'select', 'placeholder': 'Min', 'options': [
+                {'value': '', 'label': 'Min'},
+                {'value': '1', 'label': '1'},
+                {'value': '2', 'label': '2'},
+                {'value': '3', 'label': '3'},
+                {'value': '4', 'label': '4'},
+                {'value': '5', 'label': '5'}
+            ]},
+            {'name': 'rating_to', 'label': 'Calificación hasta', 'type': 'select', 'placeholder': 'Max', 'options': [
+                {'value': '', 'label': 'Max'},
                 {'value': '1', 'label': '1'},
                 {'value': '2', 'label': '2'},
                 {'value': '3', 'label': '3'},

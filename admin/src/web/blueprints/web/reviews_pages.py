@@ -9,6 +9,7 @@ from src.core.services.historic_site_service import historic_site_service
 from src.core.validators.reviews_validator import validate_review_list_params
 from src.core.validators.listing_validator import _validate_sort
 from src.web import exceptions as exc
+from src.core.models.historic_site import HistoricSite
 
 reviews_web = Blueprint('reviews_web', __name__)
 
@@ -87,21 +88,11 @@ def list_reviews_page():
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     
+    site_options = review_service.list_site_options()
+
     params = _resolve_review_list_params()
     
-    # Obtener opciones de sitios para el filtro
-    try:
-        sites_result = historic_site_service.get_all_historic_sites(
-            include_deleted=False,
-            page=1,
-            per_page=1000,
-            sort_by='name',
-            sort_order='asc'
-        )
-        sites = sites_result.get('sites', [])
-        site_options = [{'value': s.get('id'), 'label': s.get('name')} for s in sites]
-    except Exception:
-        site_options = []
+    
     
     # Obtener reseñas usando el servicio
     try:
