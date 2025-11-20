@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface Review {
@@ -60,11 +60,6 @@ defineProps<Props>()
             </p>
           </div>
         </CardContent>
-        <CardFooter class="pt-0 flex justify-end">
-          <Button variant="ghost" size="sm" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-            Leer completa <i class="fas fa-arrow-right ml-2 text-xs"></i>
-          </Button>
-        </CardFooter>
       </Card>
     </div>
 
