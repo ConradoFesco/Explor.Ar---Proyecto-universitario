@@ -246,7 +246,7 @@ def rechazar_review(review_id):
 @reviews_web.route("/reviews/<int:review_id>/eliminar", methods=["POST"])
 @web_permission_required("moderate_reviews")
 def eliminar_review(review_id):
-    """Elimina lógicamente una reseña (acción administrativa)."""
+    """Elimina físicamente una reseña (acción administrativa)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     

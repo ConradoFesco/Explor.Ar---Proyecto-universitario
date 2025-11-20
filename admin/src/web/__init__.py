@@ -129,7 +129,7 @@ def initialize_extensions(app):
     )
     
     # Inicialización automática de BD en producción (solo si no existe)
-    initialize_database_if_needed(app)
+    # initialize_database_if_needed(app)
 
 
 def register_blueprints(app):

@@ -32,6 +32,12 @@ def validate_review_create_payload(*, rating, content):
     content_val = (content or '').strip()
     if not content_val:
         raise ValidationError('El contenido de la reseña es obligatorio')
+    
+    if len(content_val) < 20:
+        raise ValidationError('El contenido de la reseña debe tener al menos 20 caracteres')
+    
+    if len(content_val) > 1000:
+        raise ValidationError('El contenido de la reseña no puede exceder 1000 caracteres')
 
     return {
         'rating': rating_val,

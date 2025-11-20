@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAlert } from '@/composables/useAlert'
 import { Button } from '@/components/ui/button'
 import { Star, X } from 'lucide-vue-next'
+import type { Review } from '@/lib/api'
 
 const props = defineProps<{
   siteId?: number
   siteName: string
+  review?: Review | null
+  isSubmitting?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -17,12 +20,34 @@ const emit = defineEmits<{
 const rating = ref(0)
 const hoveredRating = ref(0)
 const content = ref('')
-const isSubmitting = ref(false)
 const { showWarning } = useAlert()
 
+const isSubmitting = computed(() => props.isSubmitting || false)
+
+const isEditing = computed(() => !!props.review)
+
+// Cargar datos de la reseña si está editando
+watch(() => props.review, (newReview) => {
+  if (newReview) {
+    // Cargar datos de la reseña existente para modificación
+    rating.value = newReview.rating
+    hoveredRating.value = 0 // Resetear hover al cargar
+    content.value = newReview.content
+  } else {
+    // Resetear para formulario de alta
+    rating.value = 0
+    hoveredRating.value = 0
+    content.value = ''
+  }
+}, { immediate: true })
+
 const isValid = computed(() => {
-  return rating.value > 0 && content.value.trim().length > 0
+  return rating.value > 0 && content.value.trim().length >= 20 && content.value.trim().length <= 1000
 })
+
+const characterCount = computed(() => content.value.length)
+const minChars = 20
+const maxChars = 1000
 
 function setRating(value: number) {
   rating.value = value
@@ -35,22 +60,31 @@ async function handleSubmit() {
     await showWarning('Calificación requerida', 'Por favor, seleccione una calificación')
     return
   }
-  if (!content.value.trim()) {
-    await showWarning('Comentario requerido', 'Por favor, escriba un comentario')
+  
+  const trimmedContent = content.value.trim()
+  if (trimmedContent.length < minChars) {
+    await showWarning('Comentario muy corto', `El comentario debe tener al menos ${minChars} caracteres`)
     return
   }
   
-  emit('submit', rating.value, content.value.trim())
+  if (trimmedContent.length > maxChars) {
+    await showWarning('Comentario muy largo', `El comentario no puede exceder ${maxChars} caracteres`)
+    return
+  }
+  
+  // Emitir el evento de submit
+  emit('submit', rating.value, trimmedContent)
 }
 
 function handleClose() {
   if (isSubmitting.value) return
   
-  // Resetear formulario al cerrar
-  rating.value = 0
-  hoveredRating.value = 0
-  content.value = ''
-  isSubmitting.value = false
+  // Resetear formulario al cerrar solo si no está en modo edición
+  if (!props.review) {
+    rating.value = 0
+    hoveredRating.value = 0
+    content.value = ''
+  }
   emit('close')
 }
 
@@ -64,18 +98,20 @@ function handleKeydown(event: KeyboardEvent) {
 <template>
   <Teleport to="body">
     <div 
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" 
+      class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" 
       @click.self="handleClose"
       @keydown="handleKeydown"
     >
       <div 
-        class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto z-[10000]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="review-form-title"
       >
-        <div class="sticky top-0 bg-white border-b p-4 flex items-center justify-between z-10">
-          <h3 id="review-form-title" class="text-lg font-semibold">Escribir Reseña</h3>
+        <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
+          <h3 id="review-form-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {{ isEditing ? 'Modificar Reseña' : 'Escribir Reseña' }}
+          </h3>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -89,12 +125,12 @@ function handleKeydown(event: KeyboardEvent) {
         
         <form @submit.prevent="handleSubmit" class="p-6 space-y-6">
           <div>
-            <p class="text-sm text-gray-600 mb-2">Sitio: {{ siteName }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Sitio: {{ siteName }}</p>
           </div>
           
           <!-- Calificación -->
           <div class="space-y-2">
-            <label for="rating" class="text-sm font-medium">Calificación *</label>
+            <label for="rating" class="text-sm font-medium text-gray-900 dark:text-gray-100">Calificación *</label>
             <div class="flex items-center gap-1" role="radiogroup" aria-label="Calificación">
               <button
                 v-for="i in 5"
@@ -116,7 +152,7 @@ function handleKeydown(event: KeyboardEvent) {
                   ]"
                 />
               </button>
-              <span v-if="rating > 0" class="ml-2 text-sm text-gray-600">
+              <span v-if="rating > 0" class="ml-2 text-sm text-gray-600 dark:text-gray-400">
                 {{ rating }} de 5 estrellas
               </span>
             </div>
@@ -124,17 +160,33 @@ function handleKeydown(event: KeyboardEvent) {
           
           <!-- Comentario -->
           <div class="space-y-2">
-            <label for="review-content" class="text-sm font-medium">Comentario *</label>
+            <label for="review-content" class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Comentario * (mínimo {{ minChars }}, máximo {{ maxChars }} caracteres)
+            </label>
             <textarea
               id="review-content"
               v-model="content"
               rows="6"
               required
-              minlength="1"
-              class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Escriba su reseña aquí..."
+              :minlength="minChars"
+              :maxlength="maxChars"
+              class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"
+              :class="{
+                'border-red-500 dark:border-red-500': content.length > 0 && (content.length < minChars || content.length > maxChars),
+                'border-green-500 dark:border-green-500': content.length >= minChars && content.length <= maxChars
+              }"
+              placeholder="Escriba su reseña aquí (mínimo 20 caracteres)..."
               :disabled="isSubmitting"
             ></textarea>
+            <div class="flex justify-between text-xs" :class="{
+              'text-red-500 dark:text-red-400': content.length < minChars || content.length > maxChars,
+              'text-gray-500 dark:text-gray-400': content.length >= minChars && content.length <= maxChars
+            }">
+              <span>{{ characterCount }} / {{ maxChars }} caracteres</span>
+              <span v-if="content.length < minChars">
+                Faltan {{ minChars - content.length }} caracteres
+              </span>
+            </div>
           </div>
           
           <!-- Botones -->
@@ -151,7 +203,7 @@ function handleKeydown(event: KeyboardEvent) {
               type="submit"
               :disabled="!isValid || isSubmitting"
             >
-              {{ isSubmitting ? 'Enviando...' : 'Enviar Reseña' }}
+              {{ isSubmitting ? (isEditing ? 'Guardando...' : 'Enviando...') : (isEditing ? 'Modificar Reseña' : 'Enviar Reseña') }}
             </Button>
           </div>
         </form>

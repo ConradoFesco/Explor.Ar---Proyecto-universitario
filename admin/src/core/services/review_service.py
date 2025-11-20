@@ -16,11 +16,20 @@ from src.core.validators.listing_validator import _validate_sort
 class ReviewService:
     """Servicios para reseñas de sitios históricos."""
 
-    def list_reviews(self, filters=None, page=1, per_page=25, sort_by='created_at', sort_order='desc'):
+    def list_reviews(self, filters=None, page=1, per_page=25, sort_by='created_at', sort_order='desc', site_id=None, only_approved=False):
         """
         Lista reseñas con filtros, orden y paginación.
         Devuelve dict con items y pagination.
         Compatible con PostgreSQL.
+        
+        Args:
+            filters: Dict con filtros adicionales
+            page: Número de página
+            per_page: Items por página
+            sort_by: Campo para ordenar
+            sort_order: 'asc' o 'desc'
+            site_id: ID del sitio para filtrar (opcional)
+            only_approved: Si True, solo muestra reseñas aprobadas (para usuarios públicos)
         """
         # Validaciones de entrada
         pagination = validate_review_list_params(page=page, per_page=per_page)
@@ -36,6 +45,18 @@ class ReviewService:
         
         # Query base
         query = HistoricSiteReview.query.join(User).join(HistoricSite)
+
+        # Filtrar por site_id si se proporciona
+        if site_id:
+            try:
+                site_id_val = int(site_id)
+                query = query.filter(HistoricSiteReview.site_id == site_id_val)
+            except (ValueError, TypeError):
+                pass  # Ignorar site_id inválido
+        
+        # Filtrar solo reseñas aprobadas si es para usuarios públicos
+        if only_approved:
+            query = query.filter(HistoricSiteReview.status == 'approved')
 
         # Aplicar filtros combinables
         if filters:
@@ -98,12 +119,18 @@ class ReviewService:
         # Construir lista de items
         items = []
         for review in items_query:
+            user = review.user
             items.append({
                 'id': review.id,
                 'site_id': review.site_id,
                 'site_name': review.site.name,
                 'user_id': review.user_id,
-                'user_mail': review.user.mail,
+                'user': {
+                    'id': user.id if user else None,
+                    'mail': user.mail if user else None,
+                    'name': user.name if user else None,
+                },
+                'user_mail': user.mail if user else None,
                 'rating': review.rating,
                 'content': review.content,
                 'status': review.status,
@@ -152,6 +179,18 @@ class ReviewService:
         user = User.query.filter_by(id=user_id, deleted=False).first()
         if not user:
             raise exc.ValidationError("Usuario no válido")
+
+        # Verificar si ya existe una reseña del usuario para este sitio
+        # Ignorar reseñas rechazadas (solo considerar pending y approved)
+        existing_review = HistoricSiteReview.query.filter_by(
+            site_id=site_id,
+            user_id=user_id
+        ).filter(
+            HistoricSiteReview.status.in_(['pending', 'approved'])
+        ).first()
+        
+        if existing_review:
+            raise exc.ValidationError("Ya existe una reseña para este sitio. Use la opción de editar.")
 
         payload = validate_review_create_payload(rating=rating, content=content)
 
@@ -280,8 +319,142 @@ class ReviewService:
             db.session.rollback()
             raise exc.DatabaseError(f'Error al rechazar la reseña: {e}')
 
+    def get_user_review(self, *, site_id: int, user_id: int):
+        """Obtiene la reseña del usuario para un sitio específico."""
+        try:
+            site_id = int(site_id)
+            if site_id <= 0:
+                raise exc.ValidationError("site_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("site_id debe ser un entero válido")
+        
+        try:
+            user_id = int(user_id)
+            if user_id <= 0:
+                raise exc.ValidationError("user_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("user_id debe ser un entero válido")
+        
+        # Obtener reseña del usuario, ignorando rechazadas y eliminadas
+        # Solo considerar reseñas pending o approved
+        review = HistoricSiteReview.query.filter_by(
+            site_id=site_id,
+            user_id=user_id
+        ).filter(
+            HistoricSiteReview.status.in_(['pending', 'approved'])
+        ).first()
+        
+        if not review:
+            return None
+        
+        user = review.user
+        data = review.to_dict()
+        data['user'] = {
+            'id': user.id if user else None,
+            'mail': user.mail if user else None,
+            'name': user.name if user else None
+        }
+        data['site_name'] = review.site.name if review.site else None
+        return data
+
+    def update_review(self, *, site_id: int, review_id: int, user_id: int, rating, content):
+        """Actualiza una reseña existente. Solo el autor puede actualizarla."""
+        # Validar IDs
+        try:
+            site_id = int(site_id)
+            if site_id <= 0:
+                raise exc.ValidationError("site_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("site_id debe ser un entero válido")
+        
+        try:
+            review_id = int(review_id)
+            if review_id <= 0:
+                raise exc.ValidationError("review_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("review_id debe ser un entero válido")
+        
+        try:
+            user_id = int(user_id)
+            if user_id <= 0:
+                raise exc.ValidationError("user_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("user_id debe ser un entero válido")
+
+        site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
+        if not site:
+            raise exc.NotFoundError("Sitio histórico no encontrado")
+
+        review = HistoricSiteReview.query.filter_by(id=review_id, site_id=site_id).first()
+        if not review:
+            raise exc.NotFoundError("Reseña no encontrada")
+        
+        if review.user_id != user_id:
+            raise exc.ForbiddenError("Solo el autor puede editar esta reseña")
+
+        payload = validate_review_create_payload(rating=rating, content=content)
+
+        # Actualizar reseña
+        review.rating = payload['rating']
+        review.content = payload['content']
+        # Si estaba aprobada, vuelve a pendiente para moderación
+        if review.status == 'approved':
+            review.status = 'pending'
+
+        try:
+            db.session.add(review)
+            db.session.commit()
+        except Exception as error:
+            db.session.rollback()
+            raise exc.DatabaseError(f"Error al actualizar la reseña: {error}")
+
+        return review
+
+    def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
+        """Elimina una reseña. Solo el autor puede eliminarla."""
+        # Validar IDs
+        try:
+            site_id = int(site_id)
+            if site_id <= 0:
+                raise exc.ValidationError("site_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("site_id debe ser un entero válido")
+        
+        try:
+            review_id = int(review_id)
+            if review_id <= 0:
+                raise exc.ValidationError("review_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("review_id debe ser un entero válido")
+        
+        try:
+            current_user_id = int(current_user_id)
+            if current_user_id <= 0:
+                raise exc.ValidationError("user_id debe ser un entero positivo")
+        except (ValueError, TypeError):
+            raise exc.ValidationError("user_id debe ser un entero válido")
+
+        site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
+        if not site:
+            raise exc.NotFoundError("Sitio histórico no encontrado")
+
+        review = HistoricSiteReview.query.filter_by(id=review_id, site_id=site_id).first()
+        if not review:
+            raise exc.NotFoundError("Reseña no encontrada")
+        
+        if review.user_id != current_user_id:
+            raise exc.ForbiddenError("Solo el autor puede eliminar esta reseña")
+
+        # Eliminar físicamente la reseña
+        try:
+            db.session.delete(review)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise exc.DatabaseError(f'Error al eliminar la reseña: {e}')
+
     def delete_review_admin(self, *, review_id: int) -> None:
-        """Elimina lógicamente una reseña (acción administrativa): status -> 'deleted'.
+        """Elimina físicamente una reseña (acción administrativa).
 
         Lanza NotFoundError si no existe y DatabaseError si falla el commit.
         """
@@ -296,11 +469,10 @@ class ReviewService:
         review = HistoricSiteReview.query.get(review_id)
         if not review:
             raise exc.NotFoundError('Reseña no encontrada')
-        if review.status == 'deleted':
-            raise exc.ValidationError('La reseña ya está eliminada')
-        review.status = 'deleted'
+        
+        # Eliminar físicamente la reseña
         try:
-            db.session.add(review)
+            db.session.delete(review)
             db.session.commit()
         except Exception as e:
             db.session.rollback()
