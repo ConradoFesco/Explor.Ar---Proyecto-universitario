@@ -1,6 +1,3 @@
-"""
-Servicios de dominio para Imágenes de Sitios Históricos: CRUD, subida a MinIO, ordenamiento y portada.
-"""
 from src.core.models.site_image import SiteImage
 from src.core.models.historic_site import HistoricSite
 from src.web import exceptions as exc
@@ -13,34 +10,21 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from werkzeug.utils import secure_filename
+from io import BytesIO
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB en bytes
+MAX_FILE_SIZE = 5 * 1024 * 1024
 MAX_IMAGES_PER_SITE = 10
 
 
 class SiteImageService:
-    """Casos de uso para imágenes de sitios históricos."""
-    
     def __init__(self):
         self._minio_client = None
     
     def _extract_object_path_from_url(self, url_publica: str, bucket_name: str) -> str:
-        """
-        Extrae la ruta completa del objeto en MinIO desde la URL almacenada.
-        
-        Args:
-            url_publica: URL almacenada en la base de datos
-            bucket_name: Nombre del bucket de MinIO
-            
-        Returns:
-            str: Ruta completa del objeto en MinIO (ej: "sites/1/jujutsu kaisen.png")
-        """
-        # Remover query params si existen
         url_str = url_publica.split('?')[0]
         url_parts = url_str.split('/')
         
-        # Buscar el índice del bucket name en la URL
         bucket_index = -1
         for i, part in enumerate(url_parts):
             if part == bucket_name:
@@ -48,33 +32,22 @@ class SiteImageService:
                 break
         
         if bucket_index >= 0 and bucket_index < len(url_parts) - 1:
-            # Extraer todo después del bucket name (puede incluir subdirectorios)
-            object_path = '/'.join(url_parts[bucket_index + 1:])
-            return object_path
+            return '/'.join(url_parts[bucket_index + 1:])
+        elif f'/{bucket_name}/' in url_str:
+            return url_str.split(f'/{bucket_name}/', 1)[1]
         else:
-            # Si no encontramos el bucket, intentar extraer usando el patrón
-            if f'/{bucket_name}/' in url_str:
-                object_path = url_str.split(f'/{bucket_name}/', 1)[1]
-                return object_path
-            else:
-                # Fallback: asumir que la última parte es el filename
-                return url_parts[-1]
+            return url_parts[-1]
     
     @property
     def minio_client(self):
-        """Obtiene el cliente de MinIO desde la aplicación Flask."""
         if self._minio_client is None:
-            from flask import current_app
             self._minio_client = current_app.storage
         return self._minio_client
     
     def _get_bucket_name(self) -> str:
-        """Obtiene el nombre del bucket desde la configuración."""
-        from flask import current_app
         return current_app.config.get('MINIO_BUCKET', 'grupo06')
     
     def _ensure_bucket_exists(self):
-        """Asegura que el bucket existe en MinIO."""
         bucket_name = self._get_bucket_name()
         try:
             if not self.minio_client.bucket_exists(bucket_name):
@@ -83,25 +56,17 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al verificar/crear bucket en MinIO: {e}")
     
     def _validate_file(self, file) -> tuple[bool, Optional[str]]:
-        """
-        Valida el archivo de imagen.
-        
-        Returns:
-            tuple: (es_valido, mensaje_error)
-        """
         if not file or not file.filename:
             return False, "No se proporcionó ningún archivo"
         
-        # Validar extensión
         filename = file.filename.lower()
         extension = filename.rsplit('.', 1)[-1] if '.' in filename else ''
         if extension not in ALLOWED_EXTENSIONS:
             return False, f"Formato no permitido. Formatos permitidos: {', '.join(ALLOWED_EXTENSIONS)}"
         
-        # Validar tamaño
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
-        file.seek(0)  # Resetear posición
+        file.seek(0)
         
         if file_size > MAX_FILE_SIZE:
             return False, f"El archivo excede el tamaño máximo de {MAX_FILE_SIZE / (1024*1024)} MB"
@@ -112,84 +77,45 @@ class SiteImageService:
         return True, None
     
     def _generate_unique_filename(self, original_filename: str, site_id: int) -> str:
-        """
-        Genera un nombre único para el archivo para evitar colisiones.
-        
-        Args:
-            original_filename: Nombre original del archivo
-            site_id: ID del sitio histórico
-            
-        Returns:
-            str: Nombre único del archivo
-        """
-        # Obtener extensión
         extension = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else 'jpg'
-        
-        # Generar nombre único: sitio_id_timestamp_uuid.ext
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         unique_id = str(uuid.uuid4())[:8]
-        safe_name = secure_filename(original_filename.rsplit('.', 1)[0])[:20]  # Limitar longitud
-        
-        return f"site_{site_id}_{timestamp}_{unique_id}_{safe_name}.{extension}"
+        safe_name = secure_filename(original_filename.rsplit('.', 1)[0])[:20]
+        filename = f"{timestamp}_{unique_id}_{safe_name}.{extension}"
+        return f"Sites/{site_id}/{filename}"
     
     def upload_image(self, site_id: int, file, titulo_alt: str, descripcion: Optional[str] = None, 
                     user_id: int = None) -> SiteImage:
-        """
-        Sube una imagen a MinIO y crea el registro en la base de datos.
-        
-        Args:
-            site_id: ID del sitio histórico
-            file: Archivo de imagen (Werkzeug FileStorage)
-            titulo_alt: Título/alt text (obligatorio)
-            descripcion: Descripción opcional
-            user_id: ID del usuario que realiza la acción
-            
-        Returns:
-            SiteImage: Imagen creada
-            
-        Raises:
-            NotFoundError: Si el sitio no existe
-            ValidationError: Si hay errores de validación
-            DatabaseError: Si falla la operación
-        """
-        # Validar que el sitio existe
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
         
-        # Validar límite de imágenes
         current_count = SiteImage.query.filter_by(id_site=site_id).count()
         if current_count >= MAX_IMAGES_PER_SITE:
             raise exc.ValidationError(f"Se ha alcanzado el límite máximo de {MAX_IMAGES_PER_SITE} imágenes por sitio.")
         
-        # Validar campos obligatorios
         if not titulo_alt or not titulo_alt.strip():
             raise exc.ValidationError("El título/alt es obligatorio")
         
         if len(titulo_alt.strip()) > 255:
             raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
         
-        # Validar archivo
         is_valid, error_msg = self._validate_file(file)
         if not is_valid:
             raise exc.ValidationError(error_msg)
         
         try:
-            # Asegurar que el bucket existe
             self._ensure_bucket_exists()
             
-            # Generar nombre único
             unique_filename = self._generate_unique_filename(file.filename, site_id)
             bucket_name = self._get_bucket_name()
             
-            # Subir archivo a MinIO
-            # Leer el contenido del archivo en memoria
             file.seek(0, os.SEEK_END)
             file_size = file.tell()
-            file.seek(0)  # Volver al inicio
+            file.seek(0)
             
             file_data = file.read(file_size)
-            file.seek(0)  # Resetear para posibles usos futuros
+            file.seek(0)
             
             extension = file.filename.rsplit('.', 1)[-1].lower()
             content_type_map = {
@@ -200,8 +126,6 @@ class SiteImageService:
             }
             content_type = content_type_map.get(extension, 'image/jpeg')
             
-            # Crear un objeto BytesIO para MinIO
-            from io import BytesIO
             file_stream = BytesIO(file_data)
             
             self.minio_client.put_object(
@@ -212,39 +136,31 @@ class SiteImageService:
                 content_type=content_type
             )
             
-            # Construir URL pública
-            # La URL puede ser directa a MinIO o a través de un proxy/nginx
-            # Por defecto, usamos la URL del servidor MinIO directamente
             minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
-            # Remover protocolo si está presente para construir correctamente
             if minio_server.startswith('http://') or minio_server.startswith('https://'):
                 url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
             else:
-                # Si no tiene protocolo, asumir http
                 url_publica = f"http://{minio_server}/{bucket_name}/{unique_filename}"
             
-            # Obtener el siguiente orden
             max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
             nuevo_orden = max_orden + 1
             
-            # Crear registro en BD
             new_image = SiteImage(
                 id_site=site_id,
                 url_publica=url_publica,
                 titulo_alt=titulo_alt.strip(),
                 descripcion=descripcion.strip() if descripcion else None,
                 orden=nuevo_orden,
-                es_portada=False  # Por defecto no es portada
+                es_portada=False
             )
             
             db.session.add(new_image)
             
-            # Crear evento si se proporciona user_id
             if user_id:
                 event_data = {
                     'id_site': site_id,
                     'id_user': user_id,
-                    'type_Action': 'UPDATE'  # Cambio de imágenes es una actualización
+                    'type_Action': 'UPDATE'
                 }
                 event_service.create_event(event_data, commit=False)
             
@@ -258,142 +174,77 @@ class SiteImageService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al crear imagen: {e}")
     
-    def get_images_by_site(self, site_id: int) -> List[Dict[str, Any]]:
-        """
-        Obtiene todas las imágenes de un sitio ordenadas por orden.
-        Genera URLs firmadas (presigned) para acceso público a las imágenes.
+    def _get_presigned_url(self, url_publica: str, bucket_name: str, image_id: int) -> str:
+        use_presigned = current_app.config.get('MINIO_USE_PRESIGNED_URLS', False)
         
-        Args:
-            site_id: ID del sitio histórico
-            
-        Returns:
-            List[Dict]: Lista de imágenes en formato dict con URLs firmadas
-        """
+        if not use_presigned:
+            return url_publica
+        
+        try:
+            object_path = self._extract_object_path_from_url(url_publica, bucket_name)
+            expires_days = current_app.config.get('MINIO_PRESIGNED_EXPIRY_DAYS', 365)
+            return self.minio_client.presigned_get_object(
+                bucket_name,
+                object_path,
+                expires=timedelta(days=expires_days)
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if '10061' in error_msg or 'Connection refused' in error_msg or 'denegó expresamente' in error_msg:
+                current_app.logger.warning(
+                    f"MinIO no está disponible. Usando URL original para imagen {image_id}. "
+                    f"Para generar URLs presignadas, asegúrate de que MinIO esté corriendo en {current_app.config.get('MINIO_SERVER', '127.0.0.1:9000')}"
+                )
+            else:
+                current_app.logger.warning(f"Error al generar URL firmada para imagen {image_id}: {e}")
+            return url_publica
+    
+    def get_images_by_site(self, site_id: int) -> List[Dict[str, Any]]:
         images = SiteImage.query.filter_by(id_site=site_id).order_by(SiteImage.orden.asc()).all()
         bucket_name = self._get_bucket_name()
         
         result = []
         for img in images:
             img_dict = img.to_dict()
-            # Generar URL firmada (presigned) para acceso público
-            try:
-                # Extraer la ruta completa del objeto en MinIO
-                object_path = self._extract_object_path_from_url(img.url_publica, bucket_name)
-                
-                # Generar URL firmada válida por 7 días
-                presigned_url = self.minio_client.presigned_get_object(
-                    bucket_name,
-                    object_path,
-                    expires=timedelta(days=7)
-                )
-                img_dict['url_publica'] = presigned_url
-            except Exception as e:
-                # Si falla la generación de URL firmada, usar la URL original
-                error_msg = str(e)
-                if '10061' in error_msg or 'Connection refused' in error_msg or 'denegó expresamente' in error_msg:
-                    current_app.logger.warning(
-                        f"MinIO no está disponible. Usando URL original para imagen {img.id}. "
-                        f"Para generar URLs presignadas, asegúrate de que MinIO esté corriendo en {current_app.config.get('MINIO_SERVER', '127.0.0.1:9000')}"
-                    )
-                else:
-                    current_app.logger.warning(f"Error al generar URL firmada para imagen {img.id}: {e}")
-                # Usar la URL original como fallback
-                img_dict['url_publica'] = img.url_publica
-            
+            img_dict['url_publica'] = self._get_presigned_url(img.url_publica, bucket_name, img.id)
             result.append(img_dict)
         
         return result
     
     def get_cover_image(self, site_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Obtiene la imagen portada de un sitio con URL firmada.
-        
-        Args:
-            site_id: ID del sitio histórico
-            
-        Returns:
-            Optional[Dict]: Imagen portada con URL firmada o None
-        """
         cover = SiteImage.query.filter_by(id_site=site_id, es_portada=True).first()
         if not cover:
             return None
         
         cover_dict = cover.to_dict()
         bucket_name = self._get_bucket_name()
-        
-        # Generar URL firmada (presigned) para acceso público
-        try:
-            # Extraer la ruta completa del objeto en MinIO
-            object_path = self._extract_object_path_from_url(cover.url_publica, bucket_name)
-            
-            # Generar URL firmada válida por 7 días
-            presigned_url = self.minio_client.presigned_get_object(
-                bucket_name,
-                object_path,
-                expires=timedelta(days=7)
-            )
-            cover_dict['url_publica'] = presigned_url
-        except Exception as e:
-            # Si falla la generación de URL firmada, usar la URL original
-            error_msg = str(e)
-            if '10061' in error_msg or 'Connection refused' in error_msg or 'denegó expresamente' in error_msg:
-                current_app.logger.warning(
-                    f"MinIO no está disponible. Usando URL original para imagen portada {cover.id}. "
-                    f"Para generar URLs presignadas, asegúrate de que MinIO esté corriendo en {current_app.config.get('MINIO_SERVER', '127.0.0.1:9000')}"
-                )
-            else:
-                current_app.logger.warning(f"Error al generar URL firmada para imagen portada {cover.id}: {e}")
-            # Usar la URL original como fallback
-            cover_dict['url_publica'] = cover.url_publica
-        
+        cover_dict['url_publica'] = self._get_presigned_url(cover.url_publica, bucket_name, cover.id)
         return cover_dict
     
     def delete_image(self, image_id: int, user_id: int = None) -> bool:
-        """
-        Elimina una imagen (tanto de MinIO como de la BD).
-        
-        Args:
-            image_id: ID de la imagen
-            user_id: ID del usuario que realiza la acción
-            
-        Returns:
-            bool: True si se eliminó correctamente
-            
-        Raises:
-            NotFoundError: Si la imagen no existe
-            ValidationError: Si se intenta eliminar la portada
-            DatabaseError: Si falla la operación
-        """
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")
         
-        # Validar que no sea la portada
         if image.es_portada:
             raise exc.ValidationError("No se puede eliminar la imagen portada. Primero debe cambiar la portada a otra imagen.")
         
         site_id = image.id_site
         
         try:
-            # Eliminar de MinIO
             bucket_name = self._get_bucket_name()
-            # Extraer la ruta completa del objeto en MinIO
             object_path = self._extract_object_path_from_url(image.url_publica, bucket_name)
             try:
                 self.minio_client.remove_object(bucket_name, object_path)
             except S3Error:
-                # Si falla la eliminación en MinIO, continuar (puede que ya no exista)
                 pass
             
-            # Eliminar de BD
             db.session.delete(image)
             
-            # Reordenar las imágenes restantes
             remaining_images = SiteImage.query.filter_by(id_site=site_id).order_by(SiteImage.orden.asc()).all()
             for idx, img in enumerate(remaining_images, start=1):
                 img.orden = idx
             
-            # Crear evento si se proporciona user_id
             if user_id:
                 event_data = {
                     'id_site': site_id,
@@ -410,20 +261,6 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al eliminar imagen: {e}")
     
     def set_cover_image(self, image_id: int, user_id: int = None) -> SiteImage:
-        """
-        Marca una imagen como portada (solo una por sitio).
-        
-        Args:
-            image_id: ID de la imagen a marcar como portada
-            user_id: ID del usuario que realiza la acción
-            
-        Returns:
-            SiteImage: Imagen actualizada
-            
-        Raises:
-            NotFoundError: Si la imagen no existe
-            DatabaseError: Si falla la operación
-        """
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")
@@ -431,14 +268,10 @@ class SiteImageService:
         site_id = image.id_site
         
         try:
-            # Desmarcar todas las portadas del sitio
             SiteImage.query.filter_by(id_site=site_id, es_portada=True).update({'es_portada': False})
-            
-            # Marcar la nueva portada
             image.es_portada = True
             image.updated_at = datetime.utcnow()
             
-            # Crear evento si se proporciona user_id
             if user_id:
                 event_data = {
                     'id_site': site_id,
@@ -455,28 +288,11 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al establecer imagen portada: {e}")
     
     def reorder_images(self, site_id: int, image_orders: List[Dict[str, int]], user_id: int = None) -> bool:
-        """
-        Reordena las imágenes de un sitio.
-        
-        Args:
-            site_id: ID del sitio histórico
-            image_orders: Lista de dicts con {'id': image_id, 'orden': nuevo_orden}
-            user_id: ID del usuario que realiza la acción
-            
-        Returns:
-            bool: True si se reordenó correctamente
-            
-        Raises:
-            NotFoundError: Si el sitio no existe
-            ValidationError: Si hay errores de validación
-            DatabaseError: Si falla la operación
-        """
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
         
         try:
-            # Actualizar órdenes
             for order_data in image_orders:
                 image_id = order_data.get('id')
                 nuevo_orden = order_data.get('orden')
@@ -487,7 +303,6 @@ class SiteImageService:
                         image.orden = nuevo_orden
                         image.updated_at = datetime.utcnow()
             
-            # Crear evento si se proporciona user_id
             if user_id:
                 event_data = {
                     'id_site': site_id,
@@ -503,30 +318,49 @@ class SiteImageService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al reordenar imágenes: {e}")
     
+    def _upload_file_to_minio(self, file, site_id: int, bucket_name: str) -> tuple[str, str]:
+        unique_filename = self._generate_unique_filename(file.filename, site_id)
+        
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        file_data_bytes = file.read(file_size)
+        file.seek(0)
+        
+        extension = file.filename.rsplit('.', 1)[-1].lower()
+        content_type_map = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'webp': 'image/webp'
+        }
+        content_type = content_type_map.get(extension, 'image/jpeg')
+        
+        file_stream = BytesIO(file_data_bytes)
+        
+        self.minio_client.put_object(
+            bucket_name,
+            unique_filename,
+            file_stream,
+            length=file_size,
+            content_type=content_type
+        )
+        
+        minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
+        if minio_server.startswith('http://') or minio_server.startswith('https://'):
+            url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
+        else:
+            url_publica = f"http://{minio_server}/{bucket_name}/{unique_filename}"
+        
+        return url_publica, unique_filename
+    
     def upload_multiple_images(self, site_id: int, files_data: List[Dict[str, Any]], 
                               user_id: int = None) -> List[SiteImage]:
-        """
-        Sube múltiples imágenes a MinIO y crea los registros en la base de datos.
-        
-        Args:
-            site_id: ID del sitio histórico
-            files_data: Lista de diccionarios con {'file': FileStorage, 'titulo_alt': str, 'descripcion': Optional[str]}
-            user_id: ID del usuario que realiza la acción
-            
-        Returns:
-            List[SiteImage]: Lista de imágenes creadas
-            
-        Raises:
-            NotFoundError: Si el sitio no existe
-            ValidationError: Si hay errores de validación
-            DatabaseError: Si falla la operación
-        """
-        # Validar que el sitio existe
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
         
-        # Validar límite de imágenes
         current_count = SiteImage.query.filter_by(id_site=site_id).count()
         if current_count + len(files_data) > MAX_IMAGES_PER_SITE:
             raise exc.ValidationError(f"Se alcanzaría el límite máximo de {MAX_IMAGES_PER_SITE} imágenes por sitio.")
@@ -534,83 +368,38 @@ class SiteImageService:
         uploaded_images = []
         
         try:
-            # Asegurar que el bucket existe
             self._ensure_bucket_exists()
             bucket_name = self._get_bucket_name()
+            max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
             
-            for file_data in files_data:
+            for idx, file_data in enumerate(files_data):
                 file = file_data.get('file')
                 titulo_alt = file_data.get('titulo_alt', '').strip()
                 descripcion = file_data.get('descripcion', '').strip() or None
                 
-                # Validar campos obligatorios
                 if not titulo_alt:
                     raise exc.ValidationError("El título/alt es obligatorio para todas las imágenes")
                 
                 if len(titulo_alt) > 255:
                     raise exc.ValidationError(f"El título/alt '{titulo_alt}' excede 255 caracteres")
                 
-                # Validar archivo
                 is_valid, error_msg = self._validate_file(file)
                 if not is_valid:
                     raise exc.ValidationError(f"Error en archivo '{file.filename}': {error_msg}")
                 
-                # Generar nombre único
-                unique_filename = self._generate_unique_filename(file.filename, site_id)
+                url_publica, _ = self._upload_file_to_minio(file, site_id, bucket_name)
                 
-                # Subir archivo a MinIO
-                file.seek(0, os.SEEK_END)
-                file_size = file.tell()
-                file.seek(0)
-                
-                file_data_bytes = file.read(file_size)
-                file.seek(0)
-                
-                extension = file.filename.rsplit('.', 1)[-1].lower()
-                content_type_map = {
-                    'jpg': 'image/jpeg',
-                    'jpeg': 'image/jpeg',
-                    'png': 'image/png',
-                    'webp': 'image/webp'
-                }
-                content_type = content_type_map.get(extension, 'image/jpeg')
-                
-                from io import BytesIO
-                file_stream = BytesIO(file_data_bytes)
-                
-                self.minio_client.put_object(
-                    bucket_name,
-                    unique_filename,
-                    file_stream,
-                    length=file_size,
-                    content_type=content_type
-                )
-                
-                # Construir URL pública
-                minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
-                if minio_server.startswith('http://') or minio_server.startswith('https://'):
-                    url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
-                else:
-                    url_publica = f"http://{minio_server}/{bucket_name}/{unique_filename}"
-                
-                # Obtener el orden desde los datos o calcular el siguiente
                 orden_from_data = file_data.get('order')
                 if orden_from_data is not None:
-                    # El orden viene relativo (0, 1, 2...), sumamos al máximo existente
-                    max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
                     nuevo_orden = max_orden + orden_from_data + 1
                 else:
-                    max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
-                    nuevo_orden = max_orden + 1
+                    nuevo_orden = max_orden + idx + 1
                 
-                # Determinar si es portada
-                # Si es la primera imagen y no hay otras imágenes, o si está marcada explícitamente
                 is_cover = file_data.get('is_cover', False)
-                if not is_cover and current_count == 0 and len(uploaded_images) == 0:
-                    # Primera imagen del sitio, marcarla como portada
-                    is_cover = True
                 
-                # Crear registro en BD
+                if is_cover and current_count > 0:
+                    SiteImage.query.filter_by(id_site=site_id, es_portada=True).update({'es_portada': False})
+                
                 new_image = SiteImage(
                     id_site=site_id,
                     url_publica=url_publica,
@@ -623,17 +412,14 @@ class SiteImageService:
                 db.session.add(new_image)
                 uploaded_images.append(new_image)
             
-            # Si se marcó alguna como portada, asegurarse de que solo haya una
             cover_images = [img for img in uploaded_images if img.es_portada]
             if len(cover_images) > 1:
-                # Dejar solo la primera como portada
                 for img in cover_images[1:]:
                     img.es_portada = False
-            elif len(cover_images) == 0 and uploaded_images:
-                # Si ninguna es portada pero hay imágenes, marcar la primera
+            
+            if current_count == 0 and len(cover_images) == 0 and uploaded_images:
                 uploaded_images[0].es_portada = True
             
-            # Crear evento si se proporciona user_id
             if user_id and uploaded_images:
                 event_data = {
                     'id_site': site_id,
@@ -654,23 +440,6 @@ class SiteImageService:
     
     def update_image_metadata(self, image_id: int, titulo_alt: Optional[str] = None, 
                               descripcion: Optional[str] = None, user_id: int = None) -> SiteImage:
-        """
-        Actualiza los metadatos de una imagen (título/alt y descripción).
-        
-        Args:
-            image_id: ID de la imagen
-            titulo_alt: Nuevo título/alt (opcional)
-            descripcion: Nueva descripción (opcional)
-            user_id: ID del usuario que realiza la acción
-            
-        Returns:
-            SiteImage: Imagen actualizada
-            
-        Raises:
-            NotFoundError: Si la imagen no existe
-            ValidationError: Si hay errores de validación
-            DatabaseError: Si falla la operación
-        """
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")
@@ -689,7 +458,6 @@ class SiteImageService:
             
             image.updated_at = datetime.utcnow()
             
-            # Crear evento si se proporciona user_id
             if user_id:
                 event_data = {
                     'id_site': image.id_site,
@@ -709,6 +477,5 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al actualizar metadatos de imagen: {e}")
 
 
-# Instancia del servicio
 site_image_service = SiteImageService()
 

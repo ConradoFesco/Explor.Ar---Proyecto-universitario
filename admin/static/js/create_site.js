@@ -149,7 +149,6 @@ document.addEventListener('DOMContentLoaded', function(){
       });
     }
     
-    // Enviar vía AJAX para obtener el site_id sin redirigir
     fetch('/sitios', {
       method: 'POST',
       body: formData,
@@ -160,7 +159,6 @@ document.addEventListener('DOMContentLoaded', function(){
     .then(response => response.json())
     .then(async data => {
       if (data.success) {
-        // Subir imágenes pendientes si las hay antes de redirigir
         if (data.site_id && typeof imagesManager !== 'undefined') {
           imagesManager.siteId = data.site_id;
           if (imagesManager.pendingImages && imagesManager.pendingImages.length > 0) {
@@ -168,12 +166,10 @@ document.addEventListener('DOMContentLoaded', function(){
               await imagesManager.uploadPendingImages(data.site_id);
             } catch (error) {
               console.error('Error al subir imágenes pendientes:', error);
-              // Continuar con la redirección aunque falle la subida de imágenes
             }
           }
         }
         
-        // Mostrar mensaje de éxito y redirigir
         Swal.fire({
           icon: 'success',
           title: '¡Sitio histórico creado!',
@@ -182,7 +178,6 @@ document.addEventListener('DOMContentLoaded', function(){
           timer: 2000,
           showConfirmButton: false
         }).then(() => {
-          // Redirigir al listado de sitios
           window.location.href = '/sitios';
         });
       } else {

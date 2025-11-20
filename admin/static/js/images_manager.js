@@ -1,26 +1,19 @@
-/**
- * Gestión de imágenes para sitios históricos
- * Maneja subida múltiple, eliminación, ordenamiento y marcado de portada
- */
-
 let imagesManager = {
     siteId: null,
     images: [],
-    pendingImages: [], // Imágenes pendientes de subir (cuando no hay site_id)
-    MAX_IMAGES_PER_SITE: 10, // Límite máximo de imágenes por sitio
-    currentValidFiles: [], // Archivos válidos seleccionados actualmente
-    previewImages: [], // Imágenes en previsualización con sus metadatos
-    previewCoverIndex: null, // Índice de la imagen portada en la previsualización
+    pendingImages: [],
+    MAX_IMAGES_PER_SITE: 10,
+    currentValidFiles: [],
+    previewImages: [],
+    previewCoverIndex: null,
     
     init: function(siteId) {
-        console.log('imagesManager.init llamado con siteId:', siteId);
         this.siteId = siteId;
         this.setupUploadForm();
         if (siteId) {
             this.enableImageForm();
             this.loadImages();
         } else {
-            // Modo creación: permitir seleccionar imágenes pero almacenarlas temporalmente
             this.enableImageForm();
             this.loadPendingImages();
         }
@@ -65,7 +58,6 @@ let imagesManager = {
         
         if (!previewContainer || !selectedList) return;
         
-        // Calcular cuántas imágenes ya hay (cargadas + pendientes)
         const currentCount = this.images.length + this.pendingImages.length;
         const availableSlots = this.MAX_IMAGES_PER_SITE - currentCount;
         
@@ -75,22 +67,16 @@ let imagesManager = {
             return;
         }
         
-        // Validar archivos y tomar solo las primeras N válidas que no excedan el límite
         const validFiles = [];
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        const maxSize = 5 * 1024 * 1024; // 5 MB
+        const maxSize = 5 * 1024 * 1024;
         let invalidCount = 0;
         let skippedCount = 0;
         
         for (let i = 0; i < files.length && validFiles.length < availableSlots; i++) {
             const file = files[i];
             
-            if (!allowedTypes.includes(file.type)) {
-                invalidCount++;
-                continue;
-            }
-            
-            if (file.size > maxSize) {
+            if (!allowedTypes.includes(file.type) || file.size > maxSize) {
                 invalidCount++;
                 continue;
             }
@@ -98,12 +84,10 @@ let imagesManager = {
             validFiles.push(file);
         }
         
-        // Contar cuántas se saltaron por exceder el límite
         if (files.length > validFiles.length + invalidCount) {
             skippedCount = files.length - validFiles.length - invalidCount;
         }
         
-        // Mostrar mensajes informativos
         if (invalidCount > 0) {
             this.showMessage(`${invalidCount} archivo(s) fueron rechazados por formato o tamaño inválido.`, 'error');
         }
@@ -121,11 +105,10 @@ let imagesManager = {
             this.showMessage(`Se seleccionaron ${validFiles.length} de ${files.length} imagen(es) válidas (límite: ${this.MAX_IMAGES_PER_SITE} imágenes por sitio).`, 'info');
         }
         
-        // Guardar las imágenes válidas para procesamiento posterior
-        // Nota: No podemos modificar directamente el input file, pero guardamos las válidas
         this.currentValidFiles = validFiles;
         
-        // Inicializar array de previsualización con metadatos
+        const hasExistingImages = this.images.length > 0;
+        
         this.previewImages = validFiles.map((file, index) => ({
             file: file,
             index: index,
@@ -135,22 +118,13 @@ let imagesManager = {
             order: index
         }));
         
-        // Verificar si ya existe una portada en las imágenes cargadas
-        const hasExistingCover = this.images.some(img => img.es_portada === true);
-        
-        // Solo marcar automáticamente la primera imagen como portada si:
-        // - No hay imágenes cargadas
-        // - No hay imágenes pendientes
-        // - No hay una portada existente
-        if (this.images.length === 0 && this.pendingImages.length === 0 && validFiles.length > 0 && !hasExistingCover) {
+        if (!hasExistingImages && validFiles.length > 0) {
             this.previewCoverIndex = 0;
             this.previewImages[0].isCover = true;
-        } else if (this.previewCoverIndex === null && validFiles.length > 0) {
-            // Si ya hay imágenes o hay una portada existente, no marcar ninguna automáticamente
+        } else {
             this.previewCoverIndex = null;
         }
         
-        // Mostrar previsualización de imágenes seleccionadas
         this.renderPreviewImages();
         
         previewContainer.style.display = 'block';
@@ -161,7 +135,6 @@ let imagesManager = {
         const selectedList = document.getElementById('selected-images-list');
         if (!selectedList) return;
         
-        // Ordenar por order
         const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
         
         selectedList.innerHTML = '';
@@ -174,7 +147,6 @@ let imagesManager = {
             reader.readAsDataURL(imgData.file);
         });
         
-        // Configurar drag and drop para reordenar
         this.setupPreviewDragAndDrop();
     },
     
@@ -185,8 +157,17 @@ let imagesManager = {
         div.dataset.originalIndex = imgData.index;
         div.dataset.displayIndex = displayIndex;
         
+        const hasExistingImages = this.images.length > 0;
         const coverBadge = imgData.isCover ? '<span class="inline-block bg-blue-500 text-white text-xs px-2 py-1 rounded mb-2">PORTADA</span>' : '';
-        const coverButton = !imgData.isCover ? `<button type="button" onclick="imagesManager.setPreviewCover(${imgData.index})" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Marcar como Portada</button>` : '';
+        
+        let coverButton = '';
+        if (imgData.isCover) {
+            if (hasExistingImages) {
+                coverButton = `<button type="button" onclick="imagesManager.unsetPreviewCover(${imgData.index})" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded">Quitar Portada</button>`;
+            }
+        } else {
+            coverButton = `<button type="button" onclick="imagesManager.setPreviewCover(${imgData.index})" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Marcar como Portada</button>`;
+        }
         
         div.innerHTML = `
             <div class="flex gap-3">
@@ -232,19 +213,32 @@ let imagesManager = {
     },
     
     setPreviewCover: function(index) {
-        // Desmarcar todas las portadas (sin confirmación)
         this.previewImages.forEach(img => {
             img.isCover = false;
         });
         
-        // Marcar la seleccionada
         const imgData = this.previewImages.find(img => img.index === index);
         if (imgData) {
             imgData.isCover = true;
             this.previewCoverIndex = index;
         }
         
-        // Re-renderizar
+        this.renderPreviewImages();
+    },
+    
+    unsetPreviewCover: function(index) {
+        const hasExistingImages = this.images.length > 0;
+        if (!hasExistingImages) {
+            this.showMessage('Debe haber al menos una imagen marcada como portada cuando no hay imágenes cargadas previamente.', 'error');
+            return;
+        }
+        
+        const imgData = this.previewImages.find(img => img.index === index);
+        if (imgData) {
+            imgData.isCover = false;
+            this.previewCoverIndex = null;
+        }
+        
         this.renderPreviewImages();
     },
     
@@ -306,7 +300,6 @@ let imagesManager = {
     },
     
     getDragAfterElement: function(container, y) {
-        // Funciona tanto para preview como para imágenes cargadas
         const selector = container.id === 'selected-images-list' 
             ? '.preview-image-item:not(.dragging)' 
             : '.image-item:not(.dragging)';
@@ -336,7 +329,6 @@ let imagesManager = {
     },
     
     uploadSelectedImages: async function() {
-        // Usar las imágenes válidas que se procesaron en handleFileSelection
         const files = this.currentValidFiles;
         
         if (!files || files.length === 0) {
@@ -344,7 +336,6 @@ let imagesManager = {
             return;
         }
         
-        // Verificar límite antes de procesar
         const currentCount = this.images.length + this.pendingImages.length;
         const availableSlots = this.MAX_IMAGES_PER_SITE - currentCount;
         
@@ -353,16 +344,19 @@ let imagesManager = {
             return;
         }
         
-        // Usar los datos de previsualización (que incluyen títulos, descripciones y orden)
         const sortedPreview = [...this.previewImages].sort((a, b) => a.order - b.order);
         const maxToProcess = Math.min(sortedPreview.length, availableSlots);
         
-        // Validar que todos tengan título
+        const hasExistingImages = this.images.length > 0;
+        const selectedCover = sortedPreview.find(img => img.isCover);
+        
+        if (!hasExistingImages && !selectedCover) {
+            this.showMessage('Debe seleccionar al menos una imagen como portada cuando no hay imágenes cargadas previamente.', 'error');
+            return;
+        }
+        
         const imagesData = [];
         let coverSet = false;
-        
-        // Verificar si ya existe una portada en las imágenes cargadas
-        const hasExistingCover = this.images.some(img => img.es_portada === true);
         
         for (let i = 0; i < maxToProcess; i++) {
             const imgData = sortedPreview[i];
@@ -374,19 +368,7 @@ let imagesManager = {
                 return;
             }
             
-            // Solo marcar como portada si:
-            // 1. Es la primera imagen Y no hay imágenes cargadas Y no hay portada ya establecida, O
-            // 2. El usuario explícitamente marcó esta imagen como portada en la previsualización Y no hay portada existente
-            let isCover = false;
-            if (!hasExistingCover) {
-                // Si no hay portada existente, usar la lógica original
-                isCover = (i === 0 && this.images.length === 0 && !coverSet) || imgData.isCover;
-            } else {
-                // Si ya hay una portada existente, solo marcar como portada si el usuario lo hizo explícitamente
-                // y no hay otra portada ya marcada en esta carga
-                isCover = imgData.isCover && !coverSet;
-            }
-            
+            const isCover = imgData.isCover && !coverSet;
             if (isCover) {
                 coverSet = true;
             }
@@ -405,16 +387,12 @@ let imagesManager = {
         }
         
         if (this.siteId) {
-            // Si ya hay site_id, subir inmediatamente
             await this.uploadMultipleImages(imagesData);
         } else {
-            // Si no hay site_id, almacenar temporalmente
             this.pendingImages = this.pendingImages.concat(imagesData);
-            console.log('Imágenes agregadas a la cola:', this.pendingImages.length);
             this.savePendingImages();
             this.showMessage(`${imagesData.length} imagen(es) agregada(s) a la cola. Se subirán cuando cree el sitio.`, 'success');
             this.clearFileSelection();
-            // Forzar actualización del display
             setTimeout(() => {
                 this.updatePendingImagesDisplay();
             }, 100);
@@ -422,7 +400,6 @@ let imagesManager = {
     },
     
     savePendingImages: async function() {
-        // Guardar metadatos en localStorage (los archivos se mantienen en memoria)
         const pendingData = this.pendingImages.map(img => ({
             name: img.file.name,
             size: img.file.size,
@@ -443,7 +420,6 @@ let imagesManager = {
         }
         
         const formData = new FormData();
-        let coverImageId = null;
         
         imagesData.forEach((imgData, index) => {
             formData.append('imagenes', imgData.file);
@@ -451,7 +427,6 @@ let imagesManager = {
             if (imgData.descripcion) {
                 formData.append('descripcion[]', imgData.descripcion);
             }
-            // Enviar información sobre cuál es la portada
             if (imgData.is_cover) {
                 formData.append('cover_index', index);
             }
@@ -466,11 +441,10 @@ let imagesManager = {
             const data = await response.json();
             
             if (data.success) {
-                // Si hay una imagen marcada como portada, marcarla en el servidor (sin confirmación)
                 const coverIndex = imagesData.findIndex(img => img.is_cover);
                 if (coverIndex !== -1 && data.images && data.images[coverIndex]) {
                     const coverImageId = data.images[coverIndex].id;
-                    await this.setCover(coverImageId, false); // false = sin confirmación
+                    await this.setCover(coverImageId, false);
                 }
                 
                 this.showMessage(data.message || `Se subieron ${imagesData.length} imagen(es) correctamente`, 'success');
@@ -486,14 +460,11 @@ let imagesManager = {
         }
     },
     
-    
     loadPendingImages: function() {
-        // Cargar metadatos de imágenes pendientes desde localStorage
         const stored = localStorage.getItem('pending_site_images_meta');
         if (stored) {
             try {
                 const pendingData = JSON.parse(stored);
-                // Solo mostramos que hay imágenes pendientes (los archivos se mantienen en memoria)
                 if (pendingData.length > 0) {
                     this.updatePendingImagesDisplay();
                 }
@@ -504,14 +475,10 @@ let imagesManager = {
     },
     
     updatePendingImagesDisplay: function() {
-        console.log('updatePendingImagesDisplay llamado, pendingImages:', this.pendingImages.length);
-        
-        // Crear o actualizar contenedor de imágenes pendientes
         let container = document.getElementById('pending-images-container');
         const imagesSection = document.getElementById('images-section');
         
         if (!imagesSection) {
-            console.warn('No se encontró la sección de imágenes');
             return;
         }
         
@@ -526,22 +493,15 @@ let imagesManager = {
             container = document.createElement('div');
             container.id = 'pending-images-container';
             
-            // Insertar después del formulario de subida, antes de "Imágenes del Sitio"
             const uploadForm = document.getElementById('upload-image-form');
             const imagesListContainer = document.getElementById('images-list-container');
             
             if (uploadForm && uploadForm.parentElement) {
-                // Insertar después del div que contiene el formulario
                 uploadForm.parentElement.insertAdjacentElement('afterend', container);
-                console.log('Contenedor insertado después del formulario');
             } else if (imagesListContainer) {
-                // Si no encontramos el formulario, insertar antes de la lista de imágenes
                 imagesListContainer.insertAdjacentElement('beforebegin', container);
-                console.log('Contenedor insertado antes de la lista de imágenes');
             } else {
-                // Último recurso: insertar al final de la sección
                 imagesSection.appendChild(container);
-                console.log('Contenedor insertado al final de la sección');
             }
         }
         
@@ -551,14 +511,11 @@ let imagesManager = {
             <div id="pending-images-grid" class="space-y-3"></div>
         `;
         
-        // Renderizar cada imagen pendiente
         const grid = document.getElementById('pending-images-grid');
         if (grid) {
             grid.innerHTML = '';
-            console.log('Renderizando', this.pendingImages.length, 'imágenes pendientes');
             this.pendingImages.forEach((imgData, index) => {
                 if (!imgData.file) {
-                    console.warn('Imagen sin archivo en índice', index);
                     return;
                 }
                 const reader = new FileReader();
@@ -571,8 +528,6 @@ let imagesManager = {
                 };
                 reader.readAsDataURL(imgData.file);
             });
-        } else {
-            console.error('No se encontró el grid para imágenes pendientes');
         }
     },
     
@@ -637,17 +592,14 @@ let imagesManager = {
     },
     
     setPendingCover: function(index) {
-        // Desmarcar todas las portadas
         this.pendingImages.forEach(img => {
             img.is_cover = false;
         });
         
-        // Marcar la seleccionada
         if (this.pendingImages[index]) {
             this.pendingImages[index].is_cover = true;
         }
         
-        // Actualizar display
         this.updatePendingImagesDisplay();
         this.savePendingImages();
     },
@@ -673,7 +625,6 @@ let imagesManager = {
     
     loadImages: async function() {
         if (!this.siteId) {
-            console.error('imagesManager: siteId no está definido');
             return;
         }
         
@@ -682,23 +633,19 @@ let imagesManager = {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Error al cargar imágenes:', response.status, errorText);
                 this.showMessage(`Error al cargar imágenes (${response.status})`, 'error');
                 return;
             }
             
             const data = await response.json();
-            console.log('Imágenes cargadas:', data);
             
             if (data.success) {
                 this.images = data.images || [];
-                console.log('Total de imágenes:', this.images.length);
                 this.renderImages();
             } else {
                 this.showMessage(data.error || 'Error al cargar imágenes', 'error');
             }
         } catch (error) {
-            console.error('Error al cargar imágenes:', error);
             this.showMessage('Error al cargar imágenes: ' + error.message, 'error');
         }
     },
@@ -706,7 +653,6 @@ let imagesManager = {
     renderImages: function() {
         const container = document.getElementById('images-grid');
         if (!container) {
-            console.error('imagesManager: No se encontró el contenedor images-grid');
             return;
         }
         
@@ -717,7 +663,6 @@ let imagesManager = {
                 noImagesMsg.style.display = 'block';
             }
             container.innerHTML = '<p class="text-gray-500 col-span-full">No hay imágenes cargadas aún.</p>';
-            console.log('No hay imágenes para mostrar');
             return;
         }
         
@@ -725,14 +670,10 @@ let imagesManager = {
             noImagesMsg.style.display = 'none';
         }
         
-        console.log('Renderizando', this.images.length, 'imágenes');
-        
-        // Ordenar por orden
         const sortedImages = [...this.images].sort((a, b) => a.orden - b.orden);
         
-        const html = sortedImages.map((img, index) => {
+        const html = sortedImages.map((img) => {
             const isCover = img.es_portada;
-            console.log(`Renderizando imagen ${index + 1}:`, img.id, img.titulo_alt, img.url_publica);
             return `
                 <div class="image-item ${isCover ? 'cover' : ''}" data-image-id="${img.id}">
                     ${isCover ? '<span class="cover-badge">PORTADA</span>' : ''}
@@ -753,9 +694,6 @@ let imagesManager = {
         }).join('');
         
         container.innerHTML = html;
-        console.log('HTML generado y insertado en el contenedor');
-        
-        // Configurar drag and drop para reordenar
         this.setupDragAndDrop();
     },
     
@@ -763,32 +701,124 @@ let imagesManager = {
         const container = document.getElementById('images-grid');
         if (!container) return;
         
-        // Implementación simple de drag and drop
+        let draggedElement = null;
+        let draggedImageId = null;
+        
         const items = container.querySelectorAll('.image-item');
         items.forEach(item => {
             item.draggable = true;
+            
             item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', item.dataset.imageId);
+                draggedElement = item;
+                draggedImageId = parseInt(item.dataset.imageId);
+                e.dataTransfer.setData('text/plain', draggedImageId.toString());
+                e.dataTransfer.effectAllowed = 'move';
                 item.style.opacity = '0.5';
+                item.classList.add('dragging');
             });
+            
             item.addEventListener('dragend', (e) => {
                 item.style.opacity = '1';
+                item.classList.remove('dragging');
+                
+                if (draggedElement && draggedImageId) {
+                    this.saveImageOrder();
+                }
+                
+                draggedElement = null;
+                draggedImageId = null;
             });
+            
             item.addEventListener('dragover', (e) => {
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                if (!draggedElement) return;
+                
                 const afterElement = this.getDragAfterElement(container, e.clientY);
-                const dragging = document.querySelector('.dragging');
                 if (afterElement == null) {
-                    container.appendChild(item);
+                    container.appendChild(draggedElement);
                 } else {
-                    container.insertBefore(item, afterElement);
+                    container.insertBefore(draggedElement, afterElement);
                 }
             });
+            
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+            });
+        });
+        
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
         });
     },
     
+    saveImageOrder: async function() {
+        if (!this.siteId) return;
+        
+        const container = document.getElementById('images-grid');
+        if (!container) return;
+        
+        const items = container.querySelectorAll('.image-item');
+        const imageOrders = [];
+        
+        items.forEach((item, index) => {
+            const imageId = parseInt(item.dataset.imageId);
+            if (imageId) {
+                imageOrders.push({
+                    id: imageId,
+                    orden: index + 1
+                });
+            }
+        });
+        
+        if (imageOrders.length === 0) return;
+        
+        try {
+            const formData = new FormData();
+            imageOrders.forEach(order => {
+                formData.append(`orden_${order.id}`, order.orden);
+            });
+            
+            const response = await fetch(`/sitios/${this.siteId}/imagenes/reordenar`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+            
+            if (response.ok) {
+                try {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.showMessage('Orden de imágenes actualizado', 'success');
+                        setTimeout(() => {
+                            this.loadImages();
+                        }, 300);
+                    } else {
+                        this.showMessage(data.error || 'Error al guardar el orden', 'error');
+                        this.loadImages();
+                    }
+                } catch (jsonError) {
+                    this.showMessage('Orden actualizado correctamente', 'success');
+                    setTimeout(() => {
+                        this.loadImages();
+                    }, 300);
+                }
+            } else {
+                const errorText = await response.text();
+                this.showMessage('Error al guardar el orden', 'error');
+                this.loadImages();
+            }
+        } catch (error) {
+            this.showMessage('Error al guardar el orden: ' + error.message, 'error');
+            this.loadImages();
+        }
+    },
+    
     setCover: async function(imageId, showConfirm = true) {
-        // Solo mostrar confirmación si se solicita explícitamente (para acciones manuales del usuario)
         if (showConfirm && !confirm('¿Desea marcar esta imagen como portada?')) {
             return;
         }
@@ -843,15 +873,12 @@ let imagesManager = {
     },
     
     disableImageForm: function() {
-        // Ya no deshabilitamos, siempre permitimos seleccionar
     },
     
     enableImageForm: function() {
-        // Siempre habilitado
     },
     
     showMessage: function(message, type) {
-        // Buscar contenedor de mensajes o crear uno
         let messageContainer = document.getElementById('image-message-container');
         if (!messageContainer) {
             messageContainer = document.createElement('div');
@@ -876,7 +903,6 @@ let imagesManager = {
         messageEl.textContent = message;
         messageContainer.appendChild(messageEl);
         
-        // Mensajes de advertencia e info duran más tiempo
         const duration = (type === 'warning' || type === 'info') ? 5000 : 3000;
         
         setTimeout(() => {
@@ -885,7 +911,6 @@ let imagesManager = {
     }
 };
 
-// Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
     const siteIdInput = document.getElementById('site-id-for-images');
     const siteId = siteIdInput && siteIdInput.value ? parseInt(siteIdInput.value) : null;

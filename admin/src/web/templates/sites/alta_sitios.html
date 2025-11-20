@@ -3,7 +3,6 @@
 {% block title %}Alta de Sitio Histórico{% endblock %}
 
 {% block content %}
-<!-- CSS de Leaflet (necesario para que el mapa se vea correctamente) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <section class="max-w-6xl mx-auto" aria-label="Alta de Sitio Histórico" role="region">
@@ -27,11 +26,8 @@
             </p>
         </div>
         
-        <!-- Div para mostrar el mapa -->
         <div id="map-container" class="map-container mb-6" style="height: 500px; border: 2px solid #e5e7eb; border-radius: 8px;"></div>
-        
 
-        <!-- Formulario para agregar sitio histórico -->
         <div class="bg-gray-50 rounded-lg p-6 mb-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Información del Sitio Histórico</h3>
             
@@ -41,13 +37,11 @@
             </form>
         </div>
         
-        <!-- Gestión de imágenes -->
         <div id="images-section">
             {% import 'features/sites/_images_manager.html.jinja' as imgmgr %}
             {{ imgmgr.render_images_manager() }}
         </div>
         
-        <!-- Botones de acción (movidos al final) -->
         <div class="flex justify-end space-x-3 pt-4 mt-6">
             <button type="button" onclick="cancelCreate()" 
                     class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200">
@@ -62,7 +56,6 @@
     </div>
 </section>
 
-<!-- Scripts necesarios para el mapa (en este orden) -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   window.TAGS_OPTIONS = {{ (tags_options or []) | tojson }};
@@ -70,14 +63,9 @@
     states: {{ (states_options or []) | tojson }},
     categories: {{ (categories_options or []) | tojson }}
   };
-  // Datos SSR para selects y selector de tags
-  </script>
+</script>
 <script src="{{ url_for('static', filename='js/map_handler.js') }}"></script>
 <script src="{{ url_for('static', filename='js/create_site.js') }}"></script>
 <script src="{{ url_for('static', filename='js/images_manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/sidebar_fix.js') }}"></script>
-
-<!-- Los datos del usuario se obtienen del backend a través de la sesión -->
-
-<!-- z-index fix moved to sidebar_fix.js -->
 {% endblock %}
