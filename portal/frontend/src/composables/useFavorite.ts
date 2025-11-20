@@ -1,12 +1,9 @@
-import { useRouter, useRoute } from 'vue-router'
-import { toggleFavorite } from '@/lib/api'
+import { toggleFavorite, type HistoricSite } from '@/lib/api'
 import { useAlert } from './useAlert'
 import { useAuth } from './useAuth'
 import { useSitesStore } from '@/stores/sites'
 
 export function useFavorite() {
-  const router = useRouter()
-  const route = useRoute()
   const { showError, showWarning } = useAlert()
   const { isAuthenticated, checkAuth, redirectToLogin } = useAuth()
   const sitesStore = useSitesStore()
@@ -37,10 +34,10 @@ export function useFavorite() {
       // Actualizar en el store si el sitio está en la lista
       const idx = sitesStore.items.findIndex(s => s.id === siteId)
       if (idx >= 0) {
-        sitesStore.items[idx] = { ...sitesStore.items[idx], is_favorite: newFavoriteState } as any
+        sitesStore.items[idx] = { ...sitesStore.items[idx], is_favorite: newFavoriteState } as HistoricSite
       }
 
-      // Callback de éxito
+      // Ejecutar callback de éxito
       if (onSuccess) {
         onSuccess(newFavoriteState)
       }
@@ -50,13 +47,13 @@ export function useFavorite() {
       const error = e instanceof Error ? e : { message: String(e) }
       const errorMsg = error.message || ''
 
+      // Manejar errores de autenticación
       if (errorMsg.includes('AUTH_REQUIRED') || errorMsg.includes('401') || 
           errorMsg.includes('Autenticación') || errorMsg.includes('no autenticado')) {
         await showWarning(
           'Inicio de sesión requerido',
           'Debe iniciar sesión para marcar sitios como favoritos'
         )
-        isAuthenticated.value = false
         redirectToLogin()
       } else if (errorMsg.includes('NETWORK_ERROR')) {
         await showError(
@@ -76,7 +73,6 @@ export function useFavorite() {
 
   return {
     toggleSiteFavorite,
-    isAuthenticated,
   }
 }
 

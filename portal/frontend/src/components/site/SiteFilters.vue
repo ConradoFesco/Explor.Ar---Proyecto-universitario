@@ -2,9 +2,11 @@
 import { ref, watch, onMounted, computed } from 'vue'
 import { useDebounceFn, onClickOutside } from '@vueuse/core'
 import { useSitesStore } from '@/stores/sites'
+import { useAuth } from '@/composables/useAuth'
+import { useAlert } from '@/composables/useAlert'
 import { fetchFilterOptions, type FilterOptions } from '@/lib/api'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
+import SimpleCheckbox from '@/components/ui/checkbox/SimpleCheckbox.vue'
 import { NativeSelect } from '@/components/ui/native-select'
 import {
   Accordion,
@@ -23,6 +25,8 @@ const emit = defineEmits<{
 }>()
 
 const store = useSitesStore()
+const { isAuthenticated, checkAuth, redirectToLogin } = useAuth()
+const { showWarning } = useAlert()
 
 const text = ref(store.text)
 const city = ref<string>('')
@@ -63,6 +67,7 @@ onMounted(async () => {
   // Sincronizar con el store al montar
   if (store.city) city.value = store.city
   if (store.province) province.value = store.province
+  favoritesOnly.value = store.favoritesOnly
 })
 
 onClickOutside(radiusDropdownRef, () => {
@@ -85,13 +90,27 @@ function applyMapFilters() {
   emit('apply')
 }
 
-function applyManualFilters() {
+async function applyManualFilters() {
+  // Si se activa el filtro de favoritos, verificar autenticación
+  if (favoritesOnly.value) {
+    await checkAuth()
+    if (!isAuthenticated.value) {
+      favoritesOnly.value = false
+      await showWarning(
+        'Inicio de sesión requerido',
+        'Debe iniciar sesión para ver sus favoritos'
+      )
+      redirectToLogin()
+      return
+    }
+  }
+  
   store.city = city.value.trim()
   store.province = province.value.trim()
   store.tags = selectedTags.value
-  store.favoritesOnly = !!favoritesOnly.value
+  store.favoritesOnly = favoritesOnly.value === true
   store.page = 1
-  store.loadFirstPage()
+  await store.loadFirstPage()
   emit('apply')
 }
 
@@ -108,6 +127,7 @@ function toggleTag(tagSlug: string) {
     selectedTags.value.push(tagSlug)
   }
 }
+
 
 function reset() {
   text.value = ''
@@ -195,8 +215,12 @@ function clearMapSelection() {
     </div>
 
     <div class="flex items-center gap-2">
-      <Checkbox id="fav" v-model:checked="favoritesOnly" />
-      <label for="fav" class="text-sm select-none text-gray-900 dark:text-gray-100">Favoritos</label>
+      <SimpleCheckbox 
+        id="fav" 
+        :checked="favoritesOnly"
+        @update:checked="(value: boolean) => favoritesOnly = value"
+      />
+      <label for="fav" class="text-sm select-none cursor-pointer text-gray-900 dark:text-gray-100">Favoritos</label>
     </div>
 
     <Accordion v-model="mapAccordionOpen" type="single" collapsible class="w-full">

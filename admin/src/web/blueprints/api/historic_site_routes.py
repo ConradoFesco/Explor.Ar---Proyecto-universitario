@@ -37,6 +37,10 @@ def list_public_historic_sites():
     except exc.ValidationError as error:
         return _json_response({'error': str(error)}, 400)
 
+    # Obtener user_id si está autenticado (opcional, no requiere autenticación)
+    user_id = get_current_user_id()
+    params['user_id'] = user_id
+
     try:
         result = historic_site_service.search_public_sites(**params)
         return _json_response(result, 200)
@@ -91,8 +95,10 @@ def create_historic_site():
 def get_public_historic_site(site_id):
     # si se recibe el ID, llama al servicio para que haga el trabajo pesado
     try:
+        # Obtener user_id si está autenticado (opcional, no requiere autenticación)
+        user_id = get_current_user_id()
         # si todo sale bien, devuelve el objeto y un código 200
-        site_data = historic_site_service.get_historic_site(site_id)
+        site_data = historic_site_service.get_historic_site(site_id, user_id=user_id)
         return _json_response(site_data, 200)
     except exc.NotFoundError as e:
         # si el servicio lanzó un error de validación, lo captura y lo devuelve
@@ -366,6 +372,7 @@ def unmark_favorite(site_id: int):
 @site_api.route('/me/favorites', methods=['GET'])
 @token_or_session_required
 def list_my_favorites():
+    """Endpoint para listar los sitios favoritos del usuario autenticado."""
     user_id = get_current_user_id()
     if not user_id:
         return _json_response({'error': 'Usuario no autenticado'}, 401)

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { HistoricSiteDetail } from '@/lib/api'
 import { computed } from 'vue'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Heart, Star, MapPin } from 'lucide-vue-next'
+import { Star, MapPin } from 'lucide-vue-next'
+import FavoriteButton from '@/components/site/FavoriteButton.vue'
 
 const props = defineProps<{
   site: HistoricSiteDetail
@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  toggleFavorite: []
+  (e: 'favoriteUpdate', newState: boolean): void
 }>()
 
 const locationText = computed(() => {
@@ -38,16 +38,12 @@ const ratingDisplay = computed(() => {
           <span>{{ locationText }}</span>
         </div>
       </div>
-      <Button
-        variant="outline"
+      <FavoriteButton
+        :site-id="site.id"
+        :is-favorite="site.is_favorite ?? false"
         size="sm"
-        @click="emit('toggleFavorite')"
-        :title="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
-        class="flex items-center gap-1 shrink-0"
-        :aria-label="site.is_favorite ? 'Quitar de favoritos' : 'Agregar a favoritos'"
-      >
-        <Heart :class="['h-4 w-4', site.is_favorite ? 'fill-red-500 text-red-500' : '']" />
-      </Button>
+        @update="(newState) => emit('favoriteUpdate', newState)"
+      />
     </div>
     
     <div class="flex flex-wrap items-center gap-2">
