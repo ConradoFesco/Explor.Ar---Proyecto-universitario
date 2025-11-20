@@ -110,4 +110,10 @@ class FlagService:
         flag = Flag.query.filter_by(key="portal_maintenance_mode").first()
         return flag.message if flag else None
 
+    # Métodos específicos para reviews
+    def is_reviews_enabled(self):
+        """Devuelve True si las reseñas están habilitadas."""
+        flag = Flag.query.filter_by(key="reviews_enabled").first()
+        return flag.enabled if flag else True  # Por defecto True si no existe el flag
+
 flag_service = FlagService()

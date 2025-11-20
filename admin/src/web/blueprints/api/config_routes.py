@@ -12,20 +12,23 @@ config_api = Blueprint("config_api", __name__)
 def get_system_status():
     """
     Endpoint público para que Vue consulte el estado del sistema.
-    Especialmente útil para verificar si el portal está en modo mantenimiento.
+    Especialmente útil para verificar si el portal está en modo mantenimiento y si las reseñas están habilitadas.
     """
     try:
         maintenance_mode = flag_service.is_portal_maintenance_mode()
         maintenance_message = flag_service.get_portal_maintenance_message()
+        reviews_enabled = flag_service.is_reviews_enabled()
         
         return jsonify({
             "maintenance_mode": maintenance_mode,
-            "message": maintenance_message or "El sitio se encuentra en mantenimiento programado."
+            "message": maintenance_message or "El sitio se encuentra en mantenimiento programado.",
+            "reviews_enabled": reviews_enabled
         }), 200
     except Exception as e:
-        # En caso de error, asumir que no hay mantenimiento para evitar bloquear el acceso
+        # En caso de error, asumir que no hay mantenimiento y que las reseñas están habilitadas
         return jsonify({
             "maintenance_mode": False,
-            "message": None
+            "message": None,
+            "reviews_enabled": True
         }), 200
 
