@@ -7,18 +7,15 @@ load_dotenv()
 
 
 class Config:
-    TESTING = False
+    MINIO_SERVER = "minio.localhost:9000"
+    MINIO_ACCESS_KEY = "Q0L5J2IVUSSMRL11E5QX"
+    MINIO_SECRET_KEY = "kB119jBgCADvkQThRgn3ARVEiuLbA+C5d+TKyhZz"
+    MINIO_SECURE = False
+    MINIO_BUCKET = "grupo06"
     SECRET_KEY = os.getenv("SECRET_KEY", "123456")
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
-    JWT_EXPIRATION_SECONDS = int(os.getenv("JWT_EXPIRATION_SECONDS", "3600"))
     SESSION_TYPE = os.getenv("SESSION_TYPE", "filesystem")
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "")
-    # Google OAuth2
-    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-    # Frontend URL para redirecciones después de OAuth
-    FRONTEND_URL = os.getenv("FRONTEND_URL")
     SESSION_COOKIE_SECURE = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     SQLALCHEMY_ENGINE_OPTIONS = {
@@ -30,6 +27,11 @@ class Config:
 
 class ProductionConfig(Config):
     DEBUG = False
+    MINIO_SERVER = os.getenv("MINIO_SERVER")
+    MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+    MINIO_SECURE = True
+    MINIO_BUCKET = "grupo06"
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "")
     pass
 

@@ -1,12 +1,9 @@
-
 """
 Comandos CLI personalizados para la aplicación Flask.
 """
 import click
 from flask.cli import with_appcontext
 from src.web.extensions import db
-
-
 def register_commands(app):
     """
     Registra todos los comandos CLI personalizados.
