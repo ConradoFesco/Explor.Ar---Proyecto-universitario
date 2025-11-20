@@ -35,6 +35,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/sitio/:id',
     name: 'site-detail',
     component: () => import('@/views/SiteDetailView.vue')
+  },
+  {
+    path: '/perfil',
+    name: 'UserProfile',
+    component: () => import('@/views/UserProfile.vue')
   }
 ]
 

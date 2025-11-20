@@ -159,6 +159,38 @@ def get_my_review(site_id: int):
         return jsonify({'error': 'Error interno al obtener reseña'}), 500
 
 
+@review_api.route('/me/reviews', methods=['GET'])
+@token_or_session_required
+def list_my_reviews():
+    """Lista todas las reseñas del usuario autenticado."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({'error': 'Usuario no autenticado'}), 401
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    sort = request.args.get('sort', 'desc')  # 'asc' o 'desc'
+    sort_order = 'asc' if sort == 'asc' else 'desc'
+
+    try:
+        result = review_service.list_reviews(
+            filters={'user_id': user_id},
+            page=page,
+            per_page=per_page,
+            sort_by='created_at',
+            sort_order=sort_order,
+            only_approved=False  # Mostrar todas las reseñas del usuario (pending, approved)
+        )
+        response = jsonify(result)
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response, 200
+    except exc.ValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    except Exception as error:
+        current_app.logger.exception("Error al listar reseñas del usuario", exc_info=error)
+        return jsonify({'error': 'Error interno al listar reseñas'}), 500
+
+
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['DELETE'])
 @token_or_session_required
 def delete_site_review(site_id: int, review_id: int):
