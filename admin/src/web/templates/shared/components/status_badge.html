@@ -1,0 +1,13 @@
+{# Componente reutilizable para badges de estado #}
+{% macro render_status_badge(status, compact=false) %}
+  {% if status == 'pending' %}
+    <span class="inline-flex items-center {{ 'px-1 py-0.5 text-[10px]' if compact else 'px-2 py-1 text-xs' }} rounded-full font-semibold bg-yellow-100 text-yellow-800">{{ 'Pend.' if compact else 'Pendiente' }}</span>
+  {% elif status == 'approved' %}
+    <span class="inline-flex items-center {{ 'px-1 py-0.5 text-[10px]' if compact else 'px-2 py-1 text-xs' }} rounded-full font-semibold bg-green-100 text-green-800">{{ 'Aprob.' if compact else 'Aprobada' }}</span>
+  {% elif status == 'rejected' %}
+    <span class="inline-flex items-center {{ 'px-1 py-0.5 text-[10px]' if compact else 'px-2 py-1 text-xs' }} rounded-full font-semibold bg-red-100 text-red-800">{{ 'Rech.' if compact else 'Rechazada' }}</span>
+  {% else %}
+    <span class="inline-flex items-center {{ 'px-1 py-0.5 text-[10px]' if compact else 'px-2 py-1 text-xs' }} rounded-full font-semibold bg-gray-100 text-gray-800">{{ status }}</span>
+  {% endif %}
+{% endmacro %}
+

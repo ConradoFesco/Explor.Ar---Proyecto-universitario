@@ -825,6 +825,20 @@ class HistoricSiteService:
         except Exception as e:
             raise exc.DatabaseError(f"Error al obtener opciones de filtro: {e}")
 
+    def get_sites_for_filter(self):
+        """
+        Obtiene todos los sitios históricos para usar en filtros/selectores.
+        Retorna solo id y name para eficiencia.
+
+        Returns:
+            list: [{'id': int, 'name': str}, ...]
+        """
+        try:
+            sites = HistoricSite.query.filter_by(deleted=False).order_by(HistoricSite.name.asc()).all()
+            return [{'id': site.id, 'name': site.name} for site in sites]
+        except Exception as e:
+            raise exc.DatabaseError(f"Error al obtener sitios para filtro: {e}")
+
     def export_sites_to_csv(self, search_text=None, sort_by='created_at', sort_order='desc',
                            city_id=None, province_id=None, tag_ids=None, 
                            state_id=None, date_from=None, date_to=None, 

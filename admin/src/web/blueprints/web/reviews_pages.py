@@ -2,7 +2,7 @@
 Rutas Web para gestión de reseñas (renderizado HTML/Jinja).
 Requieren permisos equivalentes a los endpoints API.
 """
-from flask import Blueprint, render_template, request, session, redirect, url_for, flash
+from flask import Blueprint, render_template, request, session, redirect, url_for, flash, current_app
 from src.web.auth.decorators import web_permission_required
 from src.core.services.review_service import review_service
 from src.core.services.historic_site_service import historic_site_service
@@ -91,16 +91,11 @@ def list_reviews_page():
     
     # Obtener opciones de sitios para el filtro
     try:
-        sites_result = historic_site_service.get_all_historic_sites(
-            include_deleted=False,
-            page=1,
-            per_page=1000,
-            sort_by='name',
-            sort_order='asc'
-        )
-        sites = sites_result.get('sites', [])
-        site_options = [{'value': s.get('id'), 'label': s.get('name')} for s in sites]
-    except Exception:
+        sites = historic_site_service.get_sites_for_filter()
+        # Formatear opciones para el selector (mismo formato que en sites_pages.py)
+        site_options = [{'value': str(s.get('id')), 'label': s.get('name')} for s in sites if s.get('id') and s.get('name')]
+    except Exception as e:
+        current_app.logger.exception("Error al cargar sitios para filtro", exc_info=e)
         site_options = []
     
     # Obtener reseñas usando el servicio
@@ -114,19 +109,20 @@ def list_reviews_page():
         )
         items = result.get('items', [])
         pagination = result.get('pagination', {})
+        # Determinar si mostrar columna de motivo de rechazo (lógica en controlador, no en template)
+        show_rejection_reason_column = any(item.get('status') == 'rejected' for item in items)
     except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         flash('Error al cargar reseñas: ' + str(e), 'error')
         items = []
-        pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0}
+        pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0, 'has_next': False, 'has_prev': False, 'next_num': None, 'prev_num': None}
+        show_rejection_reason_column = False
     
     return render_template(
         'features/reviews/reviews.html.jinja',
         site_options=site_options,
         items=items,
-        page=pagination.get('page', 1),
-        per_page=pagination.get('per_page', 25),
-        total=pagination.get('total', 0),
-        pages=pagination.get('pages', 1)
+        pagination=pagination,
+        show_rejection_reason_column=show_rejection_reason_column
     )
 
 
@@ -149,17 +145,18 @@ def list_reviews_fragment():
         )
         items = result.get('items', [])
         pagination = result.get('pagination', {})
+        # Determinar si mostrar columna de motivo de rechazo (lógica en controlador, no en template)
+        show_rejection_reason_column = any(item.get('status') == 'rejected' for item in items)
     except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
         items = []
-        pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0}
+        pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0, 'has_next': False, 'has_prev': False, 'next_num': None, 'prev_num': None}
+        show_rejection_reason_column = False
     
     return render_template(
         'features/reviews/_list_fragment.html.jinja',
         items=items,
-        page=pagination.get('page', 1),
-        per_page=pagination.get('per_page', 25),
-        total=pagination.get('total', 0),
-        pages=pagination.get('pages', 1)
+        pagination=pagination,
+        show_rejection_reason_column=show_rejection_reason_column
     )
 
 
@@ -178,10 +175,12 @@ def review_detail_fragment(review_id):
         return redirect(url_for('reviews_web.list_reviews_page'))
     
     try:
+        # Para moderación, validar autenticación pero no ownership (los moderadores pueden ver cualquier reseña)
         review_data = review_service.get_review(
             site_id=site_id,
             review_id=review_id,
-            current_user_id=session.get('user_id')
+            current_user_id=session.get('user_id'),  # Validar autenticación
+            skip_ownership_validation=True  # Los moderadores pueden ver cualquier reseña
         )
         
         return render_template('features/reviews/_detail_fragment.html.jinja', review=review_data)

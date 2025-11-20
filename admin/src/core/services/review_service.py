@@ -211,7 +211,7 @@ class ReviewService:
 
         return review
 
-    def get_review(self, *, site_id: int, review_id: int, current_user_id: int | None = None):
+    def get_review(self, *, site_id: int, review_id: int, current_user_id: int | None = None, skip_ownership_validation: bool = False):
         # Validar IDs
         try:
             site_id = int(site_id)
@@ -235,7 +235,9 @@ class ReviewService:
         if not review:
             raise exc.NotFoundError("Reseña no encontrada")
 
-        if current_user_id and review.user_id != current_user_id:
+        # Validar ownership solo si no se omite la validación y se proporciona current_user_id
+        # skip_ownership_validation=True se usa para moderación (los moderadores pueden ver cualquier reseña)
+        if not skip_ownership_validation and current_user_id is not None and review.user_id != current_user_id:
             raise exc.ForbiddenError("No tiene acceso a esta reseña")
 
         user = User.query.get(review.user_id)
