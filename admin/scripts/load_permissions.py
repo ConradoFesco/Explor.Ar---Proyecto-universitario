@@ -74,7 +74,8 @@ def create_permissions():
         # Permisos para perfil de usuario
         "view_profile",
         "update_password",
-        
+        # Permiso para moderar reseñas 
+        "moderate_reviews",
 
     ]
     
@@ -94,9 +95,10 @@ def create_permissions():
 def create_roles():
     """Crear los roles del sistema"""
     roles = {
-        "superAdmin": "Super Administrador - acceso total al sistema incluyendo gestión de flags",
         "admin": "Administrador del sistema - acceso completo",
         "editor": "Editor - puede crear, editar y eliminar contenido",
+        "moderator": "Moderador - puede revisar y moderar reseñas",
+        
         "usuario": "Usuario autenticado - solo puede ver contenido"
     }
     
@@ -119,7 +121,6 @@ def assign_permissions_to_roles(roles):
     
     # Definir qué permisos tiene cada rol
     role_permissions = {
-        
         "admin": [
             # Todos los permisos excepto gestión de flags
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 
@@ -130,7 +131,7 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password"
+            "view_profile", "update_password", "moderate_reviews"
         ],
         "editor": [
             # Permisos para gestionar contenido
@@ -141,7 +142,12 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password"
+            "view_profile", "update_password", "moderate_reviews"
+        ],
+        "moderador": [
+            # permisos limitados pero incluye moderación
+            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
+            "view_profile", "update_password", "moderate_reviews"
         ],
         "usuario": [
             # Permisos básicos para usuarios autenticados

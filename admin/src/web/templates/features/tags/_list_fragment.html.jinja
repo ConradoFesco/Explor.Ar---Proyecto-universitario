@@ -1,0 +1,27 @@
+{% if tags %}
+<div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sitios asociados</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for tag in tags %}
+                    {% include 'features/tags/_item.html.jinja' %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% import 'components/paginator.html.jinja' as pager %}
+    {{ pager.render_pagination(pagination) }}
+</div>
+{% else %}
+<div class="text-center text-gray-500 py-8">No hay tags para mostrar.</div>
+{% endif %}
+
+

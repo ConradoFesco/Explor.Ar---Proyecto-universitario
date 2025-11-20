@@ -1,5 +1,6 @@
 from src.web.extensions import db
 from datetime import datetime
+from typing import Dict, Any
 
 class Tag(db.Model):
     __tablename__ = 'Tag'
@@ -13,10 +14,10 @@ class Tag(db.Model):
     # Relaciones
     tag_historic_sites = db.relationship('TagHistoricSite', backref='tag', lazy=True)
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Tag {self.name}>'
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'name': self.name,

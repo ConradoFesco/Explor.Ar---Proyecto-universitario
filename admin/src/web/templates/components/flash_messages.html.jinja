@@ -1,0 +1,21 @@
+{% set flashed = get_flashed_messages(with_categories=true) %}
+{% if flashed and flashed|length > 0 %}
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    try {
+      var flashed = {{ flashed|tojson }}; // [[category, message], ...]
+      flashed.forEach(function(item){
+        var category = item[0] || 'info';
+        var message = item[1] || '';
+        var icon = (category === 'success') ? 'success' : (category === 'error') ? 'error' : (category === 'warning') ? 'warning' : 'info';
+        var title = (category === 'success') ? '¡Éxito!' : (category === 'error') ? 'Error' : (category === 'warning') ? 'Atención' : 'Aviso';
+        var opts = { icon: icon, title: title, text: message, confirmButtonColor: '#3B82F6' };
+        if (category === 'success') { opts.timer = 2000; opts.showConfirmButton = false; }
+        if (window.Swal && typeof Swal.fire === 'function') { Swal.fire(opts); }
+      });
+    } catch(_e) { /* ignore */ }
+  });
+  </script>
+{% endif %}
+
+

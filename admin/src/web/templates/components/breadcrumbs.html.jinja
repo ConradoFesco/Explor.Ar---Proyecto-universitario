@@ -1,0 +1,23 @@
+{# items: lista de { label: str, url: optional str, current: optional bool } #}
+{% macro render_breadcrumbs(items=[]) -%}
+    {% if items and items|length > 0 %}
+    <nav class="mb-4 text-sm" aria-label="Breadcrumb">
+        <ol class="flex flex-wrap items-center text-gray-500">
+            {% for item in items %}
+                {% if item.url and not item.current %}
+                    <li>
+                        <a href="{{ item.url }}" class="hover:text-gray-700">{{ item.label }}</a>
+                    </li>
+                {% else %}
+                    <li class="text-gray-700 font-medium">{{ item.label }}</li>
+                {% endif %}
+                {% if not loop.last %}
+                    <li class="mx-2 text-gray-400">/</li>
+                {% endif %}
+            {% endfor %}
+        </ol>
+    </nav>
+    {% endif %}
+{%- endmacro %}
+
+

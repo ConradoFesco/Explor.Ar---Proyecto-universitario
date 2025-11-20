@@ -1,0 +1,71 @@
+<!-- Sidebar default content -->
+<!-- Sitios Históricos (NO accesible para usuario común) -->
+{% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
+<a href="{{ url_for('sites_web.lista_sitios') }}" 
+    class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+    <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+    </svg>
+    <span class="font-medium">Gestión de Sitios Históricos</span>
+    </a>
+{% endif %}
+
+<!-- Validación -->
+<a href="#" 
+    class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+    <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    </svg>
+    <span class="font-medium">Validación de Propuestas</span>
+</a>
+
+{# Moderación de Reseñas - solo para roles con permiso 'moderate_reviews' o admins #}
+{% if (current_user and (is_admin or 'moderator' in user_roles or ('usuario' not in user_roles and 'editor' in user_roles))) or
+      (current_user and current_user.has_permission('moderate_reviews') if current_user else False) %}
+    <a href="{{ url_for('reviews_web.list_reviews_page') }}"
+    class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+    <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+    </svg>
+    <span class="font-medium">Moderación de Reseñas</span>
+</a>
+{% endif %}
+<!-- Gestión de Tags (NO accesible para usuario común) -->
+{% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
+<a href="{{ url_for('tags_web.lista_tags') }}" 
+    class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+    <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+    </svg>
+    <span class="font-medium">Gestión de Tags</span>
+</a>
+{% endif %}
+
+<!-- Gestión de Usuarios (solo admin o super admin, NO editor ni usuario) -->
+{% if is_admin %}
+<a href="{{ url_for('users_web.list_users_page') }}" 
+    class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+    <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+            d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.779.755 6.879 2.042M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+    </svg>
+    <span class="font-medium">Gestión de Usuarios</span>
+</a>
+{% endif %}
+
+<!-- Flags (solo para super administradores) -->
+{% if current_user and current_user.is_super_admin %}
+<a href="{{ url_for('flags_web.list_flags_page') }}" 
+    class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
+    <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 4a8 8 0 100 16 8 8 0 000-16z"></path>
+    </svg>
+    <span class="font-medium">Flags</span>
+</a>
+{% endif %}
+
+

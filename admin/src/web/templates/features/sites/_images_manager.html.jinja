@@ -1,0 +1,132 @@
+{% macro render_images_manager(site_id=None) %}
+<div class="bg-gray-50 rounded-lg p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Gestión de Imágenes</h3>
+    
+    <!-- Información sobre límites -->
+    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p class="text-sm text-gray-700">
+            <strong>Formatos permitidos:</strong> JPG, PNG, WEBP | 
+            <strong>Tamaño máximo:</strong> 5 MB | 
+            <strong>Límite:</strong> 10 imágenes por sitio
+        </p>
+    </div>
+    
+    <!-- Formulario para subir imágenes -->
+    <div class="mb-6 p-4 border border-gray-300 rounded-md bg-white">
+        <h4 class="text-md font-medium text-gray-700 mb-3">Subir Imágenes</h4>
+        <form id="upload-image-form" class="space-y-3" enctype="multipart/form-data">
+            <input type="hidden" id="site-id-for-images" value="{{ site_id or '' }}">
+            
+            <div>
+                <label for="imagen-file" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Imágenes *</label>
+                <input type="file" id="imagen-file" name="imagenes" accept=".jpg,.jpeg,.png,.webp" multiple
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <small class="text-gray-500">Formatos: JPG, PNG, WEBP (máx. 5 MB cada una). Puede seleccionar múltiples imágenes.</small>
+            </div>
+            
+            <!-- Lista de imágenes seleccionadas (previsualización antes de subir) -->
+            <div id="selected-images-preview" class="space-y-3 mt-4" style="display: none;">
+                <h5 class="text-sm font-medium text-gray-700">Imágenes seleccionadas:</h5>
+                <div id="selected-images-list" class="space-y-2"></div>
+            </div>
+            
+            <button type="button" id="btn-upload-images" 
+                    class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-200">
+                Cargar Imágenes
+            </button>
+            <button type="button" id="btn-clear-selection" 
+                    class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200 ml-2" style="display: none;">
+                Limpiar Selección
+            </button>
+        </form>
+    </div>
+    
+    <!-- Lista de imágenes existentes (solo se muestra cuando hay site_id, es decir, en edición) -->
+    {% if site_id %}
+    <div id="images-list-container">
+        <h4 class="text-md font-medium text-gray-700 mb-3">Imágenes del Sitio</h4>
+        <div id="images-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-gray-500 col-span-full" id="no-images-message">No hay imágenes cargadas aún.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.image-item {
+    position: relative;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.image-item.cover {
+    border-color: #3b82f6;
+    border-width: 3px;
+}
+
+.image-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.image-item .image-actions {
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.image-item .image-info {
+    padding: 8px;
+}
+
+.image-item .cover-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #3b82f6;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.drag-handle {
+    cursor: move;
+    color: #6b7280;
+}
+
+.drag-handle:hover {
+    color: #374151;
+}
+
+.preview-image-item {
+    transition: all 0.2s ease;
+}
+
+.preview-image-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.preview-image-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.drag-handle-preview {
+    z-index: 10;
+}
+
+.drag-handle-preview:hover {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+}
+</style>
+{% endmacro %}
+
+

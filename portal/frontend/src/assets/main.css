@@ -1,0 +1,32 @@
+/* En Tailwind v4, usamos esta importación única.
+   Esto carga todas las utilidades necesarias.
+*/
+@import "tailwindcss";
+
+/* Tu archivo base opcional */
+@import './base.css';
+
+/* ¡IMPORTANTE!
+   Eliminamos el bloque 'body { @apply ... }'.
+
+   ¿Por qué?
+   1. Estaba causando el error "unknown utility class".
+   2. Ya tienes las clases 'bg-gray-50' y 'dark:bg-gray-900'
+      en tu archivo App.vue (en la etiqueta <main>),
+      así que el fondo ya se verá bien sin esto.
+*/
+
+/* Tus estilos personalizados (los dejamos tal cual) */
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+  padding: 3px;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}

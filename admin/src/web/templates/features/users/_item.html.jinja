@@ -1,0 +1,63 @@
+{# Item de usuario para listado SSR #}
+<li class="py-5 flex items-center justify-between hover:bg-gray-50 transition duration-150 px-2 rounded-lg">
+    <div class="flex items-center gap-4 flex-1">
+        <div class="w-12 h-12 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center font-semibold text-lg flex-shrink-0">
+            {{ (user.name[:1] ~ user.last_name[:1]) | upper if user.name or user.last_name else '?' }}
+        </div>
+        <div class="flex-1 min-w-0">
+            <h3 class="text-base font-semibold text-gray-900">{{ user.name }} {{ user.last_name }}</h3>
+            <p class="text-sm text-gray-500 truncate">{{ user.mail }}</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-6">
+        <div class="text-right hidden sm:block">
+            <p class="text-sm font-medium text-gray-700">{{ (user.roles or []) | join('/') if user.roles else 'Sin roles' }}</p>
+            <p class="text-xs text-gray-500">{{ user.created_at | default('', true) }}</p>
+        </div>
+        <span class="px-3 py-1 text-xs font-semibold rounded-full {{ 'bg-green-100 text-green-700' if user.active else 'bg-red-100 text-red-700' }}">
+            {{ 'Activo' if user.active else 'Inactivo' }}
+        </span>
+        <div class="flex items-center gap-2">
+            {% set is_super_admin = user.get('is_super_admin') %}
+            {% set is_current_user = (session.get('user_id') == user.id) %}
+            {% set can_edit = (not is_super_admin) or (is_current_user) or (current_is_super_admin) %}
+            {% if can_edit %}
+            <a href="/users/{{ user.id }}/editar" 
+               class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition duration-200"
+               title="Editar usuario">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </a>
+            {% else %}
+            <span class="text-gray-300 p-2 cursor-not-allowed rounded" title="Solo super administradores o el propio usuario pueden editar a un super administrador">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </span>
+            {% endif %}
+            {% set can_delete = (not is_current_user) and ( (not is_super_admin) or (current_is_super_admin) ) %}
+            {% if can_delete %}
+            <button type="button" 
+                    class="js-delete-user text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition duration-200"
+                    data-user-id="{{ user.id }}"
+                    data-user-name={{ (user.name ~ ' ' ~ user.last_name) | trim | tojson }}
+                    title="Eliminar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </button>
+            {% else %}
+            <button type="button" disabled
+                    class="text-gray-300 p-2 cursor-not-allowed rounded transition duration-200"
+                    title="{{ 'Solo super administradores pueden eliminar a otro super administrador' if is_super_admin else 'No puedes eliminarte a ti mismo' }}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</li>
+
+

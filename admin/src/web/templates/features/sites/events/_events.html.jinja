@@ -1,0 +1,51 @@
+<div class="space-y-4">
+  <div class="bg-gray-50 rounded-lg p-3">
+    {% import 'shared/components/search_filters.html' as filters %}
+    {{ filters.render_search_filters({
+      'id_prefix': 'events-',
+      'search_placeholder': 'Buscar por email de usuario',
+      'search_param': 'user_email',
+      'filters': [
+        {'name': 'type', 'param': 'type_action', 'label': 'Tipo de acción', 'type': 'select', 'options': [
+          {'value': 'CREATE', 'label': 'CREATE'},
+          {'value': 'UPDATE', 'label': 'UPDATE'},
+          {'value': 'DELETE', 'label': 'DELETE'}
+        ]},
+        {'name': 'date-from', 'param': 'date_from', 'label': 'Desde', 'type': 'date'},
+        {'name': 'date-to', 'param': 'date_to', 'label': 'Hasta', 'type': 'date'}
+      ]
+    }) }}
+  </div>
+  <div id="events-list-container">
+    {% if events and events|length > 0 %}
+    <ul class="divide-y divide-gray-200">
+      {% for ev in events %}
+      <li class="py-2 flex items-center justify-between">
+        <div>
+          <div class="text-sm text-gray-800">
+            {{ ev.type_Action }}
+          </div>
+          <div class="text-xs text-gray-500">
+            {% if ev.date_time %}{{ ev.date_time.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %} — {{ ev.user_email }}
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-gray-500">No hay eventos para este sitio.</p>
+    {% endif %}
+    {% if pagination and pagination.pages > 1 %}
+      {% import 'components/paginator.html.jinja' as ui %}
+      <div class="mt-2">
+        {{ ui.render_pagination(pagination) }}
+      </div>
+    {% endif %}
+  </div>
+  <div class="flex justify-end">
+    <button type="button" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded" onclick="openSiteDetail({{ site_id }})">Volver al detalle</button>
+  </div>
+</div>
+
+
+

@@ -1,4 +1,5 @@
 from src.web.extensions import db
+from typing import Dict, Any
 
 class City(db.Model):
     __tablename__ = 'City'
@@ -11,10 +12,10 @@ class City(db.Model):
     # Relaciones
     historic_sites = db.relationship('HistoricSite', backref='city', lazy=True)
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<City {self.name}>'
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'id_province': self.id_province,

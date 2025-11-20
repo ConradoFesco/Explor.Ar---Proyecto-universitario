@@ -1,83 +1,29 @@
-{% extends "shared/layout.html" %}
+{% extends "layouts/app.html.jinja" %}
 
 {% block title %}Nuevo Usuario{% endblock %}
 
 {% block content %}
-<main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8" aria-labelledby="create-user-heading" role="region">
     <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+        {% import 'components/breadcrumbs.html.jinja' as bc %}
+        {{ bc.render_breadcrumbs([
+            {'label': 'Inicio', 'url': url_for('main.home')},
+            {'label': 'Usuarios', 'url': url_for('users_web.list_users_page')},
+            {'label': 'Nuevo', 'current': True}
+        ]) }}
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Crear Nuevo Usuario</h3>
+            {% from 'components/page_header.html.jinja' import render_page_header %}
+            {% call render_page_header('Crear Nuevo Usuario', 'create-user-heading') %}{% endcall %}
         </div>
         
-        <form id="createUserForm" class="p-6 space-y-6">
-            <!-- Nombre -->
-            <div>
-                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre <span class="text-red-500">*</span>
-                </label>
-                <input type="text" 
-                       id="name" 
-                       name="name" 
-                       required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="Ingresa el nombre">
-            </div>
-
-            <!-- Apellido -->
-            <div>
-                <label for="last_name" class="block text-sm font-medium text-gray-700 mb-1">
-                    Apellido <span class="text-red-500">*</span>
-                </label>
-                <input type="text" 
-                       id="last_name" 
-                       name="last_name" 
-                       required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="Ingresa el apellido">
-            </div>
-
-            <!-- Email -->
-            <div>
-                <label for="mail" class="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span class="text-red-500">*</span>
-                </label>
-                <input type="email" 
-                       id="mail" 
-                       name="mail" 
-                       required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="ejemplo@correo.com">
-                <p class="text-xs text-gray-500 mt-1">Este será el correo de acceso al sistema</p>
-            </div>
-
-            <!-- Contraseña -->
-            <div>
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-                    Contraseña <span class="text-red-500">*</span>
-                </label>
-                <input type="password" 
-                       id="password" 
-                       name="password" 
-                       required
-                       minlength="6"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="Mínimo 6 caracteres">
-                <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
-            </div>
-
-            <!-- Confirmar Contraseña -->
-            <div>
-                <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">
-                    Confirmar Contraseña <span class="text-red-500">*</span>
-                </label>
-                <input type="password" 
-                       id="confirm_password" 
-                       name="confirm_password" 
-                       required
-                       minlength="6"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                       placeholder="Repite la contraseña">
-            </div>
+        <form id="createUserForm" class="p-6 space-y-6" method="post" action="{{ url_for('users_web.create_user_web') }}">
+            {% import 'components/fields.html.jinja' as f %}
+            {{ f.render_text_input('name','Nombre', True, 'Ingresa el nombre') }}
+            {{ f.render_text_input('last_name','Apellido', True, 'Ingresa el apellido') }}
+            {{ f.render_email_input('mail','Email', True, 'ejemplo@correo.com') }}
+            {{ f.render_password_input('password','Contraseña', True, 'Mínimo 6 caracteres', 6) }}
+            {{ f.render_password_input('confirm_password','Confirmar Contraseña', True, 'Repite la contraseña', 6) }}
+            <p class="text-xs text-gray-500 mt-1">Este será el correo de acceso al sistema</p>
 
             <!-- Roles -->
             <div>
@@ -85,33 +31,22 @@
                     Roles <span class="text-red-500">*</span>
                 </label>
                 <div id="roles-container" class="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
-                    <div class="text-sm text-gray-500">Cargando roles...</div>
+                    {% if available_roles %}
+                        {% for role in available_roles %}
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" id="role_{{ role.id }}" name="roles" value="{{ role.id }}" class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="role_{{ role.id }}" class="ml-2 text-sm text-gray-700">{{ role.name|capitalize }}</label>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-red-500">No hay roles disponibles</div>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-gray-500 mt-1">Selecciona uno o más roles para el usuario</p>
             </div>
 
-            <!-- Estado Activo -->
-            <div class="flex items-center">
-                <input type="checkbox"
-                       id="active"
-                       name="active"
-                       checked
-                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                <label for="active" class="ml-2 block text-sm text-gray-700">
-                    Usuario activo
-                </label>
-            </div>
-
-            <!-- Estado Bloqueado -->
-            <div class="flex items-center">
-                <input type="checkbox" 
-                       id="blocked" 
-                       name="blocked"
-                       class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
-                <label for="blocked" class="ml-2 block text-sm text-gray-700">
-                    Usuario bloqueado
-                </label>
-            </div>
+            {{ f.render_checkbox('active','Usuario activo') }}
+            {{ f.render_checkbox('blocked','Usuario bloqueado') }}
 
             <!-- Mensaje de ayuda -->
             <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -123,7 +58,7 @@
 
             <!-- Botones -->
             <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
-                <a href="/users" 
+                <a href="{{ url_for('users_web.list_users_page') }}" 
                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200">
                     Cancelar
                 </a>
@@ -134,172 +69,11 @@
             </div>
         </form>
     </div>
-</main>
+</section>
 {% endblock %}
 
 {% block scripts %}
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-// Cargar roles disponibles al cargar la página
-async function loadRoles() {
-    try {
-        const response = await fetch('/api/users/roles');
-        const data = await response.json();
-        
-        const rolesContainer = document.getElementById('roles-container');
-        
-        if (data.roles && Array.isArray(data.roles)) {
-            rolesContainer.innerHTML = '';
-            data.roles.forEach(role => {
-                const roleDiv = document.createElement('div');
-                roleDiv.className = 'flex items-center mb-2';
-                roleDiv.innerHTML = `
-                    <input type="checkbox" 
-                           id="role_${role.id}" 
-                           value="${role.id}" 
-                           class="role-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="role_${role.id}" class="ml-2 text-sm text-gray-700">
-                        ${role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                    </label>
-                `;
-                rolesContainer.appendChild(roleDiv);
-            });
-        } else {
-            rolesContainer.innerHTML = '<div class="text-sm text-red-500">Error al cargar roles</div>';
-        }
-    } catch (error) {
-        console.error('Error al cargar roles:', error);
-        const rolesContainer = document.getElementById('roles-container');
-        rolesContainer.innerHTML = '<div class="text-sm text-red-500">Error al cargar roles</div>';
-    }
-}
-
-// Cargar roles cuando se carga la página
-document.addEventListener('DOMContentLoaded', loadRoles);
-
-document.getElementById("createUserForm").addEventListener("submit", async function(e) {
-    e.preventDefault();
-
-    // Obtener valores del formulario
-    const name = document.getElementById('name').value.trim();
-    const last_name = document.getElementById('last_name').value.trim();
-    const mail = document.getElementById('mail').value.trim();
-    const password = document.getElementById('password').value;
-    const confirm_password = document.getElementById('confirm_password').value;
-    
-    // Obtener roles seleccionados
-    const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked')).map(cb => parseInt(cb.value));
-    const active = document.getElementById('active').checked;
-    const blocked = document.getElementById('blocked').checked;
-
-    // Validaciones
-    if (!name || !last_name || !mail || !password || selectedRoles.length === 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campos incompletos',
-            text: 'Por favor completa todos los campos obligatorios y selecciona al menos un rol',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    if (password !== confirm_password) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Contraseñas no coinciden',
-            text: 'Las contraseñas ingresadas no son iguales',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    if (password.length < 6) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Contraseña muy corta',
-            text: 'La contraseña debe tener al menos 6 caracteres',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(mail)) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Email inválido',
-            text: 'Por favor ingresa un email válido',
-            confirmButtonColor: '#3B82F6'
-        });
-        return;
-    }
-
-    const formData = {
-        data_new_user: {
-            name: name,
-            last_name: last_name,
-            mail: mail,
-            password: password,
-            roles: selectedRoles,
-            active: active,
-            blocked: blocked
-        }
-    };
-
-    try {
-        const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-
-        const data = await response.json();
-        
-        if (response.ok) {
-            Swal.fire({
-                icon: 'success',
-                title: '¡Usuario creado!',
-                text: 'El usuario se ha creado correctamente',
-                confirmButtonColor: '#3B82F6',
-                timer: 2000,
-                showConfirmButton: false
-            }).then(() => {
-                window.location.replace('/users');
-            });
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: data.error || 'No se pudo crear el usuario',
-                confirmButtonColor: '#3B82F6'
-            });
-        }
-    } catch (err) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error de conexión',
-            text: err.message,
-            confirmButtonColor: '#3B82F6'
-        });
-    }
-});
-
-// Validación en tiempo real de contraseñas
-document.getElementById('confirm_password').addEventListener('input', function() {
-    const password = document.getElementById('password').value;
-    const confirm = this.value;
-    
-    if (confirm && password !== confirm) {
-        this.setCustomValidity('Las contraseñas no coinciden');
-        this.classList.add('border-red-500');
-    } else {
-        this.setCustomValidity('');
-        this.classList.remove('border-red-500');
-    }
-});
-</script>
+<script src="{{ url_for('static', filename='js/user_create.js') }}"></script>
 {% endblock %}

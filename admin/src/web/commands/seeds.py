@@ -7,6 +7,8 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
+from datetime import datetime
+import random
 from src.web import create_app
 from src.web.extensions import db
 from src.core.models.permission import Permission
@@ -17,6 +19,8 @@ from src.core.models.user import User
 from src.core.models.category_site import CategorySite
 from src.core.models.state_site import StateSite
 from src.core.models.flag import Flag
+from src.core.models.historic_site import HistoricSite
+from src.core.models.review import HistoricSiteReview
 
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""
@@ -77,6 +81,8 @@ def create_permissions():
         # Permisos para perfil de usuario
         "view_profile",
         "update_password",
+        # Permiso para moderar reseñas (panel privado)
+        "moderate_reviews",
     ]
     
     created_count = 0
@@ -92,9 +98,9 @@ def create_permissions():
 def create_roles():
     """Crear los roles del sistema"""
     roles = {
-        "superAdmin": "Super Administrador - acceso total al sistema incluyendo gestión de flags",
         "admin": "Administrador del sistema - acceso completo",
         "editor": "Editor - puede crear, editar y eliminar contenido",
+        "moderador": "Moderador - puede revisar y moderar reseñas",
         "usuario": "Usuario autenticado - solo puede ver contenido"
     }
     
@@ -117,18 +123,6 @@ def assign_permissions_to_roles(roles):
     
     # Definir qué permisos tiene cada rol
     role_permissions = {
-        "superAdmin": [
-            # TODOS los permisos del sistema
-            "create_historic_site", "get_historic_site", "get_all_historic_sites", 
-            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
-            "create_user", "get_user", "get_all_users", "update_user", "delete_user",
-            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
-            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
-            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "flag_admin", "view_profile", "update_password"
-        ],
         "admin": [
             # Todos los permisos excepto gestión de flags
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 
@@ -139,7 +133,7 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password"
+            "view_profile", "update_password", "moderate_reviews"
         ],
         "editor": [
             # Permisos para gestionar contenido
@@ -150,7 +144,12 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password"
+            "view_profile", "update_password", "moderate_reviews"
+        ],
+        "moderador": [
+            # Permisos limitados pero incluye moderación
+            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
+            "view_profile", "update_password", "moderate_reviews"
         ],
         "usuario": [
             # Permisos básicos para usuarios autenticados
@@ -284,27 +283,180 @@ def create_super_admin():
         last_name="06",
         active=True,
         blocked=False,
-        deleted=False
+        deleted=False,
+        is_super_admin=True
     )
     admin_user.set_password("grupo06")
     
     db.session.add(admin_user)
     db.session.flush()  # Para obtener el ID
     
-    # Asignar rol de superAdmin
-    super_admin_role = RolUser.query.filter_by(name="superAdmin").first()
-    if super_admin_role:
-        user_role = RolUserUser(
-            User_id=admin_user.id,
-            Rol_User_id=super_admin_role.id
-        )
-        db.session.add(user_role)
-    
     return True
+def create_dummy_users(existing_roles):
+    """Crear 3 usuarios dummy y asignarles un rol distinto cada uno."""
+    
+    print("[USERS] Verificando usuarios dummy...")
+
+    rol_admin = existing_roles["admin"]
+    rol_editor = existing_roles["editor"]
+    rol_moderador = existing_roles["moderador"]
+
+    dummy_users = []
+
+    # Datos de los usuarios y el rol a asignar
+    user_data = [
+        ("user1@example.com", "Usuario Prueba 1", rol_admin),
+        ("user2@example.com", "Usuario Prueba 2", rol_editor),
+        ("user3@example.com", "Usuario Prueba 3", rol_moderador),
+    ]
+
+    for mail, name, rol in user_data:
+        existing_user = User.query.filter_by(mail=mail).first()
+        if existing_user:
+            print(f"   [SKIP] Usuario {mail} ya existe, saltando...")
+            continue
+
+        u = User(
+            mail=mail,
+            name=name,
+            last_name="Seed",
+            active=True,
+            blocked=False,
+            deleted=False,
+            is_super_admin=False,
+        )
+        u.set_password("password123")
+        db.session.add(u)
+        db.session.flush()  # para asegurar que u.id exista antes de asignar el rol
+
+        # Crear la relación usuario-rol
+        u.user_roles.append(RolUserUser(User_id=u.id, Rol_User_id=rol.id))
+
+        dummy_users.append(u)
+
+    db.session.commit()
+    print(f"   [OK] Usuarios dummy creados: {len(dummy_users)}")
+    return dummy_users
+
+
+def ensure_category_and_state():
+    """
+    Asegura que exista al menos una CategorySite y un StateSite; devuelve sus ids.
+    (Se adapta a los nombres de FK en HistoricSite: id_category e id_estado)
+    """
+    from src.core.models.category_site import CategorySite
+    from src.core.models.state_site import StateSite
+    from src.web.extensions import db
+
+    category = CategorySite.query.filter_by(deleted=False).first()
+    if not category:
+        category = CategorySite(name="Categoria Dummy", deleted=False)
+        db.session.add(category)
+        db.session.commit()
+        print("   [OK] Categoria dummy creada")
+
+    state = StateSite.query.filter_by(deleted=False).first()
+    if not state:
+        state = StateSite(state="Bueno", deleted=False)
+        db.session.add(state)
+        db.session.commit()
+        print("   [OK] Estado dummy creado")
+
+    return category.id, state.id
+
+def create_dummy_sites_if_needed(id_category, id_estado):
+    """
+    Crea algunos HistoricSite si no existe ninguno; devuelve la lista de sitios.
+    Usa los campos del modelo: id_category, id_estado, brief_description, complete_description, visible.
+    """
+    
+
+    sites = HistoricSite.query.filter_by(deleted=False).all()
+    if sites:
+        print(f"   [OK] Sitios existentes: {len(sites)}")
+        return sites
+
+    print("   [WARNING] No hay sitios historicos. Creando sitios dummy...")
+    dummy_sites = []
+    for i in range(3):
+        s = HistoricSite(
+            name=f"Sitio Histórico de Prueba {i+1}",
+            brief_description="Breve descripción de prueba generada automáticamente.",
+            complete_description="Texto completo de ejemplo para el sitio histórico de prueba.",
+            # Asignamos campos FK según tu modelo
+            id_category=id_category,
+            id_estado=id_estado,
+            # city id opcional, lo dejamos None
+            id_ciudad=None,
+            # latitude/longitude como strings
+            latitude=str(-34.60 + random.uniform(-0.02, 0.02)),
+            longitude=str(-58.38 + random.uniform(-0.02, 0.02)),
+            year_inauguration=None,
+            created_at=datetime.utcnow(),
+            deleted=False,
+            visible=True
+        )
+        db.session.add(s)
+        dummy_sites.append(s)
+
+    db.session.commit()
+    print(f"   [OK] Sitios dummy creados: {len(dummy_sites)}")
+    return dummy_sites
+
+def create_test_reviews(users):
+    """
+    Crea reseñas de prueba. Asegura usuarios y sitios (crea dummy si hace falta).
+    Usa strings para status ('pending','approved','rejected','deleted').
+    """
+  
+    print("[REVIEWS] Creando resenas de prueba...")
+
+   
+    if not users:
+        print("   [ERROR] No hay usuarios y no se pudieron crear.")
+        return 0
+
+    # 2) Asegurar category/state y sitios
+    category_id, state_id = ensure_category_and_state()
+    sites = create_dummy_sites_if_needed(category_id, state_id)
+    if not sites:
+        print("   [ERROR] No se pudieron crear sitios.")
+        return 0
+
+    # 3) Crear reseñas
+    possible_statuses = ['pending', 'approved', 'rejected']
+    created = 0
+    examples = [
+        "Excelente lugar, muy recomendado",
+        "Me gustó pero podría estar más limpio",
+        "No me pareció interesante",
+        "Muy descuidado, no vale la pena",
+        "La arquitectura es impresionante",
+        "Buena experiencia general",
+    ]
+
+    for i, text in enumerate(examples):
+        user = random.choice(users)
+        site = random.choice(sites)
+        review = HistoricSiteReview(
+            site_id=site.id,
+            user_id=user.id,
+            rating=random.randint(1, 5),
+            content=text,
+            status=random.choice(possible_statuses),
+            rejection_reason=None,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(review)
+        created += 1
+
+    db.session.commit()
+    print(f"   [OK] Resenas creadas: {created}")
+    return created
 
 def main():
     """Función principal para cargar todos los seeds"""
-    print("🌱 Iniciando carga de datos iniciales (seeds)...")
+    print("[SEEDS] Iniciando carga de datos iniciales (seeds)...")
     print("=" * 60)
     
     # Crear la aplicación Flask
@@ -313,69 +465,73 @@ def main():
     with app.app_context():
         try:
             # 1. Crear permisos
-            print("\n📋 Creando permisos...")
+            print("\n[1/7] Creando permisos...")
             permisos_creados = create_permissions()
-            print(f"   ✓ Permisos procesados: {permisos_creados} nuevos")
+            print(f"   [OK] Permisos procesados: {permisos_creados} nuevos")
             
             # 2. Crear roles
-            print("\n👥 Creando roles...")
+            print("\n[2/7] Creando roles...")
             roles, roles_creados = create_roles()
-            print(f"   ✓ Roles procesados: {roles_creados} nuevos")
+            db.session.commit() 
+            print(f"   [OK] Roles procesados: {roles_creados} nuevos")
             
             # 3. Asignar permisos a roles
-            print("\n🔗 Asignando permisos a roles...")
+            print("\n[3/7] Asignando permisos a roles...")
             asignaciones = assign_permissions_to_roles(roles)
-            print(f"   ✓ Relaciones permiso-rol creadas: {asignaciones}")
+            db.session.commit()
+            print(f"   [OK] Relaciones permiso-rol creadas: {asignaciones}")
             
+            # 4. Crear usuarios dummy y reseñas
+            print("\n[4/7] Creando usuarios dummy y reseñas de prueba...")
+            users = create_dummy_users(roles)
+            reviews = create_test_reviews(users)
             # 4. Crear categorías
-            print("\n🏛️  Creando categorías...")
+            print("\n[5/7] Creando categorias...")
             categorias = create_categories()
-            print(f"   ✓ Categorías creadas: {categorias}")
+            print(f"   [OK] Categorias creadas: {categorias}")
             
             # 5. Crear estados
-            print("\n📊 Creando estados de conservación...")
+            print("\n[6/7] Creando estados de conservacion...")
             estados = create_states()
-            print(f"   ✓ Estados creados: {estados}")
+            print(f"   [OK] Estados creados: {estados}")
             
             # 6. Crear flags
-            print("\n🚩 Creando flags del sistema...")
+            print("\n[7/7] Creando flags del sistema...")
             flags = create_flags()
-            print(f"   ✓ Flags creados: {flags}")
+            print(f"   [OK] Flags creados: {flags}")
             
             # 7. Crear super administrador
-            print("\n👤 Creando usuario super administrador...")
+            print("\n[ADMIN] Creando usuario super administrador...")
             super_admin_created = create_super_admin()
             if super_admin_created:
-                print(f"   ✓ Super Admin creado: grupo06@gmail.com")
+                print(f"   [OK] Super Admin creado: grupo06@gmail.com")
             else:
-                print(f"   - Super Admin ya existe")
-            
-            # Confirmar todos los cambios
+                print(f"   [SKIP] Super Admin ya existe")
             db.session.commit()
             
             # Resumen final
             print("\n" + "=" * 60)
-            print("✅ ¡Seeds cargados exitosamente!")
-            print("\n📝 Resumen del sistema:")
+            print("[SUCCESS] Seeds cargados exitosamente!")
+            print("\nResumen del sistema:")
             print(f"   - Permisos totales: {Permission.query.count()}")
             print(f"   - Roles totales: {RolUser.query.count()}")
             print(f"   - Relaciones permiso-rol: {PermissionRolUser.query.count()}")
-            print(f"   - Categorías: {CategorySite.query.filter_by(deleted=False).count()}")
+            print(f"   - Categorias: {CategorySite.query.filter_by(deleted=False).count()}")
             print(f"   - Estados: {StateSite.query.filter_by(deleted=False).count()}")
             print(f"   - Flags: {Flag.query.count()}")
             print(f"   - Usuarios: {User.query.filter_by(deleted=False).count()}")
             print(f"   - Relaciones usuario-rol: {RolUserUser.query.count()}")
             
-            print("\n🔐 Credenciales de acceso:")
+            print("\nCredenciales de acceso:")
             print(f"   Email: grupo06@gmail.com")
-            print(f"   Contraseña: grupo06")
-            print(f"   Rol: superAdmin")
-            print("\n⚠️  IMPORTANTE: Cambiar estas credenciales en producción")
+            print(f"   Contrasena: grupo06")
+            print(f"   Super admin: Si")
+            print("\n[WARNING] IMPORTANTE: Cambiar estas credenciales en produccion")
             print("=" * 60)
             
         except Exception as e:
             db.session.rollback()
-            print(f"\n❌ Error al cargar seeds: {e}")
+            print(f"\n[ERROR] Error al cargar seeds: {e}")
             import traceback
             traceback.print_exc()
             return False
