@@ -220,13 +220,15 @@ def initialize_database_if_needed(app):
             db.create_all()
             app.logger.info("✅ Tablas creadas correctamente")
             
-            # Ejecutar seeds
+            # Ejecutar seeds (pasar la app actual para evitar crear una nueva)
             try:
                 from src.web.commands.seeds import main as seed_db
-                seed_db()
+                seed_db(app)  # Pasar la app actual para evitar loop infinito
                 app.logger.info("✅ Seeds ejecutados correctamente")
             except Exception as e:
                 app.logger.error(f"❌ Error al ejecutar seeds: {e}")
+                import traceback
+                app.logger.error(traceback.format_exc())
                 # No fallar si los seeds fallan, la BD ya está creada
                 raise
                 
