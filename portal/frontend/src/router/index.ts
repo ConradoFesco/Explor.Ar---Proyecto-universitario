@@ -3,6 +3,8 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import HomeView from '@/views/home/HomeView.vue'
 import SitesListView from '@/views/SitesListView.vue'
 import AuthCallback from '@/views/AuthCallback.vue'
+import UserProfile from '@/views/UserProfile.vue' // <--- 1. AGREGAR ESTE IMPORT (La Vista Principal)
+
 // Asumiré que el router debe tener un 'name' para los RouterLinks
 // (como usamos en AppHeader.vue)
 
@@ -18,6 +20,13 @@ const routes: Array<RouteRecordRaw> = [
     name: 'SitesList', // Este 'name' lo usa el RouterLink de 'Sitios'
     component: SitesListView
   },
+  // --- 2. AGREGAR ESTA RUTA ---
+  {
+    path: '/perfil',
+    name: 'UserProfile',
+    component: UserProfile
+  },
+  // ---------------------------
   {
     path: '/auth/callback',
     name: 'AuthCallback',
