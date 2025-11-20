@@ -24,7 +24,7 @@ const currentUser = computed(() => {
 
 const loading = ref(false)
 const activeTab = ref('reviews')
-const sortOrder = ref('desc')
+const sortOrder = ref<'asc' | 'desc'>('desc')
 const page = ref(1)
 const totalPages = ref(1)
 const reviews = ref([])
