@@ -72,7 +72,12 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
               />
               
               <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 hidden group-hover:block z-50 border border-gray-200 dark:border-gray-700">
-                <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Mi Perfil</a>
+                <RouterLink 
+                  :to="{ name: 'UserProfile' }"
+                  class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Mi Perfil
+                </RouterLink>
                 <button 
                   @click="handleLogout" 
                   class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"

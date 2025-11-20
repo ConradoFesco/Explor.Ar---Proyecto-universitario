@@ -84,6 +84,12 @@ class ReviewService:
                     query = query.filter(HistoricSiteReview.site_id == site_id)
                 except (ValueError, TypeError):
                     pass  # Ignorar site_id inválido
+            if filters.get('user_id'):
+                try:
+                    user_id = int(filters['user_id'])
+                    query = query.filter(HistoricSiteReview.user_id == user_id)
+                except (ValueError, TypeError):
+                    pass  # Ignorar user_id inválido
             if filters.get('rating_from') is not None:
                 try:
                     rating_from = int(filters['rating_from'])

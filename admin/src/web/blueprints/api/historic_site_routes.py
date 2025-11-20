@@ -378,7 +378,7 @@ def list_my_favorites():
         return _json_response({'error': 'Usuario no autenticado'}, 401)
 
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
 
     try:
         result = favorite_service.list_favorites(user_id=user_id, page=page, per_page=per_page)

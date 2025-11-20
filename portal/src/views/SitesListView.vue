@@ -6,8 +6,8 @@ import { useSitesStore } from '@/stores/sites'
 import SiteFilters from '@/components/site/SiteFilters.vue'
 import SiteCard from '@/components/site/SiteCard.vue'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import SortButton from '@/components/profile/SortButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,13 +61,9 @@ onBeforeUnmount(() => {
   if (io) io.disconnect()
 })
 
-function changeSort(field: 'created_at' | 'name' | 'rating') {
-  if (store.sort.field === field) {
-    store.sort.dir = store.sort.dir === 'asc' ? 'desc' : 'asc'
-  } else {
-    store.sort.field = field
-    store.sort.dir = 'asc'
-  }
+function handleSortChange(field: string, dir: 'asc' | 'desc') {
+  store.sort.field = field as 'created_at' | 'name' | 'rating'
+  store.sort.dir = dir
   store.loadFirstPage()
 }
 </script>
@@ -102,15 +98,27 @@ function changeSort(field: 'created_at' | 'name' | 'rating') {
         <div class="flex flex-wrap gap-2 items-center justify-between">
           <div class="flex items-center gap-2 text-sm">
             <span class="text-gray-500 dark:text-gray-400">Ordenar:</span>
-            <Button variant="outline" size="sm" @click="changeSort('created_at')">
-              Fecha {{ store.sort.field === 'created_at' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
-            </Button>
-            <Button variant="outline" size="sm" @click="changeSort('name')">
-              Nombre {{ store.sort.field === 'name' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
-            </Button>
-            <Button variant="outline" size="sm" @click="changeSort('rating')">
-              Ranking {{ store.sort.field === 'rating' ? (store.sort.dir === 'asc' ? '↑' : '↓') : '' }}
-            </Button>
+            <SortButton
+              field="created_at"
+              :current-field="store.sort.field"
+              :current-dir="store.sort.dir"
+              label="Fecha"
+              @sort-change="handleSortChange"
+            />
+            <SortButton
+              field="name"
+              :current-field="store.sort.field"
+              :current-dir="store.sort.dir"
+              label="Nombre"
+              @sort-change="handleSortChange"
+            />
+            <SortButton
+              field="rating"
+              :current-field="store.sort.field"
+              :current-dir="store.sort.dir"
+              label="Ranking"
+              @sort-change="handleSortChange"
+            />
           </div>
         </div>
 
