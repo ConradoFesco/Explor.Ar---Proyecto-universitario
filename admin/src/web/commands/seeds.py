@@ -371,12 +371,11 @@ def ensure_category_and_state():
     return category.id, state.id
 
 # URLs de imágenes de placeholder para sitios históricos
-#PLACEHOLDER_IMAGE_URLS = [
-   # "https://picsum.photos/800/600?random=1",
-    #"https://picsum.photos/800/600?random=2",
-  #  "https://picsum.photos/800/600?random=3",
-   # "https://picsum.photos/800/600?random=4",
-'''
+PLACEHOLDER_IMAGE_URLS = [
+    "https://picsum.photos/800/600?random=1",
+    "https://picsum.photos/800/600?random=2",
+    "https://picsum.photos/800/600?random=3",
+    "https://picsum.photos/800/600?random=4",
     "https://picsum.photos/800/600?random=5",
     "https://picsum.photos/800/600?random=6",
     "https://picsum.photos/800/600?random=7",
@@ -387,8 +386,8 @@ def ensure_category_and_state():
     "https://picsum.photos/800/600?random=12",
     "https://picsum.photos/800/600?random=13",
     "https://picsum.photos/800/600?random=14",
-    "https://picsum.photos/800/600?random=15",'''
-#]
+    "https://picsum.photos/800/600?random=15",
+]
 
 # Descripciones genéricas para las imágenes
 IMAGE_DESCRIPTIONS = [
