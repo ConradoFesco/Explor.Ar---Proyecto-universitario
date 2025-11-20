@@ -120,3 +120,83 @@ def web_permission_required(permission_name):
             return f(*args, **kwargs)
         return decorator
     return wrapper
+
+
+def system_admin_required(f):
+    """
+    Decorador específico para Super Admins (API).
+    No verifica permisos, verifica la identidad del rol.
+    Retorna JSON para endpoints de API.
+    """
+    @wraps(f)
+    def decorator(*args, **kwargs):
+        user_id = session.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "Usuario no autenticado"}), 401
+            
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+            
+        # Usamos la propiedad/método que ya tienes en tu modelo
+        # (Asumiendo que tienes una property 'is_super_admin' o chequeas el rol)
+        is_super = False
+        try:
+            # Si tienes la propiedad creada:
+            # is_super = user.is_super_admin 
+            
+            # O si usas la lógica de roles manual:
+            user_roles = user.get_user_roles() # Tu función existente
+            is_super = 'superAdmin' in user_roles
+        except:
+            is_super = False
+
+        if not is_super:
+            return jsonify({"error": "Acceso denegado. Se requiere ser super administrador"}), 403
+        
+        return f(*args, **kwargs)
+    return decorator
+
+
+def web_system_admin_required(f):
+    """
+    Decorador específico para Super Admins (Web).
+    No verifica permisos, verifica la identidad del rol.
+    En caso de falla, redirige con flash en lugar de responder JSON.
+    """
+    @wraps(f)
+    def decorator(*args, **kwargs):
+        user_id = session.get('user_id')
+        
+        if not user_id:
+            flash('Debe iniciar sesión.', 'error')
+            return redirect(url_for('main.index'))
+        
+        user = User.query.get(user_id)
+        
+        if not user:
+            session.pop('user_id', None)
+            flash('Usuario no encontrado.', 'error')
+            return redirect(url_for('main.index'))
+        
+        # Verificar si es super admin
+        is_super = False
+        try:
+            # Verificar usando la propiedad o método del modelo
+            if hasattr(user, 'is_super_admin'):
+                is_super = user.is_super_admin
+            else:
+                # Fallback: verificar roles
+                user_roles = user.get_user_roles()
+                is_super = 'superAdmin' in user_roles
+        except:
+            is_super = False
+        
+        if not is_super:
+            flash('Acceso denegado. Se requiere ser super administrador.', 'error')
+            return redirect(url_for('main.home'))
+        
+        return f(*args, **kwargs)
+    return decorator

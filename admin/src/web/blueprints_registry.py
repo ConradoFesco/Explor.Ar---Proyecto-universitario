@@ -52,6 +52,10 @@ def register_blueprints(app):
     from .blueprints.web.flags_pages import flags_web
     app.register_blueprint(flags_web)
     
+    # Blueprint de configuración pública
+    from .blueprints.api.config_routes import config_api
+    app.register_blueprint(config_api, url_prefix="/api")
+    
     # Blueprint de usuarios (API) y Web
     from .blueprints.api.user_routes import user_api
     app.register_blueprint(user_api, url_prefix='/api/users')
