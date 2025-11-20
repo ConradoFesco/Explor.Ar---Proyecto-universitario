@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { fetchSiteReviews, createReview, updateReview, deleteReview, getMyReview, type Review } from '@/lib/api'
 import { useAlert } from './useAlert'
 import { useAuth } from './useAuth'
+import { useFlags } from './useFlags'
 
 const REVIEWS_PER_PAGE = 25
 
@@ -57,6 +58,17 @@ export function useReviews(siteId: number | (() => number)) {
   }
 
   async function submitReview(rating: number, content: string, reviewId?: number): Promise<void> {
+    // Verificar si las reseñas están habilitadas antes de enviar (consulta directa sin caché)
+    const { checkReviewsEnabledDirectly } = useFlags()
+    const reviewsEnabled = await checkReviewsEnabledDirectly()
+    if (!reviewsEnabled) {
+      await showWarning(
+        'Reseñas deshabilitadas',
+        'Las reseñas están temporalmente deshabilitadas. Por favor, intente más tarde.'
+      )
+      throw new Error('REVIEWS_DISABLED')
+    }
+    
     try {
       if (reviewId) {
         // Editar reseña existente
@@ -122,6 +134,17 @@ export function useReviews(siteId: number | (() => number)) {
   }
 
   async function removeReview(reviewId: number): Promise<void> {
+    // Verificar si las reseñas están habilitadas antes de eliminar (consulta directa sin caché)
+    const { checkReviewsEnabledDirectly } = useFlags()
+    const reviewsEnabled = await checkReviewsEnabledDirectly()
+    if (!reviewsEnabled) {
+      await showWarning(
+        'Reseñas deshabilitadas',
+        'Las reseñas están temporalmente deshabilitadas. Por favor, intente más tarde.'
+      )
+      return
+    }
+    
     const result = await showConfirm(
       'Eliminar reseña',
       '¿Está seguro de que desea eliminar su reseña? Esta acción no se puede deshacer.'
