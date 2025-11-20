@@ -92,7 +92,7 @@ export type FilterOptions = {
 const DEFAULT_PER_PAGE = 20;
 
 export function getApiBaseUrl(): string {
-  const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string || 'https://grupo06.proyecto2025.linti.unlp.edu.ar/api');
   return envUrl ?? '/api';
 }
 
