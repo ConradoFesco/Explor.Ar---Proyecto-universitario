@@ -13,28 +13,44 @@ const props = defineProps<{
   isAuthenticated: boolean
   onWriteReview: () => void
   onPageChange: (page: number) => void
+  onEditReview?: (review: Review) => void
+  onDeleteReview?: (reviewId: number) => void
+  isMyReview?: (review: Review) => boolean
+  hasMyReview?: boolean
 }>()
 
 const hasReviews = computed(() => props.reviews.length > 0)
 const showPagination = computed(() => props.totalPages > 1)
+const buttonText = computed(() => {
+  if (props.hasMyReview) {
+    return 'Modificar reseña'
+  }
+  return 'Escribir reseña'
+})
+
+function handleWriteReview() {
+  if (props.onWriteReview) {
+    props.onWriteReview()
+  }
+}
 </script>
 
 <template>
   <section class="space-y-4">
     <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold">Reseñas</h2>
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Reseñas</h2>
       <Button
         :variant="isAuthenticated ? 'default' : 'outline'"
         size="sm"
-        @click="onWriteReview"
+        @click="handleWriteReview"
       >
-        Escribir reseña
+        {{ buttonText }}
       </Button>
     </div>
 
     <!-- Loading State -->
     <div v-if="isLoading" class="space-y-3">
-      <div v-for="i in 3" :key="i" class="border rounded p-3 space-y-2">
+      <div v-for="i in 3" :key="i" class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2 bg-white dark:bg-gray-800">
         <Skeleton class="h-4 w-1/4" />
         <Skeleton class="h-4 w-full" />
         <Skeleton class="h-4 w-3/4" />
@@ -42,7 +58,7 @@ const showPagination = computed(() => props.totalPages > 1)
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!hasReviews" class="text-center py-8 text-gray-500 border rounded">
+    <div v-else-if="!hasReviews" class="text-center py-8 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
       <p>No hay reseñas aún.</p>
       <p class="text-sm mt-1">Sé el primero en escribir una reseña.</p>
     </div>
@@ -53,6 +69,9 @@ const showPagination = computed(() => props.totalPages > 1)
         v-for="review in reviews"
         :key="review.id"
         :review="review"
+        :is-mine="isMyReview ? isMyReview(review) : false"
+        :on-edit="onEditReview"
+        :on-delete="onDeleteReview"
       />
 
       <!-- Pagination -->
@@ -66,7 +85,7 @@ const showPagination = computed(() => props.totalPages > 1)
         >
           Anterior
         </Button>
-        <span class="text-sm text-gray-600">
+        <span class="text-sm text-gray-600 dark:text-gray-400">
           Página {{ currentPage }} de {{ totalPages }}
         </span>
         <Button

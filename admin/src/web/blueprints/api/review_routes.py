@@ -9,11 +9,17 @@ review_api = Blueprint('review_api', __name__)
 @review_api.route('/sites/<int:site_id>/reviews', methods=['GET'])
 @token_or_session_required
 def list_site_reviews(site_id: int):
+    """Lista reseñas aprobadas de un sitio. Requiere autenticación."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
     try:
-        result = review_service.list_reviews(site_id=site_id, page=page, per_page=per_page)
+        result = review_service.list_reviews(
+            site_id=site_id,
+            page=page,
+            per_page=per_page,
+            only_approved=True  # Solo reseñas aprobadas
+        )
         response = jsonify(result)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
@@ -23,6 +29,36 @@ def list_site_reviews(site_id: int):
         return jsonify({'error': str(error)}), 404
     except Exception as error:
         current_app.logger.exception("Error al listar reseñas", exc_info=error)
+        return jsonify({'error': 'Error interno al listar reseñas'}), 500
+
+
+@review_api.route('/public/sites/<int:site_id>/reviews', methods=['GET'])
+def list_public_site_reviews(site_id: int):
+    """Lista reseñas aprobadas de un sitio. No requiere autenticación."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    try:
+        result = review_service.list_reviews(
+            site_id=site_id,
+            page=page,
+            per_page=per_page,
+            only_approved=True  # Solo reseñas aprobadas
+        )
+        # Renombrar 'items' a 'reviews' para compatibilidad con frontend
+        response_data = {
+            'reviews': result.get('items', []),
+            'pagination': result.get('pagination', {})
+        }
+        response = jsonify(response_data)
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response, 200
+    except exc.ValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    except exc.NotFoundError as error:
+        return jsonify({'error': str(error)}), 404
+    except Exception as error:
+        current_app.logger.exception("Error al listar reseñas públicas", exc_info=error)
         return jsonify({'error': 'Error interno al listar reseñas'}), 500
 
 
@@ -70,6 +106,56 @@ def get_site_review(site_id: int, review_id: int):
         return jsonify({'error': str(error)}), 404
     except Exception as error:
         current_app.logger.exception("Error al obtener reseña", exc_info=error)
+        return jsonify({'error': 'Error interno al obtener reseña'}), 500
+
+
+@review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['PUT'])
+@token_or_session_required
+def update_site_review(site_id: int, review_id: int):
+    """Actualiza una reseña existente."""
+    payload = request.get_json(silent=True) or {}
+    rating = payload.get('rating')
+    content = payload.get('content')
+    user_id = get_current_user_id()
+
+    try:
+        review = review_service.update_review(
+            site_id=site_id,
+            review_id=review_id,
+            user_id=user_id,
+            rating=rating,
+            content=content,
+        )
+        response = jsonify(review.to_dict())
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response, 200
+    except exc.ValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    except exc.ForbiddenError as error:
+        return jsonify({'error': str(error)}), 403
+    except exc.NotFoundError as error:
+        return jsonify({'error': str(error)}), 404
+    except exc.DatabaseError as error:
+        return jsonify({'error': str(error)}), 500
+    except Exception as error:
+        current_app.logger.exception("Error al actualizar reseña", exc_info=error)
+        return jsonify({'error': 'Error interno al actualizar reseña'}), 500
+
+
+@review_api.route('/sites/<int:site_id>/reviews/me', methods=['GET'])
+@token_or_session_required
+def get_my_review(site_id: int):
+    """Obtiene la reseña del usuario actual para un sitio."""
+    user_id = get_current_user_id()
+    try:
+        review = review_service.get_user_review(site_id=site_id, user_id=user_id)
+        response = jsonify({'review': review})
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response, 200
+    except exc.ValidationError as error:
+        return jsonify({'error': str(error)}), 400
+    except Exception as error:
+        current_app.logger.exception("Error al obtener reseña del usuario", exc_info=error)
         return jsonify({'error': 'Error interno al obtener reseña'}), 500
 
 
