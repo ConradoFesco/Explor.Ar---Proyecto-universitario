@@ -7,7 +7,6 @@ from flask import Flask
 from flask_cors import CORS
 from .storage import storage
 from dotenv import load_dotenv
-from sqlalchemy import inspect
 
 from config import get_current_config
 from .extensions import db, migrate, session_ext, oauth
@@ -56,12 +55,8 @@ def create_app(env="development", static_folder="../../static"):
     else:
         # Desarrollo: permitir localhost en varios puertos comunes
         dev_origins = [
-            "http://localhost:5173",  # Vite dev server
-            "http://localhost:3000",  # React/Next.js común
-            "http://localhost:8080",  # Vue CLI común
+            "http://localhost:5173",  # Vite dev server  # React/Next.js común # Vue CLI común
             "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:8080",
         ]
         CORS(app, 
              resources={ r"/api/*": {
@@ -134,7 +129,7 @@ def initialize_extensions(app):
     )
     
     # Inicialización automática de BD en producción (solo si no existe)
-    initialize_database_if_needed(app)
+    # initialize_database_if_needed(app)
 
 
 def register_blueprints(app):
@@ -194,15 +189,12 @@ def register_commands(app):
 
 def initialize_database_if_needed(app):
     """
-    Inicializa la base de datos automáticamente si es necesario.
+    Inicializa la base de datos automáticamente en cada deploy.
     
-    Esta función detecta si la base de datos está vacía (sin tablas) y,
-    de ser así, crea las tablas y ejecuta los seeds iniciales.
+    Esta función borra la base de datos, la recrea y ejecuta los seeds
+    en cada despliegue.
     
-    Es segura para producción porque:
-    - Solo actúa si NO existen tablas (primer deploy)
-    - En deploys posteriores, no hace nada
-    - Puede deshabilitarse con variable de entorno
+    Puede deshabilitarse con variable de entorno AUTO_INIT_DB=false
     
     Args:
         app: Instancia de la aplicación Flask
@@ -215,32 +207,31 @@ def initialize_database_if_needed(app):
     
     with app.app_context():
         try:
-            # Verificar si existen tablas en la base de datos
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
+            app.logger.info("🔧 Inicializando base de datos en cada deploy...")
             
-            # Si no hay tablas, es el primer deploy
-            if not tables:
-                app.logger.info("🔧 Base de datos vacía detectada. Inicializando...")
-                
-                # Importar modelos
-                from src.core import models
-                
-                # Crear todas las tablas
-                db.create_all()
-                app.logger.info("✅ Tablas creadas correctamente")
-                
-                # Ejecutar seeds
-                try:
-                    from src.web.commands.seeds import main as seed_db
-                    seed_db()
-                    app.logger.info("✅ Seeds ejecutados correctamente")
-                except Exception as e:
-                    app.logger.error(f"❌ Error al ejecutar seeds: {e}")
-                    # No fallar si los seeds fallan, la BD ya está creada
-            else:
-                app.logger.info(f"✅ Base de datos ya inicializada ({len(tables)} tablas encontradas)")
+            # Importar modelos
+            from src.core import models
+            
+            # Borrar todas las tablas
+            db.drop_all()
+            app.logger.info("✅ Tablas eliminadas")
+            
+            # Crear todas las tablas
+            db.create_all()
+            app.logger.info("✅ Tablas creadas correctamente")
+            
+            # Ejecutar seeds (pasar la app actual para evitar crear una nueva)
+            try:
+                from src.web.commands.seeds import main as seed_db
+                seed_db(app)  # Pasar la app actual para evitar loop infinito
+                app.logger.info("✅ Seeds ejecutados correctamente")
+            except Exception as e:
+                app.logger.error(f"❌ Error al ejecutar seeds: {e}")
+                import traceback
+                app.logger.error(traceback.format_exc())
+                # No fallar si los seeds fallan, la BD ya está creada
+                raise
                 
         except Exception as e:
-            app.logger.error(f"❌ Error al verificar/inicializar base de datos: {e}")
+            app.logger.error(f"❌ Error al inicializar base de datos: {e}")
             # No fallar la aplicación si hay error en la verificación

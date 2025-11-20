@@ -92,7 +92,7 @@ export type FilterOptions = {
 const DEFAULT_PER_PAGE = 20;
 
 export function getApiBaseUrl(): string {
-  const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string || 'https://admin-grupo06.proyecto2025.linti.unlp.edu.ar/api');
   return envUrl ?? '/api';
 }
 
@@ -323,29 +323,22 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
 export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): Promise<ReviewsResponse> {
   const base = getApiBaseUrl();
   const query = buildQuery({ page, per_page: perPage });
-  const url = `${base}/sites/${siteId}/reviews${query}`;
+  // Usar la ruta pública que solo muestra reseñas aprobadas
+  const url = `${base}/public/sites/${siteId}/reviews${query}`;
   
-  // Intentar primero con autenticación, luego sin
-  let res = await fetch(url, {
+  const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    credentials: 'include',
+    credentials: 'omit', // No necesita autenticación
   });
-  
-  // Si falla por autenticación, intentar sin credentials
-  if (!res.ok && res.status === 401) {
-    res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      credentials: 'omit',
-    });
-  }
   
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Error al cargar reseñas (${res.status}): ${text}`);
   }
+  
   const raw = await res.json();
   
-  // Filtrar solo reseñas aprobadas
+  // La API pública ya filtra solo reseñas aprobadas, pero por seguridad también filtramos aquí
   const approvedReviews = (raw.reviews || []).filter((r: Review) => r.status === 'approved');
   
   return {
@@ -373,7 +366,84 @@ export async function createReview(siteId: number, rating: number, content: stri
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Error al crear reseña (${res.status}): ${text}`);
+    let errorMsg = text;
+    try {
+      const errorData = JSON.parse(text);
+      errorMsg = errorData.error || text;
+    } catch {
+      // Si no es JSON, usar el texto tal cual
+    }
+    throw new Error(`Error al crear reseña (${res.status}): ${errorMsg}`);
   }
   return res.json();
+}
+
+export async function updateReview(siteId: number, reviewId: number, rating: number, content: string): Promise<Review> {
+  const base = getApiBaseUrl();
+  const url = `${base}/sites/${siteId}/reviews/${reviewId}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ rating, content }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let errorMsg = text;
+    try {
+      const errorData = JSON.parse(text);
+      errorMsg = errorData.error || text;
+    } catch {
+      // Si no es JSON, usar el texto tal cual
+    }
+    throw new Error(`Error al actualizar reseña (${res.status}): ${errorMsg}`);
+  }
+  return res.json();
+}
+
+export async function deleteReview(siteId: number, reviewId: number): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}/sites/${siteId}/reviews/${reviewId}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { 
+      'Accept': 'application/json',
+    },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let errorMsg = text;
+    try {
+      const errorData = JSON.parse(text);
+      errorMsg = errorData.error || text;
+    } catch {
+      // Si no es JSON, usar el texto tal cual
+    }
+    throw new Error(`Error al eliminar reseña (${res.status}): ${errorMsg}`);
+  }
+}
+
+export async function getMyReview(siteId: number): Promise<Review | null> {
+  const base = getApiBaseUrl();
+  const url = `${base}/sites/${siteId}/reviews/me`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { 
+      'Accept': 'application/json',
+    },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    if (res.status === 401) {
+      return null; // No autenticado
+    }
+    const text = await res.text().catch(() => '');
+    throw new Error(`Error al obtener reseña (${res.status}): ${text}`);
+  }
+  const data = await res.json();
+  return data.review || null;
 }

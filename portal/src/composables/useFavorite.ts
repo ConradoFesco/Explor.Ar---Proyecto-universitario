@@ -5,7 +5,7 @@ import { useSitesStore } from '@/stores/sites'
 
 export function useFavorite() {
   const { showError, showWarning } = useAlert()
-  const { isAuthenticated, checkAuth, redirectToLogin } = useAuth()
+  const { isAuthenticated, checkAuth, loginWithGoogle } = useAuth()
   const sitesStore = useSitesStore()
 
   async function toggleSiteFavorite(
@@ -21,7 +21,7 @@ export function useFavorite() {
           'Inicio de sesión requerido',
           'Debe iniciar sesión para marcar sitios como favoritos'
         )
-        redirectToLogin()
+        await loginWithGoogle()
         return currentFavoriteState
       }
     }
@@ -54,7 +54,7 @@ export function useFavorite() {
           'Inicio de sesión requerido',
           'Debe iniciar sesión para marcar sitios como favoritos'
         )
-        redirectToLogin()
+        await loginWithGoogle()
       } else if (errorMsg.includes('NETWORK_ERROR')) {
         await showError(
           'Error de conexión',

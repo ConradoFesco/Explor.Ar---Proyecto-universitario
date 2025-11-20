@@ -25,7 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useSitesStore()
-const { isAuthenticated, checkAuth, redirectToLogin } = useAuth()
+const { isAuthenticated, checkAuth, loginWithGoogle } = useAuth()
 const { showWarning } = useAlert()
 
 const text = ref(store.text)
@@ -100,7 +100,7 @@ async function applyManualFilters() {
         'Inicio de sesión requerido',
         'Debe iniciar sesión para ver sus favoritos'
       )
-      redirectToLogin()
+      await loginWithGoogle()
       return
     }
   }
