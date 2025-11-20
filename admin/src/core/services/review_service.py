@@ -11,6 +11,7 @@ from src.core.validators.reviews_validator import (
     validate_review_create_payload,
 )
 from src.core.validators.listing_validator import _validate_sort
+from src.core.services.flag_service import flag_service
 
 
 class ReviewService:
@@ -172,6 +173,10 @@ class ReviewService:
         }
 
     def create_review(self, *, site_id: int, user_id: int, rating, content):
+        # Verificar si las reseñas están habilitadas
+        if not flag_service.is_reviews_enabled():
+            raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
+        
         # Validar IDs
         try:
             site_id = int(site_id)
@@ -377,6 +382,10 @@ class ReviewService:
 
     def update_review(self, *, site_id: int, review_id: int, user_id: int, rating, content):
         """Actualiza una reseña existente. Solo el autor puede actualizarla."""
+        # Verificar si las reseñas están habilitadas
+        if not flag_service.is_reviews_enabled():
+            raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
+        
         # Validar IDs
         try:
             site_id = int(site_id)
@@ -434,6 +443,10 @@ class ReviewService:
 
     def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
         """Elimina una reseña. Solo el autor puede eliminarla."""
+        # Verificar si las reseñas están habilitadas
+        if not flag_service.is_reviews_enabled():
+            raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
+        
         # Validar IDs
         try:
             site_id = int(site_id)

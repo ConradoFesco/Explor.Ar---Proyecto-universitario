@@ -8,6 +8,7 @@ from src.core.models.tag_historic_site import TagHistoricSite
 from src.core.models.city import City
 from src.core.models.province import Province
 from src.core.models.state_site import StateSite
+from src.core.models.review import HistoricSiteReview
 from src.web import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -640,7 +641,22 @@ class HistoricSiteService:
         from src.core.models.favorite_site import FavoriteSite
 
         tags = tags or []
+        
+        # Subconsulta para calcular el promedio de calificaciones aprobadas por sitio
+        rating_subquery = (
+            db.session.query(
+                HistoricSiteReview.site_id,
+                func.avg(cast(HistoricSiteReview.rating, Float)).label('avg_rating')
+            )
+            .filter(HistoricSiteReview.status == 'approved')
+            .group_by(HistoricSiteReview.site_id)
+            .subquery()
+        )
+        
+        # Usar la query base normal (sin add_columns para evitar problemas con paginate)
         query = HistoricSite.query.join(City).join(Province)
+        # LEFT JOIN con la subconsulta de ratings para poder ordenar por rating
+        query = query.outerjoin(rating_subquery, HistoricSite.id == rating_subquery.c.site_id)
         query = query.filter(HistoricSite.deleted == False, HistoricSite.visible == True)
 
         # Búsqueda por texto: busca en nombre O descripción (OR, no AND)
@@ -688,10 +704,12 @@ class HistoricSiteService:
         elif order_by == 'oldest':
             query = query.order_by(asc(HistoricSite.created_at))
         elif order_by == 'rating-5-1':
-            rating_expr = literal(0)
+            # Ordenar por promedio de rating descendente (de 5 a 1), luego por fecha
+            rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0)
             query = query.order_by(desc(rating_expr), desc(HistoricSite.created_at))
         elif order_by == 'rating-1-5':
-            rating_expr = literal(0)
+            # Ordenar por promedio de rating ascendente (de 1 a 5), luego por fecha
+            rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0)
             query = query.order_by(asc(rating_expr), desc(HistoricSite.created_at))
         else:
             query = query.order_by(desc(HistoricSite.created_at))
@@ -707,6 +725,24 @@ class HistoricSiteService:
             favorites = FavoriteSite.query.filter_by(user_id=user_id).all()
             favorite_site_ids = {f.site_id for f in favorites}
         
+        # Obtener los IDs de los sitios para calcular ratings en batch
+        site_ids = [site.id for site in pagination.items]
+        
+        # Calcular ratings para todos los sitios de una vez usando la subconsulta
+        ratings_dict = {}
+        if site_ids:
+            ratings_query = db.session.query(
+                HistoricSiteReview.site_id,
+                func.avg(cast(HistoricSiteReview.rating, Float)).label('avg_rating')
+            ).filter(
+                HistoricSiteReview.site_id.in_(site_ids),
+                HistoricSiteReview.status == 'approved'
+            ).group_by(HistoricSiteReview.site_id).all()
+            
+            for site_id, avg_rating in ratings_query:
+                if avg_rating is not None:
+                    ratings_dict[site_id] = round(float(avg_rating), 1)
+        
         for site in pagination.items:
             site_lat = self._safe_float(site.latitude)
             site_lon = self._safe_float(site.longitude)
@@ -720,6 +756,9 @@ class HistoricSiteService:
             # Verificar si es favorito del usuario
             is_favorite = site.id in favorite_site_ids if user_id else False
             
+            # Obtener el promedio de calificaciones desde el diccionario
+            avg_rating = ratings_dict.get(site.id)
+            
             site_data = {
                 'id': site.id,
                 'name': site.name,
@@ -731,7 +770,7 @@ class HistoricSiteService:
                 'longitude': site_lon,
                 'created_at': site.created_at.isoformat() if site.created_at else None,
                 'tags': self._get_site_tags(site.id),
-                'rating': None,
+                'rating': avg_rating,
                 'cover_image': cover_image,
                 'cover_image_url': cover_image['url_publica'] if cover_image else None,
                 'is_favorite': is_favorite

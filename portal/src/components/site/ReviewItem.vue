@@ -3,6 +3,7 @@ import { Star, Edit, Trash2 } from 'lucide-vue-next'
 import type { Review } from '@/lib/api'
 import { formatDate } from '@/utils/date'
 import { Button } from '@/components/ui/button'
+import { useFlags } from '@/composables/useFlags'
 
 const props = defineProps<{
   review: Review
@@ -10,6 +11,20 @@ const props = defineProps<{
   onEdit?: (review: Review) => void
   onDelete?: (reviewId: number) => void
 }>()
+
+const { areReviewsEnabled } = useFlags()
+
+function handleEdit() {
+  if (props.onEdit && areReviewsEnabled.value) {
+    props.onEdit(props.review)
+  }
+}
+
+function handleDelete() {
+  if (props.onDelete && areReviewsEnabled.value) {
+    props.onDelete(props.review.id)
+  }
+}
 </script>
 
 <template>
@@ -37,7 +52,8 @@ const props = defineProps<{
           v-if="onEdit"
           variant="ghost"
           size="sm"
-          @click="onEdit?.(review)"
+          :disabled="!areReviewsEnabled"
+          @click="handleEdit"
           class="h-8 w-8 p-0"
           aria-label="Editar reseña"
         >
@@ -47,7 +63,8 @@ const props = defineProps<{
           v-if="onDelete"
           variant="ghost"
           size="sm"
-          @click="onDelete?.(review.id)"
+          :disabled="!areReviewsEnabled"
+          @click="handleDelete"
           class="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
           aria-label="Eliminar reseña"
         >

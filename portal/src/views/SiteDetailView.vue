@@ -6,6 +6,7 @@ import { useSitesStore } from '@/stores/sites'
 import { useAuth } from '@/composables/useAuth'
 import { useReviews } from '@/composables/useReviews'
 import { useAlert } from '@/composables/useAlert'
+import { useFlags } from '@/composables/useFlags'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft } from 'lucide-vue-next'
@@ -25,6 +26,7 @@ const sitesStore = useSitesStore()
 const siteId = computed(() => Number(route.params.id))
 const { isAuthenticated, checkAuth, loginWithGoogle } = useAuth()
 const { showWarning, showConfirm } = useAlert()
+const { areReviewsEnabled } = useFlags()
 const reviews = useReviews(() => siteId.value)
 
 // State
@@ -116,6 +118,17 @@ async function openReviewFormForCreate() {
 }
 
 async function handleWriteReview() {
+  // Verificar si las reseñas están habilitadas (consulta directa sin caché)
+  const { checkReviewsEnabledDirectly } = useFlags()
+  const reviewsEnabled = await checkReviewsEnabledDirectly()
+  if (!reviewsEnabled) {
+    await showWarning(
+      'Reseñas deshabilitadas',
+      'Las reseñas están temporalmente deshabilitadas. Por favor, intente más tarde.'
+    )
+    return
+  }
+  
   // Verificar autenticación
   if (!isAuthenticated.value) {
     await checkAuth()
@@ -255,6 +268,19 @@ function handleBack() {
 watch(() => route.params.id, (newId) => {
   if (newId && Number(newId) !== site.value?.id) {
     loadSite()
+  }
+})
+
+// Watcher para detectar cuando se desactiva el flag mientras el formulario está abierto
+watch(areReviewsEnabled, async (newValue, oldValue) => {
+  // Solo actuar si el flag cambió de true a false y el formulario está abierto
+  if (oldValue === true && newValue === false && showReviewForm.value) {
+    await showWarning(
+      'Reseñas deshabilitadas',
+      'Las reseñas están temporalmente deshabilitadas. Por favor, intente más tarde.'
+    )
+    // Cerrar el formulario
+    handleCloseReviewForm()
   }
 })
 

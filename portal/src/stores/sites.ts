@@ -48,6 +48,20 @@ function sortByName(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] 
   })
 }
 
+function sortByRating(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
+  // El backend ya calcula y devuelve el rating, solo necesitamos ordenar
+  return [...items].sort((a, b) => {
+    const aRating = a.rating ?? 0
+    const bRating = b.rating ?? 0
+    
+    if (dir === 'asc') {
+      return aRating - bRating
+    } else {
+      return bRating - aRating
+    }
+  })
+}
+
 function filterSites(
   items: HistoricSite[],
   text: string,
@@ -215,8 +229,12 @@ export const useSitesStore = defineStore('sites', {
             )
             
             // Aplicar ordenamiento si es necesario
+            // Para favoritos, obtenemos todos y luego filtramos/ordenamos en el frontend
             if (this.sort.field === 'name') {
               filtered = sortByName(filtered, this.sort.dir)
+            } else if (this.sort.field === 'rating') {
+              // Ordenar por rating (el backend ya lo calcula, solo ordenamos aquí)
+              filtered = sortByRating(filtered, this.sort.dir)
             }
             
             // Aplicar paginación
@@ -244,6 +262,8 @@ export const useSitesStore = defineStore('sites', {
         } else {
           response = await fetchPublicSites(params)
           
+          // El ordenamiento por rating ahora se hace en el backend
+          // Solo ordenamos por nombre en el frontend si es necesario
           if (this.sort.field === 'name') {
             response.items = sortByName(response.items, this.sort.dir)
           }
