@@ -1,7 +1,4 @@
-"""
-Rutas Web para sitios históricos (SSR de listados, formularios y fragmentos).
-"""
-from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify, current_app
 from src.web.auth.decorators import web_permission_required
 from src.core.services.state_service import state_service
 from src.core.services.category_service import category_service
@@ -258,42 +255,6 @@ def crear_sitio_web():
         # Crear el sitio y obtener el objeto creado con su ID
         created_site = historic_site_service.create_historic_site(data_site, data_user)
         
-        # Procesar imágenes si se enviaron en el formulario
-        images_data = []
-        if 'images_data' in form:
-            import json
-            try:
-                images_data = json.loads(form.get('images_data'))
-            except:
-                images_data = []
-        
-        # Si hay imágenes, subirlas todas juntas
-        if images_data and created_site:
-            files_data = []
-            for img_data in images_data:
-                # Las imágenes vienen como base64 desde el cliente
-                # Necesitamos recibirlas como archivos o procesarlas de otra manera
-                # Por ahora, si vienen en request.files, las procesamos
-                pass
-            
-            # Procesar archivos de imagen si se enviaron
-            if 'imagenes' in request.files:
-                files = request.files.getlist('imagenes')
-                titulos = form.getlist('imagen_titulo[]')
-                descripciones = form.getlist('imagen_descripcion[]')
-                
-                for idx, file in enumerate(files):
-                    if file and file.filename:
-                        files_data.append({
-                            'file': file,
-                            'titulo_alt': titulos[idx] if idx < len(titulos) else file.filename,
-                            'descripcion': descripciones[idx] if idx < len(descripciones) and descripciones[idx] else None
-                        })
-                
-                if files_data:
-                    site_image_service.upload_multiple_images(created_site.id, files_data, data_user)
-        
-        # Si la petición es AJAX, retornar JSON con el site_id
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
             return jsonify({
                 'success': True,
@@ -301,7 +262,6 @@ def crear_sitio_web():
                 'site_id': created_site.id
             })
         
-        # Si es petición normal de formulario, redirigir (comportamiento por defecto)
         flash('Sitio histórico creado correctamente. Ahora puede agregar imágenes.', 'success')
         return redirect(url_for('sites_web.modificar_sitios', edit=created_site.id))
     except exc.ValidationError as e:
@@ -404,7 +364,6 @@ def export_sites_csv_web():
 @sites_web.route("/sitios/<int:site_id>/imagenes/fragment")
 @web_permission_required("get_historic_site")
 def listar_imagenes_sitio(site_id: int):
-    """Redirige a la página de modificación donde se muestran las imágenes."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
@@ -413,7 +372,6 @@ def listar_imagenes_sitio(site_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["GET"])
 @web_permission_required("get_historic_site")
 def obtener_imagenes_sitio(site_id: int):
-    """Obtiene todas las imágenes de un sitio en formato JSON."""
     if "user_id" not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     
@@ -427,19 +385,16 @@ def obtener_imagenes_sitio(site_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["POST"])
 @web_permission_required("update_historic_site")
 def subir_imagen_sitio(site_id: int):
-    """Sube una o múltiples imágenes para un sitio histórico."""
     if "user_id" not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     
     data_user = session.get('user_id')
     
-    # Verificar si se están subiendo múltiples imágenes
     if 'imagenes' in request.files:
         files = request.files.getlist('imagenes')
         if not files or not any(f.filename for f in files):
             return jsonify({'success': False, 'error': 'No se proporcionaron archivos'}), 400
         
-        # Obtener títulos y descripciones
         titulos = request.form.getlist('titulo_alt[]')
         descripciones = request.form.getlist('descripcion[]')
         cover_index = request.form.get('cover_index', type=int)
@@ -447,13 +402,21 @@ def subir_imagen_sitio(site_id: int):
         files_data = []
         for idx, file in enumerate(files):
             if file and file.filename:
-                titulo_alt = titulos[idx].strip() if idx < len(titulos) and titulos[idx] else file.filename
-                descripcion = descripciones[idx].strip() if idx < len(descripciones) and descripciones[idx] else None
+                # Manejar titulo_alt de forma segura
+                if idx < len(titulos) and titulos[idx]:
+                    titulo_alt = str(titulos[idx]).strip() if titulos[idx] else file.filename
+                else:
+                    titulo_alt = file.filename
+                
+                # Manejar descripcion de forma segura
+                if idx < len(descripciones) and descripciones[idx]:
+                    descripcion = str(descripciones[idx]).strip() or None
+                else:
+                    descripcion = None
                 
                 if not titulo_alt:
                     return jsonify({'success': False, 'error': f'El título/alt es obligatorio para la imagen {idx + 1}'}), 400
                 
-                # Marcar como portada si corresponde
                 is_cover = (cover_index is not None and idx == cover_index)
                 
                 files_data.append({
@@ -480,7 +443,6 @@ def subir_imagen_sitio(site_id: int):
         except Exception as e:
             return jsonify({'success': False, 'error': f'Error al subir imágenes: {str(e)}'}), 500
     
-    # Comportamiento anterior: una sola imagen
     if 'imagen' not in request.files:
         return jsonify({'success': False, 'error': 'No se proporcionó ningún archivo'}), 400
     
@@ -511,7 +473,6 @@ def subir_imagen_sitio(site_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>", methods=["DELETE"])
 @web_permission_required("update_historic_site")
 def eliminar_imagen_sitio(site_id: int, image_id: int):
-    """Elimina una imagen de un sitio histórico."""
     if "user_id" not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     
@@ -531,7 +492,6 @@ def eliminar_imagen_sitio(site_id: int, image_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/portada", methods=["POST"])
 @web_permission_required("update_historic_site")
 def marcar_portada_imagen(site_id: int, image_id: int):
-    """Marca una imagen como portada del sitio."""
     if "user_id" not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
     
@@ -549,31 +509,49 @@ def marcar_portada_imagen(site_id: int, image_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes/reordenar", methods=["POST"])
 @web_permission_required("update_historic_site")
 def reordenar_imagenes_sitio(site_id: int):
-    """Reordena las imágenes de un sitio histórico."""
     if "user_id" not in session:
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': 'No autorizado'}), 401
         return redirect(url_for("main.index"))
     
     data_user = session.get('user_id')
     
     try:
-        # Obtener órdenes desde form data en lugar de JSON
         image_orders = []
-        for key in request.form.keys():
-            if key.startswith('orden_'):
-                image_id = int(key.replace('orden_', ''))
-                nuevo_orden = int(request.form.get(key))
-                image_orders.append({'id': image_id, 'orden': nuevo_orden})
+        
+        if request.is_json:
+            data = request.get_json()
+            image_orders = data.get('orders', [])
+        else:
+            for key in request.form.keys():
+                if key.startswith('orden_'):
+                    image_id = int(key.replace('orden_', ''))
+                    nuevo_orden = int(request.form.get(key))
+                    image_orders.append({'id': image_id, 'orden': nuevo_orden})
         
         if not image_orders:
+            if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'error': 'No se proporcionaron órdenes'}), 400
             flash('No se proporcionaron órdenes', 'error')
             return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
         
         site_image_service.reorder_images(site_id, image_orders, user_id=data_user)
+        
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'message': 'Imágenes reordenadas correctamente'})
+        
         flash('Imágenes reordenadas correctamente', 'success')
     except exc.NotFoundError as e:
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': str(e)}), 404
         flash('Error: ' + str(e), 'error')
     except Exception as e:
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': f'Error al reordenar imágenes: {str(e)}'}), 500
         flash('Error al reordenar imágenes: ' + str(e), 'error')
+    
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': False, 'error': 'Error desconocido'}), 500
     
     return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
 
@@ -581,7 +559,6 @@ def reordenar_imagenes_sitio(site_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/actualizar", methods=["POST"])
 @web_permission_required("update_historic_site")
 def actualizar_metadatos_imagen(site_id: int, image_id: int):
-    """Actualiza los metadatos (título/alt y descripción) de una imagen."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
     
