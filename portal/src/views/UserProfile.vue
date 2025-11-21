@@ -141,7 +141,7 @@ watch(activeTab, () => { page.value = 1; fetchData() })
       <Tabs v-model="activeTab" class="w-full">
 
         <!-- CONTROLES: Asegura el centrado del bloque completo (Pestañas + Ordenar) -->
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8 w-full">
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-6 sm:mb-8 w-full">
 
           <!-- PESTAÑAS -->
           <div class="bg-white dark:bg-gray-800 p-1.5 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 flex">

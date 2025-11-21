@@ -80,7 +80,7 @@ const handleClick = () => {
     variant="outline" 
     size="sm" 
     @click="handleClick"
-    class="bg-transparent border-0 focus:ring-0 text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+    class="bg-transparent border-0 focus:ring-0 text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 sm:px-3"
   >
     {{ label }} {{ sortIcon }}
   </Button>

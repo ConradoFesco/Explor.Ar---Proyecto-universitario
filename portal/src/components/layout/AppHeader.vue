@@ -21,32 +21,32 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
   <!-- Header fijo y con efecto blur -->
   <header class="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
     <div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
-      <div class="flex justify-between items-center h-16">
+      <div class="flex justify-between items-center h-16 gap-2 sm:gap-4">
 
         <!-- 1. Logo/Título (Izquierda) -->
-        <RouterLink :to="{ name: 'HomeView' }" class="flex-shrink-0 flex items-center cursor-pointer gap-2">
-           <img class="h-8 w-auto" src="/logo.png" alt="Logo Explor.ar">
-          <span class="text-2xl font-extrabold text-gray-900 dark:text-gray-100">Explor.ar</span>
+        <RouterLink :to="{ name: 'HomeView' }" class="flex-shrink-0 flex items-center cursor-pointer gap-1 sm:gap-2">
+           <img class="h-6 sm:h-8 w-auto" src="/logo.png" alt="Logo Explor.ar">
+          <span class="text-lg sm:text-2xl font-extrabold text-gray-900 dark:text-gray-100">Explor.ar</span>
         </RouterLink>
 
         <!-- 2. Menú de Navegación (Centro) -->
-        <nav class="hidden md:flex items-center space-x-8">
+        <nav class="flex items-center space-x-2 sm:space-x-4 md:space-x-8 flex-1 justify-center">
           <RouterLink
             :to="{ name: 'HomeView' }"
-            class="relative px-8 py-3 rounded-lg text-lg font-semibold text-gray-700 dark:text-gray-300 
+            class="relative px-3 sm:px-6 md:px-8 py-2 sm:py-3 rounded-lg text-sm sm:text-base md:text-lg font-semibold text-gray-700 dark:text-gray-300 
                    hover:bg-gray-100 dark:hover:bg-gray-800 
                    transition-all duration-200 ease-in-out
-                   hover:text-blue-600 dark:hover:text-blue-400"
+                   hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap"
             active-class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
           >
             Inicio
           </RouterLink>
           <RouterLink
             :to="{ name: 'SitesList' }"
-            class="relative px-8 py-3 rounded-lg text-lg font-semibold text-gray-700 dark:text-gray-300 
+            class="relative px-3 sm:px-6 md:px-8 py-2 sm:py-3 rounded-lg text-sm sm:text-base md:text-lg font-semibold text-gray-700 dark:text-gray-300 
                    hover:bg-gray-100 dark:hover:bg-gray-800 
                    transition-all duration-200 ease-in-out
-                   hover:text-blue-600 dark:hover:text-blue-400"
+                   hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap"
             active-class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
           >
             Sitios
@@ -54,18 +54,20 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
         </nav>
 
         <!-- 3. Acciones (Derecha) -->
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <!-- Botón de Login (solo si NO está autenticado) -->
           <Button 
             v-if="!isAuthenticated" 
             @click="loginWithGoogle"
+            class="text-xs sm:text-sm px-2 sm:px-4"
           >
-            Iniciar Sesión con Google
+            <span class="hidden sm:inline">Iniciar Sesión con Google</span>
+            <span class="sm:hidden">Iniciar Sesión</span>
           </Button>
 
           <!-- Perfil del usuario (solo si está autenticado) -->
-          <div v-else class="flex items-center gap-3">
-            <span class="text-gray-700 dark:text-gray-300 font-medium">
+          <div v-else class="flex items-center gap-2 sm:gap-3">
+            <span class="hidden sm:inline text-gray-700 dark:text-gray-300 font-medium text-sm">
               {{ user?.name }}
             </span>
 

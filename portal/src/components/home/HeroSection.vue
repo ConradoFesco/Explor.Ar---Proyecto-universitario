@@ -38,13 +38,13 @@ import heroImageUrl from '@/assets/images/ImageHero.jpg'
     <div class="relative z-10 h-full flex flex-col justify-center items-center text-center p-4">
 
       <!-- Título del Proyecto -->
-      <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold text-white drop-shadow-lg">
+      <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white drop-shadow-lg px-4">
         Explor.ar
       </h1>
 
       <!-- Frase Invitacional -->
       <!-- CAMBIO: Se redujo el tamaño de la fuente para mejor jerarquía visual -->
-      <p class="mt-4 text-base md:text-xl text-gray-200 drop-shadow-md max-w-2xl">
+      <p class="mt-3 sm:mt-4 text-sm sm:text-base md:text-lg lg:text-xl text-gray-200 drop-shadow-md max-w-2xl px-4">
         Descubre los sitios históricos y el patrimonio cultural de nuestro país.
       </p>
     </div>
