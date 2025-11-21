@@ -163,7 +163,7 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
                                       tags: Optional[str], order_by: Optional[str],
                                       latitude: Optional[object], longitude: Optional[object],
                                       radius: Optional[object], page: Optional[int],
-                                      per_page: Optional[int]) -> dict:
+                                      per_page: Optional[int], favorites_only: Optional[bool] = None) -> dict:
     normalized_page = page if page is not None else 1
     normalized_per_page = per_page if per_page is not None else 20
     page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=100)
@@ -202,6 +202,7 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
         'radius_km': radius_value,
         'page': page,
         'per_page': per_page,
+        'favorites_only': favorites_only if favorites_only is not None else False,
     }
 
 

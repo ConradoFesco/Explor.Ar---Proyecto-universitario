@@ -197,7 +197,13 @@ export const useSitesStore = defineStore('sites', {
         const params = this.toSearchParams()
         let response: PaginatedResponse<HistoricSite>
         
-        if (this.favoritesOnly) {
+        // Si hay filtros de mapa (lat/long/radius), siempre usar fetchPublicSites
+        // porque fetchMyFavorites no soporta filtros de ubicación
+        const hasMapFilters = this.lat != null && this.long != null && this.radius != null
+        
+        if (this.favoritesOnly && !hasMapFilters) {
+          // Solo usar fetchMyFavorites si NO hay filtros de mapa
+          // (para mantener compatibilidad con el comportamiento anterior)
           try {
             // Obtener todos los favoritos del usuario
             let allFavoritesItems: HistoricSite[] = []
@@ -260,6 +266,8 @@ export const useSitesStore = defineStore('sites', {
             }
           }
         } else {
+          // Usar fetchPublicSites cuando hay filtros de mapa o cuando no hay favoritos
+          // El backend ahora soporta favoritesOnly combinado con otros filtros
           response = await fetchPublicSites(params)
           
           // El ordenamiento por rating ahora se hace en el backend
