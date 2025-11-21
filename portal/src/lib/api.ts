@@ -159,6 +159,7 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
       : undefined,
     page: params.page ?? 1,
     per_page: params.perPage ?? DEFAULT_PER_PAGE,
+    fav: params.favoritesOnly ? '1' : undefined,
   });
   const url = `${base}/sites${query}`;
   const res = await fetch(url, {

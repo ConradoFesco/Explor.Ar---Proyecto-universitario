@@ -630,12 +630,13 @@ class HistoricSiteService:
 
     def search_public_sites(self, *, name=None, description=None, city=None, province=None,
                             tags=None, order_by='latest', latitude=None, longitude=None,
-                            radius_km=None, page=1, per_page=25, user_id=None):
+                            radius_km=None, page=1, per_page=25, user_id=None, favorites_only=False):
         """
         Devuelve sitios visibles para el portal público respetando filtros estandarizados.
         
         Args:
             user_id (int, optional): ID del usuario para verificar favoritos.
+            favorites_only (bool): Si es True y user_id está presente, solo devuelve sitios favoritos del usuario.
         """
         from sqlalchemy import asc, desc, func, literal, or_, cast, Float
         from src.core.models.favorite_site import FavoriteSite
@@ -658,6 +659,11 @@ class HistoricSiteService:
         # LEFT JOIN con la subconsulta de ratings para poder ordenar por rating
         query = query.outerjoin(rating_subquery, HistoricSite.id == rating_subquery.c.site_id)
         query = query.filter(HistoricSite.deleted == False, HistoricSite.visible == True)
+        
+        # Filtrar por favoritos si se solicita
+        if favorites_only and user_id:
+            query = query.join(FavoriteSite, HistoricSite.id == FavoriteSite.site_id)
+            query = query.filter(FavoriteSite.user_id == user_id)
 
         # Búsqueda por texto: busca en nombre O descripción (OR, no AND)
         # Si ambos parámetros están presentes, se usa el mismo texto para ambos

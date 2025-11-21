@@ -29,7 +29,8 @@ def list_public_historic_sites():
         'longitude': request.args.get('long'),
         'radius': request.args.get('radius'),
         'page': request.args.get('page', default=1, type=int),
-        'per_page': request.args.get('per_page', default=20, type=int)
+        'per_page': request.args.get('per_page', default=20, type=int),
+        'favorites_only': request.args.get('fav') == '1'
     }
 
     try:
