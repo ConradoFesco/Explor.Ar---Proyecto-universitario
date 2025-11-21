@@ -43,7 +43,7 @@ const fetchData = async () => {
     const params = new URLSearchParams({
       page: page.value.toString(),
       per_page: '25',
-      sort: sortOrder.value
+      sort: sortOrder.value === 'asc' ? 'asc' : 'desc'  // Asegurar que siempre sea 'asc' o 'desc'
     })
 
     if (activeTab.value === 'reviews') {
@@ -127,7 +127,13 @@ const changePage = (delta: number) => {
 
 onMounted(() => { if (authUser.value) fetchData() })
 watch(authUser, (newVal) => { if (newVal) fetchData() })
-watch(sortOrder, () => { page.value = 1; fetchData() })
+watch(sortOrder, (newOrder, oldOrder) => { 
+  // Forzar recarga cuando cambia el ordenamiento
+  if (newOrder !== oldOrder) {
+    page.value = 1
+    fetchData()
+  }
+})
 watch(activeTab, () => { page.value = 1; fetchData() })
 </script>
 
