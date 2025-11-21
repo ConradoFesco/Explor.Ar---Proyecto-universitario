@@ -10,7 +10,7 @@ const props = defineProps<{
 
 <template>
   <section v-if="tags && tags.length > 0" class="space-y-2">
-    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Tags</h2>
+    <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Tags</h2>
     <div class="flex flex-wrap gap-2">
       <Badge
         v-for="tag in tags"

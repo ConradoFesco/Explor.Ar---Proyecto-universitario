@@ -43,10 +43,10 @@ defineProps<Props>()
         <CardHeader class="pb-3">
           <div class="flex justify-between items-start gap-4">
             <div class="flex-1 min-w-0">
-              <CardTitle class="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+              <CardTitle class="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors break-words">
                 {{ review.site_name }}
               </CardTitle>
-              <CardDescription class="dark:text-gray-400 text-xs">{{ review.date }}</CardDescription>
+              <CardDescription class="dark:text-gray-400 text-xs sm:text-sm">{{ review.date }}</CardDescription>
             </div>
             <div class="flex text-yellow-400 text-sm gap-0.5 bg-yellow-50 dark:bg-yellow-900/20 px-2.5 py-1 rounded-full shrink-0">
               <i v-for="n in 5" :key="n" class="fas fa-star text-xs" :class="n <= review.rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'"></i>

@@ -71,9 +71,9 @@ function handleSortChange(field: string, dir: 'asc' | 'desc') {
 <template>
   <div class="w-full">
     <div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-12">
-      <div class="mb-3 md:mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">Sitios históricos</h1>
-        <div class="text-sm text-gray-600 dark:text-gray-400">{{ store.total }} resultados</div>
+      <div class="mb-3 md:mb-4 flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2">
+        <h1 class="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-100">Sitios históricos</h1>
+        <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{{ store.total }} resultados</div>
       </div>
 
       <div class="lg:hidden mb-3">
@@ -95,9 +95,9 @@ function handleSortChange(field: string, dir: 'asc' | 'desc') {
         </aside>
 
         <div class="space-y-3 min-w-0">
-        <div class="flex flex-wrap gap-2 items-center justify-between">
-          <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-500 dark:text-gray-400">Ordenar:</span>
+        <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 items-start sm:items-center justify-between">
+          <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+            <span class="text-gray-500 dark:text-gray-400 shrink-0">Ordenar:</span>
             <SortButton
               field="created_at"
               :current-field="store.sort.field"

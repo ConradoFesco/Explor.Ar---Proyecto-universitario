@@ -18,12 +18,6 @@ const isLoadingMejorPuntuados = ref(true)
 const isLoadingRecientementeAgregados = ref(true)
 const isLoadingFavoritos = ref(true)
 
-// Función para obtener la fecha de hoy en formato ISO (solo fecha, sin hora)
-function getTodayDateString(): string {
-  const today = new Date()
-  const dateString = today.toISOString().split('T')[0] // Formato: YYYY-MM-DD
-  return dateString || today.toISOString().substring(0, 10) // Fallback si split falla
-}
 
 // Cargar sitios mejor puntuados (carga independiente)
 async function loadMejorPuntuados() {
@@ -44,7 +38,7 @@ async function loadMejorPuntuados() {
   }
 }
 
-// Cargar sitios recientemente agregados (del día actual) - carga independiente
+// Cargar sitios recientemente agregados - carga independiente
 async function loadRecientementeAgregados() {
   isLoadingRecientementeAgregados.value = true
   try {
@@ -52,18 +46,11 @@ async function loadRecientementeAgregados() {
       orderBy: 'created_at',
       orderDir: 'desc',
       page: 1,
-      perPage: 20, // Obtener más para filtrar por fecha
+      perPage: 5, // Obtener los 5 más recientes
     })
     
-    // Filtrar solo los del día actual
-    const today = getTodayDateString()
-    const recientes = response.items.filter(site => {
-      if (!site.created_at) return false
-      const siteDate = site.created_at.split('T')[0] // Obtener solo la fecha
-      return siteDate === today
-    })
-    
-    recientementeAgregados.value = recientes.slice(0, 5)
+    // Mostrar los sitios más recientes (ya vienen ordenados por fecha descendente)
+    recientementeAgregados.value = response.items
   } catch (error) {
     console.error('Error al cargar recientemente agregados:', error)
     recientementeAgregados.value = []
@@ -144,7 +131,7 @@ onMounted(() => {
     <ContentSection
       v-if="!isLoadingRecientementeAgregados && recientementeAgregados.length > 0"
       title="Recientemente Agregados"
-      description="Descubre los últimos sitios incorporados hoy."
+      description="Descubre los últimos sitios incorporados."
       :sites="recientementeAgregados"
       category="recent"
     />

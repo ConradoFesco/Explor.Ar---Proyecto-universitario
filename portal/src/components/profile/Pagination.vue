@@ -19,18 +19,19 @@ const handlePageChange = (delta: number) => {
 </script>
 
 <template>
-  <div v-if="!disabled && totalPages > 0" class="flex items-center justify-center gap-3 mt-16 mb-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+  <div v-if="!disabled && totalPages > 0" class="flex items-center justify-center gap-2 sm:gap-3 mt-12 sm:mt-16 mb-6 sm:mb-8 pt-6 sm:pt-8 border-t border-gray-200 dark:border-gray-700">
     <Button
       variant="outline"
       size="sm"
       @click="handlePageChange(-1)"
       :disabled="currentPage === 1"
-      class="rounded-full px-5 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+      class="rounded-full px-3 sm:px-5 shadow-sm hover:shadow-md transition-all disabled:opacity-50 text-xs sm:text-sm"
     >
-      <i class="fas fa-chevron-left mr-2 text-xs"></i>
-      Anterior
+      <i class="fas fa-chevron-left mr-1 sm:mr-2 text-xs"></i>
+      <span class="hidden sm:inline">Anterior</span>
+      <span class="sm:hidden">Ant.</span>
     </Button>
-    <span class="text-sm font-medium text-gray-700 dark:text-gray-300 px-4 py-1.5 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-200 dark:border-gray-700">
+    <span class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-1.5 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-200 dark:border-gray-700">
       {{ currentPage }} / {{ totalPages }}
     </span>
     <Button
@@ -38,10 +39,11 @@ const handlePageChange = (delta: number) => {
       size="sm"
       @click="handlePageChange(1)"
       :disabled="currentPage === totalPages"
-      class="rounded-full px-5 shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+      class="rounded-full px-3 sm:px-5 shadow-sm hover:shadow-md transition-all disabled:opacity-50 text-xs sm:text-sm"
     >
-      Siguiente
-      <i class="fas fa-chevron-right ml-2 text-xs"></i>
+      <span class="hidden sm:inline">Siguiente</span>
+      <span class="sm:hidden">Sig.</span>
+      <i class="fas fa-chevron-right ml-1 sm:ml-2 text-xs"></i>
     </Button>
   </div>
 </template>

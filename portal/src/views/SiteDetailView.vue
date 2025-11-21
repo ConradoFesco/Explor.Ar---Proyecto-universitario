@@ -291,8 +291,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="w-full px-4 sm:px-6 lg:px-10 xl:px-20 2xl:px-32 py-6">
-    <div class="max-w-[1600px] mx-auto space-y-6">
+  <div class="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-16 2xl:px-24 py-4 sm:py-6">
+    <div class="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
     <!-- Botón Volver -->
     <Button variant="outline" size="sm" @click="handleBack" class="flex items-center gap-2">
       <ArrowLeft class="h-4 w-4" />
@@ -343,7 +343,7 @@ onMounted(() => {
 
       <!-- Mapa -->
       <section v-if="site.latitude && site.longitude" class="space-y-2">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Ubicación</h2>
+        <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Ubicación</h2>
         <SiteMap
           :latitude="site.latitude"
           :longitude="site.longitude"

@@ -53,19 +53,19 @@ function handleVerTodos() {
     <div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
 
       <!-- Encabezado de la Sección -->
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+        <div class="flex-1 min-w-0">
+          <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             {{ title }}
           </h2>
-          <p class="text-gray-600 dark:text-gray-400">
+          <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">
             {{ description }}
           </p>
         </div>
         <!-- Botón "Ver todos" que coincide con el diseño -->
         <Button 
           variant="ghost" 
-          class="text-blue-600 hover:text-blue-700 font-semibold"
+          class="text-blue-600 hover:text-blue-700 font-semibold shrink-0 text-sm sm:text-base"
           @click="handleVerTodos"
         >
           Ver todos
