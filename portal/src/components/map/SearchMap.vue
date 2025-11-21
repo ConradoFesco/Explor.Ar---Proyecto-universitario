@@ -21,9 +21,9 @@ let marker: L.Marker | null = null
 let circle: L.Circle | null = null
 
 // Fix para iconos de Leaflet en Vite
-import icon from 'leaflet/dist/images/marker-icon.png'
-import iconShadow from 'leaflet/dist/images/marker-shadow.png'
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png'
+import icon from 'leaflet/dist/images/marker-icon.png?url'
+import iconShadow from 'leaflet/dist/images/marker-shadow.png?url'
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png?url'
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
