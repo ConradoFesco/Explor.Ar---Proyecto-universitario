@@ -25,13 +25,15 @@ MINIO_SERVER=127.0.0.1:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_SECURE=False
+MINIO_USE_HTTPS=True
 ```
 
 **Explicación de variables:**
 - `DATABASE_URL`: URL de conexión a PostgreSQL
 - `MINIO_SERVER`: Dirección y puerto del servidor MinIO
 - `MINIO_ACCESS_KEY` y `MINIO_SECRET_KEY`: Credenciales de acceso a MinIO
-- `MINIO_SECURE`: `False` para conexiones HTTP, `True` para HTTPS
+- `MINIO_SECURE`: `False` para conexiones HTTP, `True` para HTTPS (usado para la conexión del cliente MinIO)
+- `MINIO_USE_HTTPS`: `True` para forzar URLs públicas HTTPS (útil cuando la app está en HTTPS pero MinIO usa HTTP internamente)
 
 ### 2. Instalar Dependencias
 

@@ -15,14 +15,21 @@ let map: L.Map | null = null
 let marker: L.Marker | null = null
 let tileLayer: L.TileLayer | null = null
 
-// Configurar iconos de Leaflet (solo una vez)
-if (typeof window !== 'undefined' && !(L.Icon.Default.prototype as any)._getIconUrl) {
-  delete (L.Icon.Default.prototype as any)._getIconUrl
-  L.Icon.Default.mergeOptions({
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  })
-}
+// Fix para iconos de Leaflet en Vite
+import icon from 'leaflet/dist/images/marker-icon.png?url'
+import iconShadow from 'leaflet/dist/images/marker-shadow.png?url'
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png?url'
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconRetinaUrl: iconRetina,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+})
+L.Marker.prototype.options.icon = DefaultIcon
 
 function createPopupContent(): string {
   const description = props.siteDescription 

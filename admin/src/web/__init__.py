@@ -105,6 +105,8 @@ def configure_app(app, env):
     app.config['MINIO_SECRET_KEY'] = os.getenv("MINIO_SECRET_KEY", "minioadmin")
     app.config['MINIO_BUCKET'] = os.getenv("MINIO_BUCKET", "grupo06")
     app.config['MINIO_SECURE'] = os.getenv("MINIO_SECURE", "False").lower() == "true"
+    # Forzar HTTPS para URLs públicas de MinIO (útil cuando la app está en HTTPS)
+    app.config['MINIO_USE_HTTPS'] = os.getenv("MINIO_USE_HTTPS", "True").lower() == "true"
 
    
 def initialize_extensions(app):
