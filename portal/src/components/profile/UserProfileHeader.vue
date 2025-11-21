@@ -20,9 +20,9 @@ defineProps<Props>()
       <div class="relative mb-6 group">
         <div class="absolute inset-0 bg-blue-500 rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
 
-        <Avatar class="h-32 w-32 border-4 border-gray-800 dark:border-gray-700 shadow-2xl relative z-10 ring-2 ring-blue-500/20">
+        <Avatar class="h-24 w-24 sm:h-32 sm:w-32 border-4 border-gray-800 dark:border-gray-700 shadow-2xl relative z-10 ring-2 ring-blue-500/20">
           <AvatarImage :src="user.avatar_url" :alt="user.name" class="object-cover" />
-          <AvatarFallback class="bg-gradient-to-br from-blue-500 to-blue-600 text-3xl font-bold text-white">
+          <AvatarFallback class="bg-gradient-to-br from-blue-500 to-blue-600 text-2xl sm:text-3xl font-bold text-white">
             {{ user.name ? user.name.charAt(0).toUpperCase() : 'U' }}
           </AvatarFallback>
         </Avatar>

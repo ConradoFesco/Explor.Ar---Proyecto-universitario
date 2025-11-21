@@ -160,13 +160,13 @@ function clearMapSelection() {
 <template>
   <form @submit.prevent="applyManualFilters" class="space-y-3">
     <div>
-      <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Buscar</label>
-      <Input v-model="text" type="search" placeholder="Nombre o descripción" />
+      <label class="block text-xs sm:text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Buscar</label>
+      <Input v-model="text" type="search" placeholder="Nombre o descripción" class="text-sm" />
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Ciudad</label>
+      <div class="min-w-0">
+        <label class="block text-xs sm:text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Ciudad</label>
         <div v-if="isLoadingOptions" class="text-xs text-gray-500 dark:text-gray-400 py-2">Cargando ciudades...</div>
         <NativeSelect
           v-else
@@ -179,8 +179,8 @@ function clearMapSelection() {
           {{ filterOptions.cities?.length || 0 }} ciudades disponibles
         </p>
       </div>
-      <div>
-        <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Provincia</label>
+      <div class="min-w-0">
+        <label class="block text-xs sm:text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Provincia</label>
         <div v-if="isLoadingOptions" class="text-xs text-gray-500 dark:text-gray-400 py-2">Cargando provincias...</div>
         <NativeSelect
           v-else
@@ -196,7 +196,7 @@ function clearMapSelection() {
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Tags</label>
+      <label class="block text-xs sm:text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Tags</label>
       <div v-if="isLoadingOptions" class="text-xs text-gray-500 dark:text-gray-400">Cargando tags...</div>
       <div v-else class="flex flex-wrap gap-2">
         <Badge
@@ -220,7 +220,7 @@ function clearMapSelection() {
         :checked="favoritesOnly"
         @update:checked="(value: boolean) => favoritesOnly = value"
       />
-      <label for="fav" class="text-sm select-none cursor-pointer text-gray-900 dark:text-gray-100">Favoritos</label>
+      <label for="fav" class="text-xs sm:text-sm select-none cursor-pointer text-gray-900 dark:text-gray-100">Favoritos</label>
     </div>
 
     <Accordion v-model="mapAccordionOpen" type="single" collapsible class="w-full">

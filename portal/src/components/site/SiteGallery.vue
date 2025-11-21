@@ -58,7 +58,7 @@ watch(() => props.images.length, (newLength, oldLength) => {
 
 <template>
   <section class="space-y-3">
-    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Galería de Imágenes</h2>
+    <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Galería de Imágenes</h2>
 
     <!-- Carrusel Principal -->
     <div class="relative w-full">

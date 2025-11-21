@@ -37,12 +37,13 @@ function handleWriteReview() {
 
 <template>
   <section class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Reseñas</h2>
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+      <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Reseñas</h2>
       <Button
         :variant="isAuthenticated ? 'default' : 'outline'"
         size="sm"
         @click="handleWriteReview"
+        class="w-full sm:w-auto text-xs sm:text-sm"
       >
         {{ buttonText }}
       </Button>

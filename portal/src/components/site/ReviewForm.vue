@@ -108,8 +108,8 @@ function handleKeydown(event: KeyboardEvent) {
         aria-modal="true"
         aria-labelledby="review-form-title"
       >
-        <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between z-10">
-          <h3 id="review-form-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 flex items-center justify-between z-10">
+          <h3 id="review-form-title" class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
             {{ isEditing ? 'Modificar Reseña' : 'Escribir Reseña' }}
           </h3>
           <Button 
@@ -123,9 +123,9 @@ function handleKeydown(event: KeyboardEvent) {
           </Button>
         </div>
         
-        <form @submit.prevent="handleSubmit" class="p-6 space-y-6">
+        <form @submit.prevent="handleSubmit" class="p-4 sm:p-6 space-y-4 sm:space-y-6">
           <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Sitio: {{ siteName }}</p>
+            <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 break-words">Sitio: {{ siteName }}</p>
           </div>
           
           <!-- Calificación -->
@@ -190,18 +190,20 @@ function handleKeydown(event: KeyboardEvent) {
           </div>
           
           <!-- Botones -->
-          <div class="flex justify-end gap-2">
+          <div class="flex flex-col sm:flex-row justify-end gap-2">
             <Button 
               type="button"
               variant="outline" 
               @click="handleClose" 
               :disabled="isSubmitting"
+              class="w-full sm:w-auto text-xs sm:text-sm"
             >
               Cancelar
             </Button>
             <Button 
               type="submit"
               :disabled="!isValid || isSubmitting"
+              class="w-full sm:w-auto text-xs sm:text-sm"
             >
               {{ isSubmitting ? (isEditing ? 'Guardando...' : 'Enviando...') : (isEditing ? 'Modificar Reseña' : 'Enviar Reseña') }}
             </Button>

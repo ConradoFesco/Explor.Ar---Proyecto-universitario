@@ -25,9 +25,9 @@ const hasMoreDescription = computed(() => {
 
 <template>
   <section class="space-y-2">
-    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Descripción</h2>
-    <div class="prose prose-sm max-w-none dark:prose-invert">
-      <p class="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{ descriptionToShow }}</p>
+    <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Descripción</h2>
+    <div class="prose prose-sm sm:prose-base max-w-none dark:prose-invert">
+      <p class="whitespace-pre-wrap text-sm sm:text-base text-gray-700 dark:text-gray-300">{{ descriptionToShow }}</p>
     </div>
     <Button
       v-if="hasMoreDescription"

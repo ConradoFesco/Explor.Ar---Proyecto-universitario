@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import FavoriteButton from '@/components/site/FavoriteButton.vue'
 
 interface Favorite {
@@ -39,7 +40,7 @@ const handleFavoriteUpdate = (newState: boolean) => {
     </div>
 
     <!-- Favorites grid -->
-    <div v-else-if="favorites.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-full">
+    <div v-else-if="favorites.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-full">
       <Card v-for="fav in favorites" :key="fav.id" class="group overflow-hidden border-0 shadow-md hover:shadow-2xl transition-all duration-500 dark:bg-gray-900">
         <div class="aspect-video w-full bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
           <img
@@ -60,8 +61,8 @@ const handleFavoriteUpdate = (newState: boolean) => {
             />
           </div>
 
-          <div class="absolute bottom-0 left-0 right-0 p-4 text-white z-10">
-            <p class="font-bold text-lg leading-tight mb-2 drop-shadow-lg">{{ fav.site_name }}</p>
+          <div class="absolute bottom-0 left-0 right-0 p-3 sm:p-4 text-white z-10">
+            <p class="font-bold text-base sm:text-lg leading-tight mb-1 sm:mb-2 drop-shadow-lg line-clamp-2">{{ fav.site_name }}</p>
             <div class="flex items-center justify-between">
               <p class="text-xs text-gray-200 flex items-center backdrop-blur-sm bg-black/40 px-2.5 py-1 rounded-full">
                 <i class="fas fa-map-marker-alt mr-1.5 text-red-400"></i> {{ fav.location }}
