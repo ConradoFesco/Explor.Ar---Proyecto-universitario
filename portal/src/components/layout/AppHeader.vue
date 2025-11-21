@@ -1,15 +1,37 @@
 <script setup lang="ts">
 // Importamos RouterLink para la navegación
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/composables/useAuth'
+import { onClickOutside } from '@vueuse/core'
 
 // Obtenemos las variables reactivas
 const { isAuthenticated, user, logout, loginWithGoogle } = useAuth()
 
+// Estado para controlar el menú desplegable
+const dropdownOpen = ref(false)
+const dropdownRef = ref<HTMLDivElement | null>(null)
+
+// Cerrar el menú cuando se hace click fuera
+onClickOutside(dropdownRef, () => {
+  dropdownOpen.value = false
+})
+
+// Función para toggle del menú
+const toggleDropdown = () => {
+  dropdownOpen.value = !dropdownOpen.value
+}
+
+// Cerrar el menú cuando se navega
+const closeDropdown = () => {
+  dropdownOpen.value = false
+}
+
 // Función para manejar el cierre de sesión
 const handleLogout = async () => {
   await logout()
+  closeDropdown()
   // Redirigir al home si es necesario
 }
 
@@ -71,23 +93,35 @@ const defaultAvatar = "https://www.gravatar.com/avatar/0000000000000000000000000
               {{ user?.name }}
             </span>
 
-            <div class="relative group">
-              <img 
-                :src="user?.avatar_url || defaultAvatar" 
-                alt="Perfil" 
-                class="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-700 cursor-pointer object-cover"
-              />
+            <div ref="dropdownRef" class="relative">
+              <button
+                @click="toggleDropdown"
+                class="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full"
+                aria-label="Menú de usuario"
+                :aria-expanded="dropdownOpen"
+              >
+                <img 
+                  :src="user?.avatar_url || defaultAvatar" 
+                  alt="Perfil" 
+                  class="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-700 cursor-pointer object-cover hover:ring-2 hover:ring-blue-500 transition-all"
+                />
+              </button>
               
-              <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 hidden group-hover:block z-50 border border-gray-200 dark:border-gray-700">
+              <!-- Menú desplegable -->
+              <div 
+                v-show="dropdownOpen"
+                class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700"
+              >
                 <RouterLink 
                   :to="{ name: 'UserProfile' }"
-                  class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  @click="closeDropdown"
+                  class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   Mi Perfil
                 </RouterLink>
                 <button 
                   @click="handleLogout" 
-                  class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cerrar Sesión
                 </button>
