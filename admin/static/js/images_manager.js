@@ -141,6 +141,8 @@ let imagesManager = {
         
         const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
         const totalImages = sorted.length;
+        const loadedItems = new Array(totalImages);
+        let loadedCount = 0;
         
         sorted.forEach((imgData, displayIndex) => {
             const reader = new FileReader();
@@ -149,7 +151,16 @@ let imagesManager = {
                     return;
                 }
                 const imageItem = this.createImagePreviewItem(imgData, displayIndex, totalImages, e.target.result);
-                selectedList.appendChild(imageItem);
+                loadedItems[displayIndex] = imageItem;
+                loadedCount++;
+                
+                if (loadedCount === totalImages) {
+                    loadedItems.forEach(item => {
+                        if (item) {
+                            selectedList.appendChild(item);
+                        }
+                    });
+                }
             };
             reader.onerror = () => {};
             reader.readAsDataURL(imgData.file);
