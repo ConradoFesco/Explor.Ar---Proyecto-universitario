@@ -5,16 +5,14 @@ let imagesManager = {
     MAX_IMAGES_PER_SITE: 10,
     currentValidFiles: [],
     previewImages: [],
-    previewCoverIndex: null,
+    renderCounter: 0,
     
     init: function(siteId) {
         this.siteId = siteId;
         this.setupUploadForm();
         if (siteId) {
-            this.enableImageForm();
             this.loadImages();
         } else {
-            this.enableImageForm();
             this.loadPendingImages();
         }
     },
@@ -119,10 +117,7 @@ let imagesManager = {
         }));
         
         if (!hasExistingImages && validFiles.length > 0) {
-            this.previewCoverIndex = 0;
             this.previewImages[0].isCover = true;
-        } else {
-            this.previewCoverIndex = null;
         }
         
         this.renderPreviewImages();
@@ -135,27 +130,35 @@ let imagesManager = {
         const selectedList = document.getElementById('selected-images-list');
         if (!selectedList) return;
         
-        const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
+        this.renderCounter++;
+        const currentRender = this.renderCounter;
         
         selectedList.innerHTML = '';
+        
+        if (this.previewImages.length === 0) {
+            return;
+        }
+        
+        const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
+        const totalImages = sorted.length;
+        
         sorted.forEach((imgData, displayIndex) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const imageItem = this.createImagePreviewItem(imgData, displayIndex, e.target.result);
+                if (currentRender !== this.renderCounter) {
+                    return;
+                }
+                const imageItem = this.createImagePreviewItem(imgData, displayIndex, totalImages, e.target.result);
                 selectedList.appendChild(imageItem);
             };
+            reader.onerror = () => {};
             reader.readAsDataURL(imgData.file);
         });
-        
-        this.setupPreviewDragAndDrop();
     },
     
-    createImagePreviewItem: function(imgData, displayIndex, previewUrl) {
+    createImagePreviewItem: function(imgData, displayIndex, totalImages, previewUrl) {
         const div = document.createElement('div');
         div.className = `preview-image-item border-2 rounded-md p-3 bg-white ${imgData.isCover ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`;
-        div.draggable = true;
-        div.dataset.originalIndex = imgData.index;
-        div.dataset.displayIndex = displayIndex;
         
         const hasExistingImages = this.images.length > 0;
         const coverBadge = imgData.isCover ? '<span class="inline-block bg-blue-500 text-white text-xs px-2 py-1 rounded mb-2">PORTADA</span>' : '';
@@ -169,10 +172,32 @@ let imagesManager = {
             coverButton = `<button type="button" onclick="imagesManager.setPreviewCover(${imgData.index})" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Marcar como Portada</button>`;
         }
         
+        let arrowButtons = '';
+        if (totalImages > 1) {
+            const isFirst = displayIndex === 0;
+            const isLast = displayIndex === totalImages - 1;
+            const upDisabled = isFirst ? 'disabled' : '';
+            const downDisabled = isLast ? 'disabled' : '';
+            const upClass = isFirst ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700';
+            const downClass = isLast ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700';
+            const upOnClick = isFirst ? '' : `onclick="imagesManager.movePreviewImageLeft(${imgData.index})"`;
+            const downOnClick = isLast ? '' : `onclick="imagesManager.movePreviewImageRight(${imgData.index})"`;
+            
+            arrowButtons = `
+                <div class="flex gap-2 justify-center mt-2">
+                    <button type="button" ${upOnClick} 
+                            class="arrow-btn-up ${upClass} text-white px-3 py-1 rounded text-sm" 
+                            title="Mover hacia arriba" ${upDisabled}>↑</button>
+                    <button type="button" ${downOnClick} 
+                            class="arrow-btn-down ${downClass} text-white px-3 py-1 rounded text-sm" 
+                            title="Mover hacia abajo" ${downDisabled}>↓</button>
+                </div>
+            `;
+        }
+        
         div.innerHTML = `
             <div class="flex gap-3">
                 <div class="relative">
-                    <span class="drag-handle-preview absolute top-1 left-1 bg-gray-800 bg-opacity-50 text-white px-2 py-1 rounded cursor-move text-xs" title="Arrastrar para reordenar">☰</span>
                     <img src="${previewUrl}" alt="Preview" class="w-24 h-24 object-cover rounded-md">
                 </div>
                 <div class="flex-1 space-y-2">
@@ -187,10 +212,10 @@ let imagesManager = {
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Título/Alt Text *</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Título *</label>
                         <input type="text" class="image-title-input w-full px-2 py-1 text-sm border border-gray-300 rounded" 
                                data-index="${imgData.index}" value="${imgData.titulo_alt || ''}" 
-                               placeholder="Descripción breve" maxlength="255" required
+                               placeholder="Título" maxlength="255" required
                                onchange="imagesManager.updatePreviewMetadata(${imgData.index}, 'titulo_alt', this.value)">
                     </div>
                     <div>
@@ -199,6 +224,7 @@ let imagesManager = {
                                   data-index="${imgData.index}" rows="2" placeholder="Descripción adicional"
                                   onchange="imagesManager.updatePreviewMetadata(${imgData.index}, 'descripcion', this.value)">${imgData.descripcion || ''}</textarea>
                     </div>
+                    ${arrowButtons}
                 </div>
             </div>
         `;
@@ -220,7 +246,6 @@ let imagesManager = {
         const imgData = this.previewImages.find(img => img.index === index);
         if (imgData) {
             imgData.isCover = true;
-            this.previewCoverIndex = index;
         }
         
         this.renderPreviewImages();
@@ -236,83 +261,43 @@ let imagesManager = {
         const imgData = this.previewImages.find(img => img.index === index);
         if (imgData) {
             imgData.isCover = false;
-            this.previewCoverIndex = null;
         }
         
         this.renderPreviewImages();
     },
     
-    setupPreviewDragAndDrop: function() {
-        const container = document.getElementById('selected-images-list');
-        if (!container) return;
+    movePreviewImageLeft: function(imageIndex) {
+        const currentImg = this.previewImages.find(img => img.index === imageIndex);
+        if (!currentImg) return;
         
-        const items = container.querySelectorAll('.preview-image-item');
-        items.forEach(item => {
-            item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', item.dataset.originalIndex);
-                item.style.opacity = '0.5';
-                item.classList.add('dragging');
-            });
-            
-            item.addEventListener('dragend', (e) => {
-                item.style.opacity = '1';
-                item.classList.remove('dragging');
-            });
-            
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                const afterElement = this.getDragAfterElement(container, e.clientY);
-                const dragging = container.querySelector('.dragging');
-                if (dragging) {
-                    if (afterElement == null) {
-                        container.appendChild(dragging);
-                    } else {
-                        container.insertBefore(dragging, afterElement);
-                    }
-                }
-            });
-            
-            item.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                const targetIndex = parseInt(item.dataset.originalIndex);
-                
-                if (draggedIndex !== targetIndex) {
-                    this.reorderPreviewImages(draggedIndex, targetIndex);
-                }
-            });
-        });
+        const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
+        const currentSortedIndex = sorted.findIndex(img => img.index === imageIndex);
+        
+        if (currentSortedIndex <= 0 || currentSortedIndex >= sorted.length) return;
+        
+        const previousImg = sorted[currentSortedIndex - 1];
+        const tempOrder = currentImg.order;
+        currentImg.order = previousImg.order;
+        previousImg.order = tempOrder;
+        
+        this.renderPreviewImages();
     },
     
-    reorderPreviewImages: function(fromIndex, toIndex) {
-        const fromImg = this.previewImages.find(img => img.index === fromIndex);
-        const toImg = this.previewImages.find(img => img.index === toIndex);
+    movePreviewImageRight: function(imageIndex) {
+        const currentImg = this.previewImages.find(img => img.index === imageIndex);
+        if (!currentImg) return;
         
-        if (fromImg && toImg) {
-            // Intercambiar órdenes
-            const tempOrder = fromImg.order;
-            fromImg.order = toImg.order;
-            toImg.order = tempOrder;
-            
-            // Re-renderizar
-            this.renderPreviewImages();
-        }
-    },
-    
-    getDragAfterElement: function(container, y) {
-        const selector = container.id === 'selected-images-list' 
-            ? '.preview-image-item:not(.dragging)' 
-            : '.image-item:not(.dragging)';
-        const draggableElements = [...container.querySelectorAll(selector)];
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
-            }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
+        const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
+        const currentSortedIndex = sorted.findIndex(img => img.index === imageIndex);
+        
+        if (currentSortedIndex < 0 || currentSortedIndex >= sorted.length - 1) return;
+        
+        const nextImg = sorted[currentSortedIndex + 1];
+        const tempOrder = currentImg.order;
+        currentImg.order = nextImg.order;
+        nextImg.order = tempOrder;
+        
+        this.renderPreviewImages();
     },
     
     clearFileSelection: function() {
@@ -325,7 +310,7 @@ let imagesManager = {
         if (clearBtn) clearBtn.style.display = 'none';
         this.currentValidFiles = [];
         this.previewImages = [];
-        this.previewCoverIndex = null;
+        this.renderCounter++;
     },
     
     uploadSelectedImages: async function() {
@@ -364,7 +349,7 @@ let imagesManager = {
             const descripcion = imgData.descripcion ? imgData.descripcion.trim() : null;
             
             if (!tituloAlt) {
-                this.showMessage(`El título/alt es obligatorio para la imagen ${i + 1}`, 'error');
+                this.showMessage(`El título es obligatorio para la imagen ${i + 1}`, 'error');
                 return;
             }
             
@@ -438,7 +423,14 @@ let imagesManager = {
                 body: formData
             });
             
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                const text = await response.text();
+                this.showMessage(`Error al procesar respuesta del servidor (${response.status}): ${text.substring(0, 200)}`, 'error');
+                return;
+            }
             
             if (data.success) {
                 const coverIndex = imagesData.findIndex(img => img.is_cover);
@@ -469,7 +461,6 @@ let imagesManager = {
                     this.updatePendingImagesDisplay();
                 }
             } catch (e) {
-                console.error('Error al cargar imágenes pendientes:', e);
             }
         }
     },
@@ -523,9 +514,7 @@ let imagesManager = {
                     const imageItem = this.createPendingImageItem(imgData, index, e.target.result);
                     grid.appendChild(imageItem);
                 };
-                reader.onerror = () => {
-                    console.error('Error al leer el archivo:', imgData.file.name);
-                };
+                reader.onerror = () => {};
                 reader.readAsDataURL(imgData.file);
             });
         }
@@ -534,7 +523,6 @@ let imagesManager = {
     createPendingImageItem: function(imgData, index, previewUrl) {
         const div = document.createElement('div');
         div.className = `pending-image-item border-2 rounded-md p-3 bg-white ${imgData.is_cover ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`;
-        div.dataset.pendingIndex = index;
         
         const coverBadge = imgData.is_cover ? '<span class="inline-block bg-blue-500 text-white text-xs px-2 py-1 rounded mb-2">PORTADA</span>' : '';
         const coverButton = !imgData.is_cover ? `<button type="button" onclick="imagesManager.setPendingCover(${index})" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Marcar como Portada</button>` : '';
@@ -556,10 +544,10 @@ let imagesManager = {
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Título/Alt Text *</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Título *</label>
                         <input type="text" class="pending-title-input w-full px-2 py-1 text-sm border border-gray-300 rounded" 
                                value="${imgData.titulo_alt || ''}" 
-                               placeholder="Descripción breve" maxlength="255" required
+                               placeholder="Título" maxlength="255" required
                                onchange="imagesManager.updatePendingImage(${index}, 'titulo_alt', this.value)">
                     </div>
                     <div>
@@ -624,15 +612,12 @@ let imagesManager = {
     },
     
     loadImages: async function() {
-        if (!this.siteId) {
-            return;
-        }
+        if (!this.siteId) return;
         
         try {
             const response = await fetch(`/sitios/${this.siteId}/imagenes`);
             
             if (!response.ok) {
-                const errorText = await response.text();
                 this.showMessage(`Error al cargar imágenes (${response.status})`, 'error');
                 return;
             }
@@ -652,39 +637,71 @@ let imagesManager = {
     
     renderImages: function() {
         const container = document.getElementById('images-grid');
-        if (!container) {
-            return;
-        }
+        if (!container) return;
         
         const noImagesMsg = document.getElementById('no-images-message');
         
         if (this.images.length === 0) {
-            if (noImagesMsg) {
-                noImagesMsg.style.display = 'block';
-            }
+            if (noImagesMsg) noImagesMsg.style.display = 'block';
             container.innerHTML = '<p class="text-gray-500 col-span-full">No hay imágenes cargadas aún.</p>';
             return;
         }
         
-        if (noImagesMsg) {
-            noImagesMsg.style.display = 'none';
-        }
+        if (noImagesMsg) noImagesMsg.style.display = 'none';
         
         const sortedImages = [...this.images].sort((a, b) => a.orden - b.orden);
+        const totalImages = sortedImages.length;
         
-        const html = sortedImages.map((img) => {
+        const html = sortedImages.map((img, index) => {
             const isCover = img.es_portada;
+            
+            let arrowButtons = '';
+            if (totalImages > 1) {
+                if (index > 0 && index < totalImages - 1) {
+                    arrowButtons = `
+                        <div class="flex gap-2 justify-center mb-2">
+                            <button type="button" onclick="imagesManager.moveImageLeft(${img.id})" 
+                                    class="arrow-btn-left bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
+                                    title="Mover hacia la izquierda">←</button>
+                            <button type="button" onclick="imagesManager.moveImageRight(${img.id})" 
+                                    class="arrow-btn-right bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
+                                    title="Mover hacia la derecha">→</button>
+                        </div>
+                    `;
+                } else if (index === 0) {
+                    arrowButtons = `
+                        <div class="flex gap-2 justify-center mb-2">
+                            <button type="button" onclick="imagesManager.moveImageRight(${img.id})" 
+                                    class="arrow-btn-right bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
+                                    title="Mover hacia la derecha">→</button>
+                        </div>
+                    `;
+                } else if (index === totalImages - 1) {
+                    arrowButtons = `
+                        <div class="flex gap-2 justify-center mb-2">
+                            <button type="button" onclick="imagesManager.moveImageLeft(${img.id})" 
+                                    class="arrow-btn-left bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
+                                    title="Mover hacia la izquierda">←</button>
+                        </div>
+                    `;
+                }
+            }
+            
+            const imageUrl = img.url_publica || '';
+            const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\'%3E%3Crect fill=\'%23ccc\' width=\'200\' height=\'200\'/%3E%3Ctext fill=\'%23999\' font-family=\'sans-serif\' font-size=\'14\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dominant-baseline=\'middle\'%3EError al cargar%3C/text%3E%3C/svg%3E';
+            
             return `
                 <div class="image-item ${isCover ? 'cover' : ''}" data-image-id="${img.id}">
                     ${isCover ? '<span class="cover-badge">PORTADA</span>' : ''}
-                    <img src="${img.url_publica}" alt="${img.titulo_alt}" loading="lazy" onerror="console.error('Error al cargar imagen:', this.src)">
+                    <img src="${imageUrl}" alt="${img.titulo_alt || 'Imagen'}" loading="lazy" 
+                         onerror="this.onerror=null; this.src='${placeholderSvg}';">
                     <div class="image-info">
-                        <p class="text-sm font-medium text-gray-800 truncate" title="${img.titulo_alt}">${img.titulo_alt}</p>
+                        <p class="text-sm font-medium text-gray-800 truncate" title="${img.titulo_alt || ''}">${img.titulo_alt || 'Sin título'}</p>
                         ${img.descripcion ? `<p class="text-xs text-gray-600 mt-1 truncate" title="${img.descripcion}">${img.descripcion}</p>` : ''}
                     </div>
+                    ${arrowButtons}
                     <div class="image-actions">
-                        <span class="drag-handle" title="Arrastrar para reordenar">☰</span>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 justify-center">
                             ${!isCover ? `<button onclick="imagesManager.setCover(${img.id})" class="text-xs bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded" title="Marcar como portada">Portada</button>` : ''}
                             <button onclick="imagesManager.deleteImage(${img.id})" class="text-xs bg-red-500 hover:bg-red-600 px-2 py-1 rounded" title="Eliminar">Eliminar</button>
                         </div>
@@ -694,84 +711,78 @@ let imagesManager = {
         }).join('');
         
         container.innerHTML = html;
-        this.setupDragAndDrop();
     },
     
-    setupDragAndDrop: function() {
-        const container = document.getElementById('images-grid');
-        if (!container) return;
+    moveImageLeft: async function(imageId) {
+        if (!this.siteId) return;
         
-        let draggedElement = null;
-        let draggedImageId = null;
+        const sorted = [...this.images].sort((a, b) => a.orden - b.orden);
+        const currentIndex = sorted.findIndex(img => img.id === imageId);
         
-        const items = container.querySelectorAll('.image-item');
-        items.forEach(item => {
-            item.draggable = true;
-            
-            item.addEventListener('dragstart', (e) => {
-                draggedElement = item;
-                draggedImageId = parseInt(item.dataset.imageId);
-                e.dataTransfer.setData('text/plain', draggedImageId.toString());
-                e.dataTransfer.effectAllowed = 'move';
-                item.style.opacity = '0.5';
-                item.classList.add('dragging');
-            });
-            
-            item.addEventListener('dragend', (e) => {
-                item.style.opacity = '1';
-                item.classList.remove('dragging');
-                
-                if (draggedElement && draggedImageId) {
-                    this.saveImageOrder();
-                }
-                
-                draggedElement = null;
-                draggedImageId = null;
-            });
-            
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                
-                if (!draggedElement) return;
-                
-                const afterElement = this.getDragAfterElement(container, e.clientY);
-                if (afterElement == null) {
-                    container.appendChild(draggedElement);
-                } else {
-                    container.insertBefore(draggedElement, afterElement);
-                }
-            });
-            
-            item.addEventListener('drop', (e) => {
-                e.preventDefault();
-            });
+        if (currentIndex <= 0) return;
+        
+        const currentImg = sorted[currentIndex];
+        const previousImg = sorted[currentIndex - 1];
+        const tempOrder = currentImg.orden;
+        currentImg.orden = previousImg.orden;
+        previousImg.orden = tempOrder;
+        
+        this.images.forEach(img => {
+            if (img.id === currentImg.id) {
+                img.orden = currentImg.orden;
+            } else if (img.id === previousImg.id) {
+                img.orden = previousImg.orden;
+            }
         });
         
-        container.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
+        const success = await this.saveImageOrder();
+        
+        if (success) {
+            setTimeout(() => {
+                this.loadImages();
+            }, 300);
+        }
+    },
+    
+    moveImageRight: async function(imageId) {
+        if (!this.siteId) return;
+        
+        const sorted = [...this.images].sort((a, b) => a.orden - b.orden);
+        const currentIndex = sorted.findIndex(img => img.id === imageId);
+        
+        if (currentIndex >= sorted.length - 1) return;
+        
+        const currentImg = sorted[currentIndex];
+        const nextImg = sorted[currentIndex + 1];
+        const tempOrder = currentImg.orden;
+        currentImg.orden = nextImg.orden;
+        nextImg.orden = tempOrder;
+        
+        this.images.forEach(img => {
+            if (img.id === currentImg.id) {
+                img.orden = currentImg.orden;
+            } else if (img.id === nextImg.id) {
+                img.orden = nextImg.orden;
+            }
         });
+        
+        const success = await this.saveImageOrder();
+        
+        if (success) {
+            setTimeout(() => {
+                this.loadImages();
+            }, 300);
+        }
     },
     
     saveImageOrder: async function() {
         if (!this.siteId) return;
         
-        const container = document.getElementById('images-grid');
-        if (!container) return;
-        
-        const items = container.querySelectorAll('.image-item');
-        const imageOrders = [];
-        
-        items.forEach((item, index) => {
-            const imageId = parseInt(item.dataset.imageId);
-            if (imageId) {
-                imageOrders.push({
-                    id: imageId,
-                    orden: index + 1
-                });
-            }
-        });
+        const sorted = [...this.images].sort((a, b) => a.orden - b.orden);
+        const imageOrders = sorted.map((img, index) => ({
+            id: img.id,
+            orden: index + 1
+        }));
         
         if (imageOrders.length === 0) return;
         
@@ -790,31 +801,20 @@ let imagesManager = {
             });
             
             if (response.ok) {
-                try {
-                    const data = await response.json();
-                    if (data.success) {
-                        this.showMessage('Orden de imágenes actualizado', 'success');
-                        setTimeout(() => {
-                            this.loadImages();
-                        }, 300);
-                    } else {
-                        this.showMessage(data.error || 'Error al guardar el orden', 'error');
-                        this.loadImages();
-                    }
-                } catch (jsonError) {
-                    this.showMessage('Orden actualizado correctamente', 'success');
-                    setTimeout(() => {
-                        this.loadImages();
-                    }, 300);
+                const data = await response.json();
+                if (data.success) {
+                    return true;
+                } else {
+                    this.showMessage(data.error || 'Error al guardar el orden', 'error');
+                    return false;
                 }
             } else {
-                const errorText = await response.text();
                 this.showMessage('Error al guardar el orden', 'error');
-                this.loadImages();
+                return false;
             }
         } catch (error) {
             this.showMessage('Error al guardar el orden: ' + error.message, 'error');
-            this.loadImages();
+            return false;
         }
     },
     
@@ -870,12 +870,6 @@ let imagesManager = {
         } catch (error) {
             this.showMessage('Error al eliminar imagen: ' + error.message, 'error');
         }
-    },
-    
-    disableImageForm: function() {
-    },
-    
-    enableImageForm: function() {
     },
     
     showMessage: function(message, type) {

@@ -5,11 +5,9 @@ from src.web.extensions import db
 from src.core.services.event_service import event_service
 from flask import current_app
 from minio.error import S3Error
-import uuid
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, List, Optional
-from werkzeug.utils import secure_filename
 from io import BytesIO
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
@@ -22,10 +20,18 @@ class SiteImageService:
         self._minio_client = None
     
     def _extract_object_path_from_url(self, url_publica: str, bucket_name: str) -> str:
-        url_str = url_publica.split('?')[0]
-        url_parts = url_str.split('/')
+        if not url_publica:
+            raise ValueError("URL pública no puede estar vacía")
         
+        url_str = url_publica.split('?')[0]
+        bucket_pattern = f'/{bucket_name}/'
+        
+        if bucket_pattern in url_str:
+            return url_str.split(bucket_pattern, 1)[1]
+        
+        url_parts = url_str.split('/')
         bucket_index = -1
+        
         for i, part in enumerate(url_parts):
             if part == bucket_name:
                 bucket_index = i
@@ -33,14 +39,16 @@ class SiteImageService:
         
         if bucket_index >= 0 and bucket_index < len(url_parts) - 1:
             return '/'.join(url_parts[bucket_index + 1:])
-        elif f'/{bucket_name}/' in url_str:
-            return url_str.split(f'/{bucket_name}/', 1)[1]
+        elif bucket_index >= 0:
+            return ''
         else:
-            return url_parts[-1]
+            return url_parts[-1] if url_parts else ''
     
     @property
     def minio_client(self):
         if self._minio_client is None:
+            if not hasattr(current_app, 'storage') or current_app.storage is None:
+                raise exc.DatabaseError("MinIO no está configurado. Verifique las variables de entorno MINIO_SERVER, MINIO_ACCESS_KEY y MINIO_SECRET_KEY.")
             self._minio_client = current_app.storage
         return self._minio_client
     
@@ -50,10 +58,35 @@ class SiteImageService:
     def _ensure_bucket_exists(self):
         bucket_name = self._get_bucket_name()
         try:
-            if not self.minio_client.bucket_exists(bucket_name):
-                self.minio_client.make_bucket(bucket_name)
+            minio = self.minio_client
+            if minio is None:
+                raise exc.DatabaseError("MinIO client no está disponible")
+            
+            if not minio.bucket_exists(bucket_name):
+                minio.make_bucket(bucket_name)
+            
+            try:
+                import json
+                policy = {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {"AWS": ["*"]},
+                            "Action": ["s3:GetObject"],
+                            "Resource": [f"arn:aws:s3:::{bucket_name}/*"]
+                        }
+                    ]
+                }
+                minio.set_bucket_policy(bucket_name, json.dumps(policy))
+                current_app.logger.info(f"Bucket '{bucket_name}' configurado como público")
+            except Exception as policy_error:
+                current_app.logger.warning(f"No se pudo configurar el bucket como público: {policy_error}")
+                
         except S3Error as e:
-            raise exc.DatabaseError(f"Error al verificar/crear bucket en MinIO: {e}")
+            raise exc.DatabaseError(f"Error al verificar/crear bucket '{bucket_name}' en MinIO: {e}")
+        except Exception as e:
+            raise exc.DatabaseError(f"Error inesperado al verificar bucket en MinIO: {e}")
     
     def _validate_file(self, file) -> tuple[bool, Optional[str]]:
         if not file or not file.filename:
@@ -78,11 +111,9 @@ class SiteImageService:
     
     def _generate_unique_filename(self, original_filename: str, site_id: int) -> str:
         extension = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else 'jpg'
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_id = str(uuid.uuid4())[:8]
-        safe_name = secure_filename(original_filename.rsplit('.', 1)[0])[:20]
-        filename = f"{timestamp}_{unique_id}_{safe_name}.{extension}"
-        return f"Sites/{site_id}/{filename}"
+        unique_number = int(datetime.now().timestamp() * 1000000) % 100000000
+        filename = f"site_image_{unique_number}.{extension}"
+        return filename
     
     def upload_image(self, site_id: int, file, titulo_alt: str, descripcion: Optional[str] = None, 
                     user_id: int = None) -> SiteImage:
@@ -94,10 +125,14 @@ class SiteImageService:
         if current_count >= MAX_IMAGES_PER_SITE:
             raise exc.ValidationError(f"Se ha alcanzado el límite máximo de {MAX_IMAGES_PER_SITE} imágenes por sitio.")
         
-        if not titulo_alt or not titulo_alt.strip():
+        if not titulo_alt:
             raise exc.ValidationError("El título/alt es obligatorio")
         
-        if len(titulo_alt.strip()) > 255:
+        titulo_alt = str(titulo_alt).strip()
+        if not titulo_alt:
+            raise exc.ValidationError("El título/alt es obligatorio")
+        
+        if len(titulo_alt) > 255:
             raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
         
         is_valid, error_msg = self._validate_file(file)
@@ -106,50 +141,22 @@ class SiteImageService:
         
         try:
             self._ensure_bucket_exists()
-            
-            unique_filename = self._generate_unique_filename(file.filename, site_id)
             bucket_name = self._get_bucket_name()
             
-            file.seek(0, os.SEEK_END)
-            file_size = file.tell()
-            file.seek(0)
-            
-            file_data = file.read(file_size)
-            file.seek(0)
-            
-            extension = file.filename.rsplit('.', 1)[-1].lower()
-            content_type_map = {
-                'jpg': 'image/jpeg',
-                'jpeg': 'image/jpeg',
-                'png': 'image/png',
-                'webp': 'image/webp'
-            }
-            content_type = content_type_map.get(extension, 'image/jpeg')
-            
-            file_stream = BytesIO(file_data)
-            
-            self.minio_client.put_object(
-                bucket_name,
-                unique_filename,
-                file_stream,
-                length=file_size,
-                content_type=content_type
-            )
-            
-            minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
-            if minio_server.startswith('http://') or minio_server.startswith('https://'):
-                url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
-            else:
-                url_publica = f"http://{minio_server}/{bucket_name}/{unique_filename}"
+            url_publica, _ = self._upload_file_to_minio(file, site_id, bucket_name)
             
             max_orden = db.session.query(db.func.max(SiteImage.orden)).filter_by(id_site=site_id).scalar() or 0
             nuevo_orden = max_orden + 1
             
+            descripcion_final = None
+            if descripcion:
+                descripcion_final = str(descripcion).strip() or None
+            
             new_image = SiteImage(
                 id_site=site_id,
                 url_publica=url_publica,
-                titulo_alt=titulo_alt.strip(),
-                descripcion=descripcion.strip() if descripcion else None,
+                titulo_alt=titulo_alt,
+                descripcion=descripcion_final,
                 orden=nuevo_orden,
                 es_portada=False
             )
@@ -175,29 +182,9 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al crear imagen: {e}")
     
     def _get_presigned_url(self, url_publica: str, bucket_name: str, image_id: int) -> str:
-        use_presigned = current_app.config.get('MINIO_USE_PRESIGNED_URLS', False)
-        
-        if not use_presigned:
-            return url_publica
-        
-        try:
-            object_path = self._extract_object_path_from_url(url_publica, bucket_name)
-            expires_days = current_app.config.get('MINIO_PRESIGNED_EXPIRY_DAYS', 365)
-            return self.minio_client.presigned_get_object(
-                bucket_name,
-                object_path,
-                expires=timedelta(days=expires_days)
-            )
-        except Exception as e:
-            error_msg = str(e)
-            if '10061' in error_msg or 'Connection refused' in error_msg or 'denegó expresamente' in error_msg:
-                current_app.logger.warning(
-                    f"MinIO no está disponible. Usando URL original para imagen {image_id}. "
-                    f"Para generar URLs presignadas, asegúrate de que MinIO esté corriendo en {current_app.config.get('MINIO_SERVER', '127.0.0.1:9000')}"
-                )
-            else:
-                current_app.logger.warning(f"Error al generar URL firmada para imagen {image_id}: {e}")
-            return url_publica
+        if not url_publica:
+            return ""
+        return url_publica
     
     def get_images_by_site(self, site_id: int) -> List[Dict[str, Any]]:
         images = SiteImage.query.filter_by(id_site=site_id).order_by(SiteImage.orden.asc()).all()
@@ -205,6 +192,9 @@ class SiteImageService:
         
         result = []
         for img in images:
+            if not img.url_publica:
+                current_app.logger.warning(f"Imagen {img.id} del sitio {site_id} no tiene URL pública")
+                continue
             img_dict = img.to_dict()
             img_dict['url_publica'] = self._get_presigned_url(img.url_publica, bucket_name, img.id)
             result.append(img_dict)
@@ -213,7 +203,7 @@ class SiteImageService:
     
     def get_cover_image(self, site_id: int) -> Optional[Dict[str, Any]]:
         cover = SiteImage.query.filter_by(id_site=site_id, es_portada=True).first()
-        if not cover:
+        if not cover or not cover.url_publica:
             return None
         
         cover_dict = cover.to_dict()
@@ -319,16 +309,20 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al reordenar imágenes: {e}")
     
     def _upload_file_to_minio(self, file, site_id: int, bucket_name: str) -> tuple[str, str]:
+        if not file or not hasattr(file, 'filename') or not file.filename:
+            raise exc.ValidationError("El archivo no es válido o no tiene nombre")
+        
         unique_filename = self._generate_unique_filename(file.filename, site_id)
+        file.seek(0)
+        file_data_bytes = file.read()
         
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
+        if not file_data_bytes:
+            raise exc.ValidationError("El archivo está vacío o no se pudo leer")
+        
+        file_size = len(file_data_bytes)
         file.seek(0)
         
-        file_data_bytes = file.read(file_size)
-        file.seek(0)
-        
-        extension = file.filename.rsplit('.', 1)[-1].lower()
+        extension = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
         content_type_map = {
             'jpg': 'image/jpeg',
             'jpeg': 'image/jpeg',
@@ -336,16 +330,27 @@ class SiteImageService:
             'webp': 'image/webp'
         }
         content_type = content_type_map.get(extension, 'image/jpeg')
-        
         file_stream = BytesIO(file_data_bytes)
+        file_stream.seek(0)
         
-        self.minio_client.put_object(
-            bucket_name,
-            unique_filename,
-            file_stream,
-            length=file_size,
-            content_type=content_type
-        )
+        minio = self.minio_client
+        if minio is None:
+            raise exc.DatabaseError("MinIO client no está disponible. Verifique la configuración.")
+        
+        try:
+            minio.put_object(
+                bucket_name,
+                unique_filename,
+                file_stream,
+                length=file_size,
+                content_type=content_type
+            )
+        except S3Error as e:
+            raise exc.DatabaseError(f"Error al subir archivo a MinIO: {e}")
+        except AttributeError as e:
+            raise exc.DatabaseError(f"Error de configuración de MinIO: {e}. Verifique que MinIO esté correctamente inicializado.")
+        except Exception as e:
+            raise exc.DatabaseError(f"Error inesperado al subir archivo: {e}")
         
         minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
         if minio_server.startswith('http://') or minio_server.startswith('https://'):
@@ -374,8 +379,12 @@ class SiteImageService:
             
             for idx, file_data in enumerate(files_data):
                 file = file_data.get('file')
-                titulo_alt = file_data.get('titulo_alt', '').strip()
-                descripcion = file_data.get('descripcion', '').strip() or None
+                
+                titulo_alt_raw = file_data.get('titulo_alt', '')
+                titulo_alt = str(titulo_alt_raw).strip() if titulo_alt_raw is not None else ''
+                
+                descripcion_raw = file_data.get('descripcion', '')
+                descripcion = str(descripcion_raw).strip() or None if descripcion_raw is not None else None
                 
                 if not titulo_alt:
                     raise exc.ValidationError("El título/alt es obligatorio para todas las imágenes")
@@ -446,15 +455,19 @@ class SiteImageService:
         
         try:
             if titulo_alt is not None:
-                titulo_alt = titulo_alt.strip()
-                if not titulo_alt:
+                titulo_alt_str = str(titulo_alt).strip() if titulo_alt else ''
+                if not titulo_alt_str:
                     raise exc.ValidationError("El título/alt no puede estar vacío")
-                if len(titulo_alt) > 255:
+                if len(titulo_alt_str) > 255:
                     raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
-                image.titulo_alt = titulo_alt
+                image.titulo_alt = titulo_alt_str
             
             if descripcion is not None:
-                image.descripcion = descripcion.strip() if descripcion.strip() else None
+                if descripcion:
+                    descripcion_str = str(descripcion).strip() or None
+                else:
+                    descripcion_str = None
+                image.descripcion = descripcion_str
             
             image.updated_at = datetime.utcnow()
             

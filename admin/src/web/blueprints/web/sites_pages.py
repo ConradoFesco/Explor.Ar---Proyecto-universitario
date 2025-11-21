@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify, current_app
 from src.web.auth.decorators import web_permission_required
 from src.core.services.state_service import state_service
 from src.core.services.category_service import category_service
@@ -402,8 +402,17 @@ def subir_imagen_sitio(site_id: int):
         files_data = []
         for idx, file in enumerate(files):
             if file and file.filename:
-                titulo_alt = titulos[idx].strip() if idx < len(titulos) and titulos[idx] else file.filename
-                descripcion = descripciones[idx].strip() if idx < len(descripciones) and descripciones[idx] else None
+                # Manejar titulo_alt de forma segura
+                if idx < len(titulos) and titulos[idx]:
+                    titulo_alt = str(titulos[idx]).strip() if titulos[idx] else file.filename
+                else:
+                    titulo_alt = file.filename
+                
+                # Manejar descripcion de forma segura
+                if idx < len(descripciones) and descripciones[idx]:
+                    descripcion = str(descripciones[idx]).strip() or None
+                else:
+                    descripcion = None
                 
                 if not titulo_alt:
                     return jsonify({'success': False, 'error': f'El título/alt es obligatorio para la imagen {idx + 1}'}), 400
