@@ -196,7 +196,7 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
 
 export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Promise<PaginatedResponse<HistoricSite>> {
   const base = getApiBaseUrl();
-  const safePerPage = Math.min(Math.max(perPage, 1), 50);
+  const safePerPage = Math.min(Math.max(perPage, 1), 100);
   const query = buildQuery({ page, per_page: safePerPage });
   const url = `${base}/me/favorites${query}`;
   const res = await fetch(url, {
@@ -208,13 +208,22 @@ export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Pr
     throw new Error(`Error al cargar favoritos (${res.status}): ${text}`);
   }
   const raw = await res.json();
-  const items: HistoricSite[] = (raw.items || []).map(mapSiteFromBackend);
+  const itemsSource = (raw.data ?? []) as any[];
+  const items: HistoricSite[] = itemsSource.map(mapSiteFromBackend);
+  const meta = raw.meta ?? {};
+
+  const pageValue = meta.page ?? page;
+  const perPageValue = meta.per_page ?? safePerPage;
+  const totalValue = meta.total ?? items.length;
+  const totalPagesValue =
+    perPageValue > 0 ? Math.max(1, Math.ceil(totalValue / perPageValue)) : 1;
+
   return {
     items,
-    page: raw.page ?? page,
-    per_page: raw.per_page ?? safePerPage,
-    total: raw.total ?? items.length,
-    total_pages: raw.total_pages ?? 1,
+    page: pageValue,
+    per_page: perPageValue,
+    total: totalValue,
+    total_pages: totalPagesValue,
   };
 }
 

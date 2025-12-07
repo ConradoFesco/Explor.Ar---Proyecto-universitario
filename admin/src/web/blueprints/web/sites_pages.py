@@ -515,4 +515,3 @@ def actualizar_metadatos_imagen(site_id: int, image_id: int):
         flash('Error al actualizar metadatos: ' + str(e), 'error')
     
     return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
-

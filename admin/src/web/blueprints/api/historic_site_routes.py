@@ -152,19 +152,60 @@ def get_public_historic_site(site_id):
 def mark_favorite(site_id: int):
     user_id = get_current_user_id()
     if not user_id:
-        return _json_response({'error': 'Usuario no autenticado'}, 401)
+        return _json_response(
+            {
+                "error": {
+                    "code": "unauthorized",
+                    "message": "Authentication required",
+                }
+            },
+            401,
+        )
     try:
         favorite_service.mark_favorite(site_id=site_id, user_id=user_id)
         return '', 204
     except exc.NotFoundError as error:
-        return _json_response({'error': str(error)}, 404)
+        return _json_response(
+            {
+                "error": {
+                    "code": "not_found",
+                    "message": "Site not found",
+                }
+            },
+            404,
+        )
     except exc.ValidationError as error:
-        return _json_response({'error': str(error)}, 400)
+        return _json_response(
+            {
+                "error": {
+                    "code": "invalid_request",
+                    "message": str(error),
+                }
+            },
+            400,
+        )
     except exc.DatabaseError as error:
-        return _json_response({'error': str(error)}, 500)
+        current_app.logger.exception("Database error al marcar favorito", exc_info=error)
+        return _json_response(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            },
+            500,
+        )
     except Exception as error:
         current_app.logger.exception("Error al marcar favorito", exc_info=error)
-        return _json_response({'error': 'Error interno al marcar favorito'}, 500)
+        return _json_response(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            },
+            500,
+        )
 
 
 @site_api.route('/sites/<int:site_id>/favorite', methods=['DELETE'])
@@ -172,19 +213,60 @@ def mark_favorite(site_id: int):
 def unmark_favorite(site_id: int):
     user_id = get_current_user_id()
     if not user_id:
-        return _json_response({'error': 'Usuario no autenticado'}, 401)
+        return _json_response(
+            {
+                "error": {
+                    "code": "unauthorized",
+                    "message": "Authentication required",
+                }
+            },
+            401,
+        )
     try:
         favorite_service.unmark_favorite(site_id=site_id, user_id=user_id)
         return '', 204
     except exc.NotFoundError as error:
-        return _json_response({'error': str(error)}, 404)
+        return _json_response(
+            {
+                "error": {
+                    "code": "not_found",
+                    "message": "Site not found",
+                }
+            },
+            404,
+        )
     except exc.ValidationError as error:
-        return _json_response({'error': str(error)}, 400)
+        return _json_response(
+            {
+                "error": {
+                    "code": "invalid_request",
+                    "message": str(error),
+                }
+            },
+            400,
+        )
     except exc.DatabaseError as error:
-        return _json_response({'error': str(error)}, 500)
+        current_app.logger.exception("Database error al eliminar favorito", exc_info=error)
+        return _json_response(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            },
+            500,
+        )
     except Exception as error:
         current_app.logger.exception("Error al eliminar favorito", exc_info=error)
-        return _json_response({'error': 'Error interno al eliminar favorito'}, 500)
+        return _json_response(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            },
+            500,
+        )
 
 
 @site_api.route('/me/favorites', methods=['GET'])
@@ -193,18 +275,53 @@ def list_my_favorites():
     """Endpoint para listar los sitios favoritos del usuario autenticado."""
     user_id = get_current_user_id()
     if not user_id:
-        return _json_response({'error': 'Usuario no autenticado'}, 401)
+        return _json_response(
+            {
+                "error": {
+                    "code": "unauthorized",
+                    "message": "Authentication required",
+                }
+            },
+            401,
+        )
 
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     try:
-        result = favorite_service.list_favorites(user_id=user_id, page=page, per_page=per_page)
+        result = favorite_service.list_favorites(
+            user_id=user_id, page=page, per_page=per_page
+        )
         return _json_response(result, 200)
     except exc.ValidationError as error:
-        return _json_response({'error': str(error)}, 400)
+        return _json_response(
+            {
+                "error": {
+                    "code": "invalid_request",
+                    "message": str(error),
+                }
+            },
+            400,
+        )
     except exc.DatabaseError as error:
-        return _json_response({'error': str(error)}, 500)
+        current_app.logger.exception("Database error al listar favoritos", exc_info=error)
+        return _json_response(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            },
+            500,
+        )
     except Exception as error:
         current_app.logger.exception("Error al listar favoritos", exc_info=error)
-        return _json_response({'error': 'Error interno al listar favoritos'}, 500)
+        return _json_response(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            },
+            500,
+        )
