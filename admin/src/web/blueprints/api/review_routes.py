@@ -32,6 +32,18 @@ def list_site_reviews(site_id: int):
         return jsonify({'error': 'Error interno al listar reseñas'}), 500
 
 
+def _mask_email(email: str) -> str:
+    """Enmascara un email mostrando solo los primeros 3 caracteres y el dominio."""
+    if not email or '@' not in email:
+        return email
+    name, domain = email.split('@', 1)
+    if len(name) <= 3:
+        masked = name[0] + '•' * (len(name)-1)
+    else:
+        masked = name[:3] + '•' * (len(name)-3)
+    return f"{masked}@{domain}"
+
+
 @review_api.route('/public/sites/<int:site_id>/reviews', methods=['GET'])
 def list_public_site_reviews(site_id: int):
     """Lista reseñas aprobadas de un sitio. No requiere autenticación."""
@@ -43,9 +55,14 @@ def list_public_site_reviews(site_id: int):
             site_id=site_id,
             page=page,
             per_page=per_page,
-            only_approved=True  # Solo reseñas aprobadas
+            only_approved=True  
         )
-        # Renombrar 'items' a 'reviews' para compatibilidad con frontend
+        # Enmascarar emails antes de enviar al frontend
+        for review in result.get('items', []):
+            if 'user_mail' in review and review['user_mail']:
+                review['user_mail'] = _mask_email(review['user_mail'])
+            if 'user' in review and review['user'] and 'mail' in review['user']:
+                review['user']['mail'] = _mask_email(review['user']['mail'])
         response_data = {
             'reviews': result.get('items', []),
             'pagination': result.get('pagination', {})

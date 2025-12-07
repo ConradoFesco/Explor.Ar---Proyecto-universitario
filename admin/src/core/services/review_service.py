@@ -1,6 +1,5 @@
 from datetime import datetime
 from sqlalchemy import func
-
 from src.core.models.review import HistoricSiteReview
 from src.core.models.historic_site import HistoricSite
 from src.core.models.user import User
@@ -15,13 +14,9 @@ from src.core.services.flag_service import flag_service
 
 
 class ReviewService:
-    """Servicios para reseñas de sitios históricos."""
-
+    
     def _has_existing_review(self, site_id: int, user_id: int) -> bool:
-        """
-        Verifica si el usuario ya tiene una reseña (pending o approved) para el sitio.
-        Ignora reseñas rechazadas.
-        """
+        
         from sqlalchemy import and_
         existing_review = HistoricSiteReview.query.filter(
             and_(
@@ -33,48 +28,33 @@ class ReviewService:
         return existing_review is not None
 
     def list_reviews(self, filters=None, page=1, per_page=25, sort_by='created_at', sort_order='desc', site_id=None, only_approved=False):
-        """
-        Lista reseñas con filtros, orden y paginación.
-        Devuelve dict con items y pagination.
-        Compatible con PostgreSQL.
         
-        Args:
-            filters: Dict con filtros adicionales
-            page: Número de página
-            per_page: Items por página
-            sort_by: Campo para ordenar
-            sort_order: 'asc' o 'desc'
-            site_id: ID del sitio para filtrar (opcional)
-            only_approved: Si True, solo muestra reseñas aprobadas (para usuarios públicos)
-        """
-        # Validaciones de entrada
+        
+       
         pagination = validate_review_list_params(page=page, per_page=per_page)
         page = pagination['page']
         per_page = pagination['per_page']
         
-        # Validar sort_by y sort_order
+        
         allowed_sort_fields = ['created_at', 'rating', 'user_mail', 'site_name']
         sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=allowed_sort_fields)
         
-        # Normalizar filtros
+        
         filters = filters or {}
         
-        # Query base
         query = HistoricSiteReview.query.join(User).join(HistoricSite)
 
-        # Filtrar por site_id si se proporciona
         if site_id:
             try:
                 site_id_val = int(site_id)
                 query = query.filter(HistoricSiteReview.site_id == site_id_val)
             except (ValueError, TypeError):
-                pass  # Ignorar site_id inválido
+                pass  
         
-        # Filtrar solo reseñas aprobadas si es para usuarios públicos
-        if only_approved:
+         if only_approved:
             query = query.filter(HistoricSiteReview.status == 'approved')
 
-        # Aplicar filtros combinables
+        
         if filters:
             if filters.get('status'):
                 query = query.filter(HistoricSiteReview.status == filters['status'])
@@ -83,49 +63,47 @@ class ReviewService:
                     site_id = int(filters['site_id'])
                     query = query.filter(HistoricSiteReview.site_id == site_id)
                 except (ValueError, TypeError):
-                    pass  # Ignorar site_id inválido
-            if filters.get('user_id'):
+                    pass  
+            if filters.get('user'):
                 try:
                     user_id = int(filters['user_id'])
                     query = query.filter(HistoricSiteReview.user_id == user_id)
                 except (ValueError, TypeError):
-                    pass  # Ignorar user_id inválido
+                    pass  
+
             if filters.get('rating_from') is not None:
                 try:
                     rating_from = int(filters['rating_from'])
                     if 1 <= rating_from <= 5:
                         query = query.filter(HistoricSiteReview.rating >= rating_from)
                 except (ValueError, TypeError):
-                    pass  # Ignorar rating_from inválido
+                    pass  
             if filters.get('rating_to') is not None:
                 try:
                     rating_to = int(filters['rating_to'])
                     if 1 <= rating_to <= 5:
                         query = query.filter(HistoricSiteReview.rating <= rating_to)
                 except (ValueError, TypeError):
-                    pass  # Ignorar rating_to inválido
+                    pass 
             if filters.get('date_from'):
                 try:
                     date_from = datetime.fromisoformat(filters['date_from'].replace('Z', '+00:00'))
                     query = query.filter(HistoricSiteReview.created_at >= date_from)
                 except (ValueError, AttributeError):
-                    pass  # Ignorar date_from inválido
+                    pass  
             if filters.get('date_to'):
                 try:
                     date_to = datetime.fromisoformat(filters['date_to'].replace('Z', '+00:00'))
                     query = query.filter(HistoricSiteReview.created_at <= date_to)
                 except (ValueError, AttributeError):
-                    pass  # Ignorar date_to inválido
+                    pass  
             if filters.get('user'):
                 user_filter = str(filters['user']).strip()
                 if user_filter:
-                    # Buscar solo al inicio del email (no contiene)
                     query = query.filter(User.mail.ilike(f"{user_filter}%"))
 
-        # Contar total sin order_by (para evitar el error de PostgreSQL)
         total = query.with_entities(func.count(HistoricSiteReview.id)).scalar()
 
-        # Aplicar orden dinámico solo para obtener los items
         if sort_by == 'created_at':
             query = query.order_by(HistoricSiteReview.created_at.desc() if sort_order == 'desc' else HistoricSiteReview.created_at.asc())
         elif sort_by == 'rating':
@@ -135,10 +113,8 @@ class ReviewService:
         elif sort_by == 'site_name':
             query = query.order_by(HistoricSite.name.desc() if sort_order == 'desc' else HistoricSite.name.asc())
 
-        # Offset y limit manual para paginación
         items_query = query.offset((page - 1) * per_page).limit(per_page).all()
 
-        # Construir lista de items
         items = []
         for review in items_query:
             user = review.user
@@ -160,7 +136,6 @@ class ReviewService:
                 'created_at': review.created_at.isoformat() if review.created_at else None
             })
 
-        # Construir objeto de paginación
         pages = (total + per_page - 1) // per_page  # ceil
         pagination = {
             'page': page,
@@ -445,7 +420,7 @@ class ReviewService:
         
         return review
 
-        return review
+        
 
     def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
         """Elimina una reseña. Solo el autor puede eliminarla."""
@@ -495,11 +470,7 @@ class ReviewService:
             raise exc.DatabaseError(f'Error al eliminar la reseña: {e}')
 
     def delete_review_admin(self, *, review_id: int) -> None:
-        """Elimina físicamente una reseña (acción administrativa).
-
-        Lanza NotFoundError si no existe y DatabaseError si falla el commit.
-        """
-        # Validar review_id
+        
         try:
             review_id = int(review_id)
             if review_id <= 0:
@@ -511,12 +482,13 @@ class ReviewService:
         if not review:
             raise exc.NotFoundError('Reseña no encontrada')
         
-        # Eliminar físicamente la reseña
         try:
             db.session.delete(review)
             db.session.commit()
         except Exception as e:
             db.session.rollback()
             raise exc.DatabaseError(f'Error al eliminar la reseña: {e}')
+
+    
 
 review_service = ReviewService()

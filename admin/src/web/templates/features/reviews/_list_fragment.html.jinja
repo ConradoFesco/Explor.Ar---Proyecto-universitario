@@ -1,20 +1,19 @@
 {# templates/features/reviews/_list_fragment.html.jinja #}
-{# Fragmento: espera variables: items, pagination, show_rejection_reason_column #}
 {% from 'components/paginator.html.jinja' import render_pagination %}
 
 {% if items %}
 <table class="w-full divide-y divide-gray-200 table-fixed">
   <colgroup>
-    <col style="width: 15%;">
-    <col style="width: 15%;">
-    <col style="width: 5%;">
-    <col style="width: 25%;">
-    <col style="width: 10%;">
+    <col style="width: 20%;"> 
+    <col style="width: 15%;"> 
+    <col style="width: 5%;"> 
+    <col style="width: 35%;"> 
+    <col style="width: 10%;"> 
     <col style="width: 10%;">
     {% if show_rejection_reason_column %}
       <col style="width: 10%;">
     {% endif %}
-    <col style="width: {% if show_rejection_reason_column %}10%{% else %}20%{% endif %};">
+    <col style="width: 15%;"> 
   </colgroup>
   <thead class="bg-gray-50">
     <tr>
@@ -38,6 +37,7 @@
     {% endfor %}
   </tbody>
 </table>
+
 {% if pagination.pages > 1 %}
 <div class="mt-4 flex items-center justify-between">
   <div class="text-sm text-gray-600">
