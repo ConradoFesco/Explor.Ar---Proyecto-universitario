@@ -8,7 +8,6 @@ class RolUser(db.Model):
     name = db.Column(db.String, unique=True)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     permission_rol_users = db.relationship('PermissionRolUser', backref='rol_user', lazy=True)
     rol_user_users = db.relationship('RolUserUser', backref='rol_user', lazy=True)
     

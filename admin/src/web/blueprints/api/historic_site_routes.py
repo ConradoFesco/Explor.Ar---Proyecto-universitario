@@ -28,8 +28,8 @@ def list_public_historic_sites():
         'latitude': request.args.get('lat'),
         'longitude': request.args.get('long'),
         'radius': request.args.get('radius'),
-        'page': request.args.get('page', default=1, type=int),
-        'per_page': request.args.get('per_page', default=20, type=int),
+        'page': request.args.get('page'),
+        'per_page': request.args.get('per_page'),
         'favorites_only': request.args.get('fav') == '1'
     }
 
@@ -285,8 +285,10 @@ def list_my_favorites():
             401,
         )
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
+    raw_page = request.args.get('page')
+    raw_per_page = request.args.get('per_page')
+    page = raw_page or 1
+    per_page = raw_per_page or 20
 
     try:
         result = favorite_service.list_favorites(

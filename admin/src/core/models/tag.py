@@ -11,7 +11,6 @@ class Tag(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     tag_historic_sites = db.relationship('TagHistoricSite', backref='tag', lazy=True)
     
     def __repr__(self) -> str:

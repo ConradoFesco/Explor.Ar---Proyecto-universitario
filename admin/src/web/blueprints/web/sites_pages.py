@@ -12,15 +12,15 @@ sites_web = Blueprint('sites_web', __name__)
 
 def _resolve_site_list_params():
     raw_args = {
-        'page': request.args.get('page', 1, type=int),
-        'per_page': request.args.get('per_page', 25, type=int),
+        'page': request.args.get('page') or 1,
+        'per_page': request.args.get('per_page') or 25,
         'search_text': request.args.get('search'),
-        'sort_by': request.args.get('sort_by', 'created_at'),
-        'sort_order': request.args.get('sort_order', 'desc'),
-        'city_id': request.args.get('city_id', type=int),
-        'province_id': request.args.get('province_id', type=int),
+        'sort_by': request.args.get('sort_by') or 'created_at',
+        'sort_order': request.args.get('sort_order') or 'desc',
+        'city_id': request.args.get('city_id'),
+        'province_id': request.args.get('province_id'),
         'tag_ids': request.args.get('tag_ids'),
-        'state_id': request.args.get('state_id', type=int),
+        'state_id': request.args.get('state_id'),
         'date_from': request.args.get('date_from'),
         'date_to': request.args.get('date_to'),
         'visible': request.args.get('visible')
@@ -270,41 +270,19 @@ def editar_sitio_web(site_id: int):
 def export_sites_csv_web():
     """Genera un CSV con sitios históricos respetando filtros actuales."""
     try:
-        search_text = request.args.get('search', None)
-        sort_by = request.args.get('sort_by', 'created_at')
-        sort_order = request.args.get('sort_order', 'desc')
-        city_id = request.args.get('city_id', type=int)
-        province_id = request.args.get('province_id', type=int)
-        state_id = request.args.get('state_id', type=int)
-        visible_param = request.args.get('visible')
-        visible = None
-        if visible_param is not None:
-            visible = visible_param.lower() == 'true'
-        tag_ids = request.args.get('tag_ids', '')
-        if tag_ids:
-            try:
-                tag_ids = [int(tid.strip()) for tid in tag_ids.split(',') if tid.strip()]
-            except ValueError:
-                tag_ids = []
-        else:
-            tag_ids = []
-        date_from = request.args.get('date_from', None)
-        date_to = request.args.get('date_to', None)
-        if sort_by not in ['name', 'city', 'created_at']:
-            sort_by = 'created_at'
-        if sort_order not in ['asc', 'desc']:
-            sort_order = 'desc'
+        params = _resolve_site_list_params()
+
         csv_content, filename = historic_site_service.export_sites_to_csv(
-            search_text=search_text,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            city_id=city_id,
-            province_id=province_id,
-            tag_ids=tag_ids,
-            state_id=state_id,
-            date_from=date_from,
-            date_to=date_to,
-            visible=visible
+            search_text=params['search_text'],
+            sort_by=params['sort_by'],
+            sort_order=params['sort_order'],
+            city_id=params['city_id'],
+            province_id=params['province_id'],
+            tag_ids=params['tag_ids'],
+            state_id=params['state_id'],
+            date_from=params['date_from'],
+            date_to=params['date_to'],
+            visible=params['visible'],
         )
         response = Response(
             csv_content,

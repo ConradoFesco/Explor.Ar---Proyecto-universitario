@@ -10,8 +10,10 @@ review_api = Blueprint('review_api', __name__)
 @token_or_session_required
 def list_site_reviews(site_id: int):
     """Lista reseñas aprobadas de un sitio. Requiere autenticación."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
+    raw_page = request.args.get('page')
+    raw_per_page = request.args.get('per_page')
+    page = raw_page or 1
+    per_page = raw_per_page or 10
 
     try:
         result = review_service.list_reviews(
@@ -47,8 +49,10 @@ def _mask_email(email: str) -> str:
 @review_api.route('/public/sites/<int:site_id>/reviews', methods=['GET'])
 def list_public_site_reviews(site_id: int):
     """Lista reseñas aprobadas de un sitio. No requiere autenticación."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
+    raw_page = request.args.get('page')
+    raw_per_page = request.args.get('per_page')
+    page = raw_page or 1
+    per_page = raw_per_page or 10
 
     try:
         result = review_service.list_reviews(
@@ -183,8 +187,10 @@ def list_my_reviews():
     if not user_id:
         return jsonify({'error': 'Usuario no autenticado'}), 401
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
+    raw_page = request.args.get('page')
+    raw_per_page = request.args.get('per_page')
+    page = raw_page or 1
+    per_page = raw_per_page or 25
     sort = request.args.get('sort', 'desc')
     sort_order = 'asc' if sort == 'asc' else 'desc'
 

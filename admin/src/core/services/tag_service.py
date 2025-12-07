@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from src.core.models.historic_site import HistoricSite
 from src.core.validators.tag_validator import validate_tag
+from src.core.validators.listing_validator import validate_tag_list_params
 
 class TagService:
     """Operaciones sobre tags, con validaciones de unicidad y relaciones."""
@@ -121,52 +122,54 @@ class TagService:
         Returns:
             dict: {'tags': [...], 'pagination': {...}}
         """
+        v = validate_tag_list_params(page=page, per_page=per_page, search=search, sort_by=sort_by, sort_order=sort_order)
+        page = v['page']
+        per_page = v['per_page']
+        search = v['search']
+        sort_by = v['sort_by']
+        sort_order = v['sort_order']
+
+        query = Tag.query
+
+        if not include_deleted:
+            query = query.filter_by(deleted=False)
+
+        if search:
+            query = query.filter(Tag.name.ilike(f'{search}%'))
+
+        if sort_by == 'name':
+            order_column = Tag.name.asc() if sort_order == 'asc' else Tag.name.desc()
+        elif sort_by == 'created_at':
+            order_column = Tag.created_at.asc() if sort_order == 'asc' else Tag.created_at.desc()
+        else:
+            order_column = Tag.name.asc()
+
         try:
-            from src.core.validators.listing_validator import validate_tag_list_params
-            v = validate_tag_list_params(page=int(page), per_page=int(per_page), search=search, sort_by=sort_by, sort_order=sort_order)
-            page = v['page']; per_page = v['per_page']; search = v['search']; sort_by = v['sort_by']; sort_order = v['sort_order']
-
-            query = Tag.query
-            
-            if not include_deleted:
-                query = query.filter_by(deleted=False)
-            
-            if search:
-                query = query.filter(Tag.name.ilike(f'{search}%'))
-            
-            if sort_by == 'name':
-                order_column = Tag.name.asc() if sort_order == 'asc' else Tag.name.desc()
-            elif sort_by == 'created_at':
-                order_column = Tag.created_at.asc() if sort_order == 'asc' else Tag.created_at.desc()
-            else:
-                order_column = Tag.name.asc()
-            
-            query = query.order_by(order_column)
-
             pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-            items = pagination.items
-
-            tags_data = []
-            for tag in items:
-                tag_dict = tag.to_dict()
-                sites_count = TagHistoricSite.query.filter_by(Tag_id=tag.id).count()
-                tag_dict['sites_count'] = sites_count
-                tags_data.append(tag_dict)
-
-            return {
-                'tags': tags_data,
-                'pagination': {
-                    'page': pagination.page,
-                    'pages': pagination.pages,
-                    'per_page': pagination.per_page,
-                    'total': pagination.total,
-                    'has_prev': pagination.has_prev,
-                    'has_next': pagination.has_next,
-                    'prev_num': pagination.prev_num,
-                    'next_num': pagination.next_num,
-                }
-            }
         except Exception as e:
             raise DatabaseError(f"Error al listar tags paginados: {e}")
+
+        items = pagination.items
+
+        tags_data = []
+        for tag in items:
+            tag_dict = tag.to_dict()
+            sites_count = TagHistoricSite.query.filter_by(Tag_id=tag.id).count()
+            tag_dict['sites_count'] = sites_count
+            tags_data.append(tag_dict)
+
+        return {
+            'tags': tags_data,
+            'pagination': {
+                'page': pagination.page,
+                'pages': pagination.pages,
+                'per_page': pagination.per_page,
+                'total': pagination.total,
+                'has_prev': pagination.has_prev,
+                'has_next': pagination.has_next,
+                'prev_num': pagination.prev_num,
+                'next_num': pagination.next_num,
+            },
+        }
 
 tag_service = TagService()
