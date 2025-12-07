@@ -3,7 +3,7 @@ from src.core.models.historic_site import HistoricSite
 from src.core.models.user import User
 from src.web import exceptions as exc
 from src.web.extensions import db
-from src.core.validators.reviews_validator import validate_review_list_params
+from src.core.validators.listing_validator import _validate_pagination
 
 
 class FavoriteService:
@@ -76,9 +76,8 @@ class FavoriteService:
         if not user:
             raise exc.ValidationError("Usuario inválido")
 
-        params = validate_review_list_params(page=page, per_page=per_page)
-        page = params['page']
-        per_page = params['per_page']
+        # Validar paginación; ante valores inválidos se lanza ValidationError (no se toman defaults).
+        page, per_page = _validate_pagination(page, per_page, max_per_page=50)
 
         query = FavoriteSite.query.filter_by(user_id=user_id).join(HistoricSite).filter(
             HistoricSite.deleted == False,
@@ -87,7 +86,6 @@ class FavoriteService:
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        # Importar servicios necesarios
         from src.core.services.site_image_service import site_image_service
         from src.core.models.tag import Tag
         from src.core.models.tag_historic_site import TagHistoricSite
@@ -97,15 +95,12 @@ class FavoriteService:
             site = favorite.site
             site_id = site.id
             
-            # Obtener tags del sitio
             site_tags = Tag.query.join(TagHistoricSite).\
                 filter(TagHistoricSite.Historic_Site_id == site_id, Tag.deleted == False).all()
-            tags = [t.slug for t in site_tags]  # Frontend espera slugs como strings
+            tags = [t.slug for t in site_tags]
             
-            # Obtener imagen portada
             cover_image = site_image_service.get_cover_image(site_id)
             
-            # Convertir coordenadas a float
             site_lat = float(site.latitude) if site.latitude is not None else None
             site_lon = float(site.longitude) if site.longitude is not None else None
             
@@ -123,7 +118,7 @@ class FavoriteService:
                 'rating': None,
                 'cover_image': cover_image,
                 'cover_image_url': cover_image['url_publica'] if cover_image else None,
-                'is_favorite': True  # Todos los sitios en esta lista son favoritos
+                'is_favorite': True
             })
 
         return {

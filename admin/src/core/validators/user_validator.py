@@ -30,7 +30,6 @@ def validate_create_user(data: dict) -> dict:
     if not ensure_max_length(mail, MAX_MAIL):
         raise ValidationError('El email no debe superar 120 caracteres')
 
-    # Unicidad de mail
     existing = User.query.filter_by(mail=mail, deleted=False).first()
     if existing:
         raise ValidationError('Ya existe un usuario con ese mail')
@@ -83,7 +82,6 @@ def validate_role_ids(role_ids: list[int]) -> list[int]:
         ids = [int(r) for r in role_ids]
     except Exception:
         raise ValidationError('IDs de roles inválidos')
-    # Integridad referencial
     missing = []
     for rid in ids:
         if not RolUser.query.get(rid):
@@ -91,5 +89,3 @@ def validate_role_ids(role_ids: list[int]) -> list[int]:
     if missing:
         raise NotFoundError(f"Roles no encontrados: {missing}")
     return ids
-
-

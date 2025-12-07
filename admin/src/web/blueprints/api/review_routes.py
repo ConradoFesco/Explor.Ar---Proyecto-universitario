@@ -18,7 +18,7 @@ def list_site_reviews(site_id: int):
             site_id=site_id,
             page=page,
             per_page=per_page,
-            only_approved=True  # Solo reseñas aprobadas
+            only_approved=True 
         )
         response = jsonify(result)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
@@ -57,7 +57,6 @@ def list_public_site_reviews(site_id: int):
             per_page=per_page,
             only_approved=True  
         )
-        # Enmascarar emails antes de enviar al frontend
         for review in result.get('items', []):
             if 'user_mail' in review and review['user_mail']:
                 review['user_mail'] = _mask_email(review['user_mail'])
@@ -186,7 +185,7 @@ def list_my_reviews():
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
-    sort = request.args.get('sort', 'desc')  # 'asc' o 'desc'
+    sort = request.args.get('sort', 'desc')
     sort_order = 'asc' if sort == 'asc' else 'desc'
 
     try:
@@ -196,7 +195,7 @@ def list_my_reviews():
             per_page=per_page,
             sort_by='created_at',
             sort_order=sort_order,
-            only_approved=False  # Mostrar todas las reseñas del usuario (pending, approved)
+            only_approved=False 
         )
         response = jsonify(result)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'

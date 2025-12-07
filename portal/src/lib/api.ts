@@ -115,18 +115,20 @@ function mapSiteFromBackend(s: any): HistoricSite {
   return {
     id: s.id,
     name: s.name,
-    brief_description: s.brief_description ?? null,
+    brief_description: s.short_description ?? null,
     city: s.city ?? null,
     province: s.province ?? null,
-    state: s.state_name ?? s.state ?? null,
-    tags: Array.isArray(s.tags) 
-      ? s.tags.map((t: any) => t.name ?? t.slug ?? String(t)) 
+    state: s.state_of_conservation ?? null,
+    tags: Array.isArray(s.tags)
+      ? s.tags.map((t: any) =>
+          typeof t === 'string' ? t : (t.name ?? t.slug ?? String(t))
+        )
       : [],
     cover_image_url: s.cover_image_url ?? s.cover_image?.url_publica ?? null,
     rating: s.rating ?? null,
-    created_at: s.created_at,
-    latitude: s.latitude ?? null,
-    longitude: s.longitude ?? null,
+    created_at: s.inserted_at,
+    latitude: s.lat ?? null,
+    longitude: s.long ?? null,
     is_favorite: s.is_favorite ?? false,
   };
 }
@@ -164,27 +166,38 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
   const url = `${base}/sites${query}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    credentials: 'include', // Incluir credenciales para que el backend pueda determinar is_favorite
+    credentials: 'include', 
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Error al cargar sitios (${res.status}): ${text}`);
   }
   const raw = await res.json();
-  const items: HistoricSite[] = (raw.sites || []).map(mapSiteFromBackend);
-  const pagination = raw.pagination || {};
+  const itemsSource = (raw.data ?? []) as any[];
+  const items: HistoricSite[] = itemsSource.map(mapSiteFromBackend);
+  const meta = raw.meta ?? {};
+
+  const pageValue = meta.page ?? 1;
+  const perPageValue = meta.per_page ?? (params.perPage ?? DEFAULT_PER_PAGE);
+  const totalValue = meta.total ?? items.length;
+  const totalPagesValue =
+    meta.total_pages ??
+    meta.pages ??
+    (perPageValue > 0 ? Math.ceil(totalValue / perPageValue) : 1);
+
   return {
     items,
-    page: pagination.page ?? 1,
-    per_page: pagination.per_page ?? (params.perPage ?? DEFAULT_PER_PAGE),
-    total: pagination.total ?? items.length,
-    total_pages: pagination.pages ?? 1,
+    page: pageValue,
+    per_page: perPageValue,
+    total: totalValue,
+    total_pages: totalPagesValue,
   };
 }
 
 export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Promise<PaginatedResponse<HistoricSite>> {
   const base = getApiBaseUrl();
-  const query = buildQuery({ page, per_page: perPage });
+  const safePerPage = Math.min(Math.max(perPage, 1), 50);
+  const query = buildQuery({ page, per_page: safePerPage });
   const url = `${base}/me/favorites${query}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
@@ -195,12 +208,11 @@ export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Pr
     throw new Error(`Error al cargar favoritos (${res.status}): ${text}`);
   }
   const raw = await res.json();
-  // Mapear los items usando la misma función que fetchPublicSites
   const items: HistoricSite[] = (raw.items || []).map(mapSiteFromBackend);
   return {
     items,
     page: raw.page ?? page,
-    per_page: raw.per_page ?? perPage,
+    per_page: raw.per_page ?? safePerPage,
     total: raw.total ?? items.length,
     total_pages: raw.total_pages ?? 1,
   };
@@ -221,7 +233,6 @@ export async function toggleFavorite(siteId: number, favorite: boolean): Promise
   if (!res.ok && res.status !== 204) {
     const text = await res.text().catch(() => '');
       
-      // Mejorar mensaje de error según el código de estado
       if (res.status === 401) {
         throw new Error('AUTH_REQUIRED: Debe iniciar sesión para marcar como favorito');
       }
@@ -229,7 +240,6 @@ export async function toggleFavorite(siteId: number, favorite: boolean): Promise
       throw new Error(`Error al actualizar favorito (${res.status}): ${text || 'Error desconocido'}`);
     }
   } catch (error: unknown) {
-    // Si es un error de red (CORS, conexión, etc.)
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('NETWORK_ERROR: Error de conexión. Verifica tu conexión a internet.');
     }
@@ -256,14 +266,11 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
   const url = `${base}/sites/${siteId}`;
   
   try {
-    // Intentar primero con credenciales si se solicita (para obtener is_favorite)
-    // Si falla, intentar sin credenciales
     let res = await fetch(url, {
       headers: { 'Accept': 'application/json' },
       credentials: includeAuth ? 'include' : 'omit',
     });
     
-    // Si falla por autenticación y no se solicitó, intentar sin credenciales
     if (!res.ok && res.status === 401 && includeAuth) {
       res = await fetch(url, {
         headers: { 'Accept': 'application/json' },
@@ -276,7 +283,6 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
       throw new Error(`Error al cargar sitio (${res.status}): ${text}`);
     }
     
-    // Verificar que la respuesta sea JSON
     const contentType = res.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       const text = await res.text().catch(() => '');
@@ -285,27 +291,30 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
     
     const raw = await res.json();
     
-    // Mapear el sitio del backend
     const site: HistoricSiteDetail = {
       id: raw.id,
       name: raw.name,
-      brief_description: raw.brief_description ?? null,
-      complete_description: raw.complete_description ?? null,
-      city: raw.city_name ?? raw.city ?? null,
-      province: raw.province_name ?? raw.province ?? null,
-      state: raw.state_name ?? raw.state ?? null,
-      city_name: raw.city_name ?? null,
-      province_name: raw.province_name ?? null,
-      state_name: raw.state_name ?? null,
+      brief_description: raw.short_description ?? null,
+      complete_description: raw.description ?? null,
+      city: raw.city ?? null,
+      province: raw.province ?? null,
+      state: raw.state_of_conservation ?? null,
+      city_name: raw.city ?? null,
+      province_name: raw.province ?? null,
+      state_name: raw.state_of_conservation ?? null,
       category_name: raw.category_name ?? null,
       tags: Array.isArray(raw.tags) 
         ? raw.tags.map((t: any) => ({ id: t.id, name: t.name, slug: t.slug }))
         : [],
       cover_image_url: raw.cover_image?.url_publica ?? raw.cover_image_url ?? null,
       rating: raw.rating ?? null,
-      created_at: raw.created_at,
-      latitude: raw.latitude ? parseFloat(String(raw.latitude)) : null,
-      longitude: raw.longitude ? parseFloat(String(raw.longitude)) : null,
+      created_at: raw.inserted_at ?? raw.created_at ?? null,
+      latitude: raw.lat != null
+        ? parseFloat(String(raw.lat))
+        : (raw.latitude != null ? parseFloat(String(raw.latitude)) : null),
+      longitude: raw.long != null
+        ? parseFloat(String(raw.long))
+        : (raw.longitude != null ? parseFloat(String(raw.longitude)) : null),
       is_favorite: raw.is_favorite ?? false,
       images: Array.isArray(raw.images) ? raw.images : [],
       cover_image: raw.cover_image ?? null,
@@ -313,7 +322,6 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
     
     return site;
   } catch (error: any) {
-    // Mejorar el mensaje de error para debugging
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error(`Error de red al cargar sitio: ${error.message}. Verifica que el servidor esté corriendo y la URL sea correcta.`);
     }
@@ -324,12 +332,11 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
 export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): Promise<ReviewsResponse> {
   const base = getApiBaseUrl();
   const query = buildQuery({ page, per_page: perPage });
-  // Usar la ruta pública que solo muestra reseñas aprobadas
   const url = `${base}/public/sites/${siteId}/reviews${query}`;
   
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    credentials: 'omit', // No necesita autenticación
+    credentials: 'omit',
   });
   
   if (!res.ok) {
@@ -339,7 +346,6 @@ export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): 
   
   const raw = await res.json();
   
-  // La API pública ya filtra solo reseñas aprobadas, pero por seguridad también filtramos aquí
   const approvedReviews = (raw.reviews || []).filter((r: Review) => r.status === 'approved');
   
   return {
@@ -372,7 +378,6 @@ export async function createReview(siteId: number, rating: number, content: stri
       const errorData = JSON.parse(text);
       errorMsg = errorData.error || text;
     } catch {
-      // Si no es JSON, usar el texto tal cual
     }
     throw new Error(`Error al crear reseña (${res.status}): ${errorMsg}`);
   }
@@ -398,7 +403,6 @@ export async function updateReview(siteId: number, reviewId: number, rating: num
       const errorData = JSON.parse(text);
       errorMsg = errorData.error || text;
     } catch {
-      // Si no es JSON, usar el texto tal cual
     }
     throw new Error(`Error al actualizar reseña (${res.status}): ${errorMsg}`);
   }
@@ -422,7 +426,6 @@ export async function deleteReview(siteId: number, reviewId: number): Promise<vo
       const errorData = JSON.parse(text);
       errorMsg = errorData.error || text;
     } catch {
-      // Si no es JSON, usar el texto tal cual
     }
     throw new Error(`Error al eliminar reseña (${res.status}): ${errorMsg}`);
   }
@@ -440,7 +443,7 @@ export async function getMyReview(siteId: number): Promise<Review | null> {
   });
   if (!res.ok) {
     if (res.status === 401) {
-      return null; // No autenticado
+      return null;
     }
     const text = await res.text().catch(() => '');
     throw new Error(`Error al obtener reseña (${res.status}): ${text}`);

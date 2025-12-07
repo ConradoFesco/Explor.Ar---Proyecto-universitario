@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { HistoricSite, PaginatedResponse, SiteSearchParams } from '@/lib/api'
-import { fetchPublicSites, fetchMyFavorites } from '@/lib/api'
+import { fetchPublicSites } from '@/lib/api'
 
 export type SortOption = {
   field: 'created_at' | 'name' | 'rating'
@@ -49,8 +49,7 @@ function sortByName(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] 
 }
 
 function sortByRating(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
-  // El backend ya calcula y devuelve el rating, solo necesitamos ordenar
-  return [...items].sort((a, b) => {
+    return [...items].sort((a, b) => {
     const aRating = a.rating ?? 0
     const bRating = b.rating ?? 0
     
@@ -71,18 +70,14 @@ function filterSites(
 ): HistoricSite[] {
   const textLower = text.toLowerCase()
   return items.filter((s) => {
-    // Filtrar por texto (nombre o descripción)
     const matchesText = !text ||
       s.name?.toLowerCase().includes(textLower) ||
       (s.brief_description || '').toLowerCase().includes(textLower)
     
-    // Filtrar por ciudad
     const matchesCity = !city || (s.city || '').toLowerCase() === city.toLowerCase()
     
-    // Filtrar por provincia
     const matchesProvince = !province || (s.province || '').toLowerCase() === province.toLowerCase()
     
-    // Filtrar por tags
     const matchesTags = !tags.length || tags.every(t => 
       s.tags?.map(x => x.toLowerCase()).includes(t.toLowerCase())
     )
@@ -195,90 +190,14 @@ export const useSitesStore = defineStore('sites', {
       }
       try {
         const params = this.toSearchParams()
-        let response: PaginatedResponse<HistoricSite>
-        
-        // Si hay filtros de mapa (lat/long/radius), siempre usar fetchPublicSites
-        // porque fetchMyFavorites no soporta filtros de ubicación
-        const hasMapFilters = this.lat != null && this.long != null && this.radius != null
-        
-        if (this.favoritesOnly && !hasMapFilters) {
-          // Solo usar fetchMyFavorites si NO hay filtros de mapa
-          // (para mantener compatibilidad con el comportamiento anterior)
-          try {
-            // Obtener todos los favoritos del usuario
-            let allFavoritesItems: HistoricSite[] = []
-            const perPage = 100
-            let totalPages = 1
-            
-            const firstPage = await fetchMyFavorites(1, perPage)
-            allFavoritesItems = [...firstPage.items]
-            totalPages = firstPage.total_pages
-            
-            if (totalPages > 1) {
-              const remainingPages = []
-              for (let page = 2; page <= totalPages; page++) {
-                remainingPages.push(fetchMyFavorites(page, perPage))
-              }
-              const remainingResults = await Promise.all(remainingPages)
-              for (const result of remainingResults) {
-                allFavoritesItems = [...allFavoritesItems, ...result.items]
-              }
-            }
-            
-            // Aplicar filtros adicionales (texto, ciudad, provincia, tags)
-            let filtered = filterSites(
-              allFavoritesItems,
-              this.text,
-              this.city,
-              this.province,
-              this.tags
-            )
-            
-            // Aplicar ordenamiento si es necesario
-            // Para favoritos, obtenemos todos y luego filtramos/ordenamos en el frontend
-            if (this.sort.field === 'name') {
-              filtered = sortByName(filtered, this.sort.dir)
-            } else if (this.sort.field === 'rating') {
-              // Ordenar por rating (el backend ya lo calcula, solo ordenamos aquí)
-              filtered = sortByRating(filtered, this.sort.dir)
-            }
-            
-            // Aplicar paginación
-            const resultPerPage = params.perPage ?? 20
-            const resultCurrentPage = params.page ?? 1
-            const startIndex = (resultCurrentPage - 1) * resultPerPage
-            const endIndex = startIndex + resultPerPage
-            const paginatedItems = filtered.slice(startIndex, endIndex)
-            
-            response = {
-              items: paginatedItems,
-              total: filtered.length,
-              total_pages: Math.max(1, Math.ceil(filtered.length / resultPerPage)),
-              page: resultCurrentPage,
-              per_page: resultPerPage
-            }
-          } catch (authError: any) {
-            if (authError?.message?.includes('401') || authError?.message?.includes('autenticado')) {
-              this.favoritesOnly = false
-              response = await fetchPublicSites({ ...params, favoritesOnly: false })
-            } else {
-              throw authError
-            }
-          }
-        } else {
-          // Usar fetchPublicSites cuando hay filtros de mapa o cuando no hay favoritos
-          // El backend ahora soporta favoritesOnly combinado con otros filtros
-          response = await fetchPublicSites(params)
-          
-          // El ordenamiento por rating ahora se hace en el backend
-          // Solo ordenamos por nombre en el frontend si es necesario
-          if (this.sort.field === 'name') {
-            response.items = sortByName(response.items, this.sort.dir)
-          }
+        let response: PaginatedResponse<HistoricSite> = await fetchPublicSites(params)
+
+        if (this.sort.field === 'name') {
+          response.items = sortByName(response.items, this.sort.dir)
         }
-        
-        let pageItems = response.items
-        
+
+        const pageItems = response.items
+
         if (replace) {
           this.items = pageItems
         } else {
