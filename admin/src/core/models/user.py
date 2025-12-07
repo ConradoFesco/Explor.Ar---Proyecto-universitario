@@ -21,7 +21,6 @@ class User(db.Model):
     deleted_by_id = db.Column(db.Integer, nullable=True)
     avatar_url = db.Column(db.String, nullable=True)
 
-    # Relaciones
     events = db.relationship('Event', backref='user', lazy=True)
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
     favorites = db.relationship('FavoriteSite', backref='user', lazy=True)
@@ -43,7 +42,6 @@ class User(db.Model):
             'avatar_url': self.avatar_url
         }
 
-    # --- Métodos de password ---
     def set_password(self, password_plain: str) -> None:
         """Genera y guarda un hash seguro del password"""
         self.password = generate_password_hash(password_plain)
@@ -52,7 +50,6 @@ class User(db.Model):
         """Verifica si el password ingresado coincide con el hash guardado"""
         return check_password_hash(self.password, password_plain)
 
-    # --- Permisos del usuario ---
     def has_permission(self, permission_name: str) -> bool:
         """
         Verifica si el usuario tiene un permiso específico de forma eficiente.
@@ -63,18 +60,16 @@ class User(db.Model):
         Returns:
             bool: True si tiene el permiso, False en caso contrario
         """
-        # 1. Chequeo de Super-Admin (llave maestra)
         if self.is_super_admin:
             return True
         
-        # 2. Chequeo normal - detiene búsqueda al encontrar el permiso
         for rol_rel in self.user_roles:
             rol = rol_rel.rol_user
             for perm_rel in rol.permission_rol_users:
                 if perm_rel.permission.name == permission_name:
-                    return True  # Retorna inmediatamente al encontrarlo
+                    return True
         
-        return False  # No se encontró el permiso
+        return False
 
     def get_user_roles(self) -> List[str]:
         """

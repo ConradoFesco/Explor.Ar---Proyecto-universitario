@@ -15,22 +15,31 @@ def lista_tags():
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
-    # Parámetros de filtrado/orden
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 25
     search = request.args.get('search', '')
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
 
-    # Obtener datos del service
-    result = tag_service.get_all_tags_paginated(
-        page=page,
-        per_page=per_page,
-        search=search,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        include_deleted=False,
-    )
+    try:
+        result = tag_service.get_all_tags_paginated(
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            include_deleted=False,
+        )
+    except Exception as e:
+        flash(f'Parámetros inválidos en el listado de tags: {str(e)}', 'error')
+        result = tag_service.get_all_tags_paginated(
+            page=1,
+            per_page=25,
+            search='',
+            sort_by='name',
+            sort_order='asc',
+            include_deleted=False,
+        )
 
     tags = result.get('tags', [])
     p = result.get('pagination', {})
@@ -55,20 +64,31 @@ def lista_tags_fragment():
     if "user_id" not in session:
         return redirect(url_for("main.index"))
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 25
     search = request.args.get('search', '')
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
 
-    result = tag_service.get_all_tags_paginated(
-        page=page,
-        per_page=per_page,
-        search=search,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        include_deleted=False,
-    )
+    try:
+        result = tag_service.get_all_tags_paginated(
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            include_deleted=False,
+        )
+    except Exception as e:
+        flash(f'Parámetros inválidos en el listado de tags: {str(e)}', 'error')
+        result = tag_service.get_all_tags_paginated(
+            page=1,
+            per_page=25,
+            search='',
+            sort_by='name',
+            sort_order='asc',
+            include_deleted=False,
+        )
 
     tags = result.get('tags', [])
     p = result.get('pagination', {})

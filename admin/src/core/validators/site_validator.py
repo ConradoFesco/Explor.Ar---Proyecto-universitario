@@ -8,7 +8,7 @@ from src.core.models.category_site import CategorySite
 from .utils import require_fields, is_float_like, ensure_max_length
 
 MAX_NAME = 255
-MAX_BRIEF = 2000  # texto breve
+MAX_BRIEF = 2000
 
 
 def validate_create_site(data: dict) -> dict:
@@ -36,11 +36,9 @@ def validate_create_site(data: dict) -> dict:
     if not is_float_like(lat) or not is_float_like(lng):
         raise ValidationError('Latitud/Longitud inválidas')
 
-    # Unicidad de nombre
     if HistoricSite.query.filter_by(name=name, deleted=False).first():
         raise ValidationError('Ya existe un sitio histórico con este nombre')
 
-    # Integridad referencial
     if id_estado is not None:
         try:
             id_estado = int(id_estado)
@@ -55,7 +53,6 @@ def validate_create_site(data: dict) -> dict:
     if not CategorySite.query.get(id_category):
         raise NotFoundError('Categoría no encontrada')
 
-    # Aceptamos year_inauguration opcional (int)
     if year_inauguration not in (None, ''):
         try:
             int(year_inauguration)

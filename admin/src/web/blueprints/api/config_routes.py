@@ -25,7 +25,6 @@ def get_system_status():
             "reviews_enabled": reviews_enabled
         }), 200
     except Exception as e:
-        # En caso de error, asumir que no hay mantenimiento y que las reseñas están habilitadas
         return jsonify({
             "maintenance_mode": False,
             "message": None,

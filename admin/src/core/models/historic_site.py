@@ -19,7 +19,6 @@ class HistoricSite(db.Model):
     deleted = db.Column(db.Boolean, nullable=False, default=False)
     visible = db.Column(db.Boolean, nullable=False)
     
-    # Relaciones
     events = db.relationship('Event', backref='historic_site', lazy=True)
     tag_historic_sites = db.relationship('TagHistoricSite', backref='historic_site', lazy=True)
     reviews = db.relationship('HistoricSiteReview', backref='site', lazy='joined')

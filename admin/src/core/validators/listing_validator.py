@@ -23,7 +23,6 @@ def _validate_pagination(page: int | str | None, per_page: int | str | None, *, 
 
 
 def _validate_sort(sort_by: str, sort_order: str, *, allowed_fields: list[str]) -> tuple[str, str]:
-    # Lanzar error si no es válido
     if sort_by not in allowed_fields:
         raise ValidationError(f"Campo de orden inválido: {sort_by}. Opciones válidas: {allowed_fields}")
     if sort_order not in ['asc', 'desc']:
@@ -78,33 +77,36 @@ def _split_csv_values(raw_values: Optional[object]) -> list[str]:
 
 def _validate_tag_ids(tag_ids: Optional[object]) -> list[int]:
     """
-    Devuelve una lista de ints válida. Si el formato es inválido, retorna lista vacía
-    (comportamiento tolerante pedido en las correcciones).
+    Valida y normaliza una lista de IDs de tags.
+    - Si no se envía ningún valor (None / '' / []), retorna lista vacía.
+    - Si se envía algo y no puede convertirse completamente a enteros válidos,
+      lanza ValidationError en lugar de ignorar silenciosamente.
     """
-    if not tag_ids:
+    if tag_ids is None or tag_ids == '' or tag_ids == []:
         return []
+
+    ints: list[int] = []
+
     if isinstance(tag_ids, str):
-        # aceptar formato '1,2,3'
         parts = [p.strip() for p in tag_ids.split(',') if p.strip()]
-        ints = []
-        for p in parts:
-            try:
-                ints.append(int(p))
-            except Exception:
-                # ignorar entradas inválidas
-                pass
+        if not parts:
+            return []
+        try:
+            ints = [int(p) for p in parts]
+        except Exception:
+            raise ValidationError("tag_ids debe ser una lista de IDs numéricos separados por comas")
         return ints
+
     if isinstance(tag_ids, list):
-        ints = []
-        for t in tag_ids:
-            try:
-                ints.append(int(t))
-            except Exception:
-                # ignorar entradas inválidas
-                pass
+        if not tag_ids:
+            return []
+        try:
+            ints = [int(t) for t in tag_ids]
+        except Exception:
+            raise ValidationError("tag_ids debe ser una lista de IDs numéricos")
         return ints
-    # formato no esperado: ignorar filtro
-    return []
+
+    raise ValidationError("tag_ids tiene un formato inválido")
 
 
 def _validate_optional_date(date_str: Optional[str], field: str) -> Optional[str]:
@@ -250,7 +252,6 @@ def validate_event_list_params(*, page: int, per_page: int, user_id: Optional[in
     """Valida filtros de eventos y devuelve tipos correctos para el servicio (datetime)."""
     page, per_page = _validate_pagination(page, per_page, max_per_page=50)
     user_id = _validate_optional_int(user_id, 'user_id')
-    # Validar formato de fechas y convertir a datetime
     date_from_str = _validate_optional_date(date_from, 'date_from')
     date_to_str = _validate_optional_date(date_to, 'date_to')
     date_from_dt = _parse_date_yyyy_mm_dd(date_from_str) if date_from_str else None

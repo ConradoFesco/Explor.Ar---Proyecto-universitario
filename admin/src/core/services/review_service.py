@@ -51,7 +51,7 @@ class ReviewService:
             except (ValueError, TypeError):
                 pass  
         
-         if only_approved:
+        if only_approved:
             query = query.filter(HistoricSiteReview.status == 'approved')
 
         

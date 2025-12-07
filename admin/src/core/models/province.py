@@ -8,7 +8,6 @@ class Province(db.Model):
     name = db.Column(db.String)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     cities = db.relationship('City', backref='province', lazy=True)
     
     def __repr__(self) -> str:

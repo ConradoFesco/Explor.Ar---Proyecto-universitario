@@ -9,7 +9,6 @@ class City(db.Model):
     name = db.Column(db.String)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     historic_sites = db.relationship('HistoricSite', backref='city', lazy=True)
     
     def __repr__(self) -> str:

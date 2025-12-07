@@ -8,7 +8,6 @@ class StateSite(db.Model):
     state = db.Column(db.String)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     historic_sites = db.relationship('HistoricSite', backref='state_site', lazy=True)
     
     def __repr__(self) -> str:

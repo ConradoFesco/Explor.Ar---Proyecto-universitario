@@ -2,7 +2,6 @@ from datetime import datetime
 from src.web.extensions import db
 from typing import Any, Optional
 
-# ELIMINADA: from flask_login import current_user  <- ¡Correcto!
 
 class Flag(db.Model):
     __tablename__ = "Flag"

@@ -8,7 +8,6 @@ class CategorySite(db.Model):
     name = db.Column(db.String, nullable=False)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     historic_sites = db.relationship('HistoricSite', backref='category', lazy=True)
     
     def __repr__(self) -> str:

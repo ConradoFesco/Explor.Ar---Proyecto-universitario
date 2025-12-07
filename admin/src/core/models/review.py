@@ -15,11 +15,9 @@ class HistoricSiteReview(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     rejection_reason = db.Column(db.String(200), nullable=True)
     
-    # Relaciones
-    # user: relación con User
+
     user = db.relationship('User', foreign_keys=[user_id], lazy='joined')
-    # site: ya está definido como backref desde HistoricSite.reviews, no necesitamos definirlo aquí  
-    
+  
     def __repr__(self) -> str:
         return f'<HistoricSiteReview site={self.site_id} user={self.user_id} rating={self.rating}>'
 

@@ -15,7 +15,6 @@ class SiteImage(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relación con HistoricSite
     historic_site = db.relationship('HistoricSite', backref='images', lazy=True)
     
     def __repr__(self) -> str:

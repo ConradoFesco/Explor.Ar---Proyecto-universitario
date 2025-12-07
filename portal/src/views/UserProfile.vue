@@ -47,7 +47,6 @@ const fetchData = async () => {
     })
 
     if (activeTab.value === 'reviews') {
-      // Usar endpoint /me/reviews
       const url = `${base}/me/reviews?${params.toString()}`
       const response = await fetch(url, {
         method: 'GET',
@@ -64,7 +63,6 @@ const fetchData = async () => {
       }
 
       const data = await response.json()
-      // Mapear datos del backend al formato esperado por el componente
       reviews.value = (data.items || []).map((r: any) => ({
         id: r.id,
         site_name: r.site_name || 'Sitio sin nombre',
@@ -74,7 +72,6 @@ const fetchData = async () => {
       }))
       totalPages.value = data.pagination?.pages || 1
     } else {
-      // Favoritos: usar endpoint /me/favorites
       const url = `${base}/me/favorites?${params.toString()}`
       const response = await fetch(url, {
         method: 'GET',
@@ -90,19 +87,22 @@ const fetchData = async () => {
         throw new Error(`Error al cargar favorites del backend.`)
       }
 
-      const data = await response.json()
-      // Mapear datos del backend al formato esperado por el componente
-      favorites.value = (data.items || []).map((item: any) => ({
+      const payload = await response.json()
+      const items: any[] = payload.data || []
+      const meta = payload.meta || {}
+
+      favorites.value = items.map((item: any) => ({
         id: item.id,
         site_name: item.name || 'Sitio sin nombre',
         image_url: item.cover_image_url || item.cover_image?.url_publica,
         location: item.city ? `${item.city}${item.province ? ', ' + item.province : ''}` : 'Ubicación no disponible',
-        added_at: item.created_at ? new Date(item.created_at).toLocaleDateString('es-AR') : ''
+        added_at: item.inserted_at ? new Date(item.inserted_at).toLocaleDateString('es-AR') : ''
       }))
-      totalPages.value = data.total_pages || data.pages || 1
+      const perPage = Number(params.get('per_page') || '25')
+      const total = meta.total ?? items.length
+      totalPages.value = Math.max(1, Math.ceil(total / perPage))
     }
 
-    // Asegurar que totalPages sea al menos 1
     if (totalPages.value < 1) {
       totalPages.value = 1
     }
@@ -140,15 +140,12 @@ watch(activeTab, () => { page.value = 1; fetchData() })
 
       <Tabs v-model="activeTab" class="w-full">
 
-        <!-- CONTROLES: Asegura el centrado del bloque completo (Pestañas + Ordenar) -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-6 sm:mb-8 w-full">
 
-          <!-- PESTAÑAS -->
           <div class="bg-white dark:bg-gray-800 p-1.5 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 flex">
 
             <TabsList class="bg-transparent inline-flex space-x-0">
 
-              <!-- Trigger Reviews -->
               <TabsTrigger
                 value="reviews"
                 class="rounded-full px-5 py-2 text-sm font-medium transition-all text-center whitespace-nowrap
@@ -158,7 +155,6 @@ watch(activeTab, () => { page.value = 1; fetchData() })
                 Mis Reseñas
               </TabsTrigger>
 
-              <!-- Trigger Favoritos -->
               <TabsTrigger
                 value="favorites"
                 class="rounded-full px-5 py-2 text-sm font-medium transition-all text-center whitespace-nowrap
@@ -170,11 +166,9 @@ watch(activeTab, () => { page.value = 1; fetchData() })
             </TabsList>
           </div>
 
-          <!-- ORDENAR -->
           <SortButton v-model="sortOrder" label="Fecha" />
         </div>
 
-        <!-- CONTENIDO -->
         <TabsContent value="reviews" class="mt-0 focus-visible:outline-none w-full">
           <ListReviewUser :reviews="reviews" :loading="loading" />
         </TabsContent>
@@ -185,7 +179,6 @@ watch(activeTab, () => { page.value = 1; fetchData() })
 
       </Tabs>
 
-      <!-- Paginación -->
       <Pagination
         :current-page="page"
         :total-pages="totalPages"
