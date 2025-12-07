@@ -31,7 +31,6 @@ from src.core.services.site_image_service import site_image_service
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""
     permissions = [
-        # Permisos para sitios históricos
         "create_historic_site",
         "get_historic_site", 
         "get_all_historic_sites",
@@ -43,52 +42,45 @@ def create_permissions():
         "get_filter_options",
         "export_historic_sites",
         
-        # Permisos para usuarios
         "create_user",
         "get_user",
         "get_all_users", 
         "update_user",
         "delete_user",
         
-        # Permisos para categorías
         "create_category",
         "get_category",
         "get_all_categories",
         "update_category", 
         "delete_category",
         
-        # Permisos para tags
         "create_tag",
         "get_tag",
         "get_all_tags",
         "update_tag",
         "delete_tag",
         
-        # Permisos para eventos
         "create_event",
         "get_event",
         "get_all_events",
         "update_event",
         "delete_event",
         
-        # Permisos para estados
         "create_state",
         "get_state", 
         "get_all_states",
         "update_state",
         "delete_state",
 
-        # Permisos para flags
         "flag_admin",
         
-        # Permisos para exportación
         "export_historic_sites",
         
-        # Permisos para perfil de usuario
         "view_profile",
         "update_password",
-        # Permiso para moderar reseñas (panel privado)
-        "moderate_reviews",
+        "review_index" ,
+        "review_update" 
+        "review_destroy"
     ]
     
     created_count = 0
@@ -127,10 +119,8 @@ def create_roles():
 def assign_permissions_to_roles(roles):
     """Asignar permisos a los roles"""
     
-    # Definir qué permisos tiene cada rol
     role_permissions = {
         "admin": [
-            # Todos los permisos excepto gestión de flags
             "create_historic_site", "get_historic_site", "get_all_historic_sites", 
             "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
             "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
@@ -139,10 +129,9 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "moderate_reviews"
+            "view_profile", "update_password", "review_index","review_update","review_destroy"
         ],
         "editor": [
-            # Permisos para gestionar contenido
             "create_historic_site", "get_historic_site", "get_all_historic_sites",
             "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
             "add_tags", "update_tags", "get_filter_options",
@@ -150,15 +139,13 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "moderate_reviews"
+            "view_profile", "update_password", "review_index","review_update","review_destroy"
         ],
         "moderador": [
-            # Permisos limitados pero incluye moderación
             "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
-            "view_profile", "update_password", "moderate_reviews"
+            "view_profile", "update_password", "review_index","review_update","review_destroy"
         ],
         "usuario": [
-            # Permisos básicos para usuarios autenticados
             "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
             "get_category", "get_all_categories", "get_tag", "get_all_tags",
             "get_state", "get_all_states", "get_event", "get_all_events",
@@ -295,8 +282,7 @@ def create_super_admin():
     admin_user.set_password("grupo06")
     
     db.session.add(admin_user)
-    db.session.flush()  # Para obtener el ID
-    
+    db.session.flush()  
     return True
 def create_dummy_users(existing_roles):
     """Crear 3 usuarios dummy y asignarles un rol distinto cada uno."""
@@ -309,7 +295,6 @@ def create_dummy_users(existing_roles):
 
     dummy_users = []
 
-    # Datos de los usuarios y el rol a asignar
     user_data = [
         ("user1@example.com", "Usuario Prueba 1", rol_admin),
         ("user2@example.com", "Usuario Prueba 2", rol_editor),
@@ -333,9 +318,8 @@ def create_dummy_users(existing_roles):
         )
         u.set_password("password123")
         db.session.add(u)
-        db.session.flush()  # para asegurar que u.id exista antes de asignar el rol
-
-        # Crear la relación usuario-rol
+        db.session.flush()  
+        
         u.user_roles.append(RolUserUser(User_id=u.id, Rol_User_id=rol.id))
 
         dummy_users.append(u)

@@ -49,7 +49,7 @@ function handleWriteReview() {
       </Button>
     </div>
 
-    <!-- Loading State -->
+    
     <div v-if="isLoading" class="space-y-3">
       <div v-for="i in 3" :key="i" class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2 bg-white dark:bg-gray-800">
         <Skeleton class="h-4 w-1/4" />

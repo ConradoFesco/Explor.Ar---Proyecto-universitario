@@ -43,9 +43,9 @@ def list_public_site_reviews(site_id: int):
             site_id=site_id,
             page=page,
             per_page=per_page,
-            only_approved=True  # Solo reseñas aprobadas
+            only_approved=True  
         )
-        # Renombrar 'items' a 'reviews' para compatibilidad con frontend
+       
         response_data = {
             'reviews': result.get('items', []),
             'pagination': result.get('pagination', {})

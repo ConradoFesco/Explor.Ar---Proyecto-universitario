@@ -89,19 +89,15 @@ function handleVerTodos() {
             class="pl-4 md:basis-1/2 lg:basis-1/3"
           >
             <div class="p-1 h-full">
-              <!-- Usamos el componente SiteCard -->
-              <!-- 'site' ahora es un objeto HistoricSite, que es lo que SiteCard espera -->
               <SiteCard :site="site" />
             </div>
           </CarouselItem>
         </CarouselContent>
 
-        <!-- Controles del Carrusel (se ocultan en pantallas muy pequeñas) -->
         <CarouselPrevious class="hidden sm:flex" />
         <CarouselNext class="hidden sm:flex" />
       </Carousel>
 
-      <!-- Mensaje si no hay sitios -->
       <div v-if="!sites || sites.length === 0" class="text-center text-gray-500 py-10">
         <p>No hay sitios disponibles en esta sección por el momento.</p>
       </div>

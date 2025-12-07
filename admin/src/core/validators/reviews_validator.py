@@ -1,22 +1,58 @@
 from src.web.exceptions import ValidationError
-from .listing_validator import _validate_pagination
+from .listing_validator import (
+    _validate_pagination, 
+    _validate_sort, 
+    _validate_optional_int, 
+    _validate_optional_date, 
+    _clean_optional_str
+)
 
+def validate_review_list_params(
+    page=None, per_page=None,
+    sort_by=None, sort_order=None,
+    status=None, site_id=None, user=None,
+    rating_from=None, rating_to=None,
+    date_from=None, date_to=None
+) -> dict:
+    """
+    Valida y limpia todos los parámetros para el listado de reseñas.
+    Centraliza la lógica que antes estaba dispersa en el controlador.
+    """
+    
+    page_val, per_page_val = _validate_pagination(page, per_page, max_per_page=50)
 
-def validate_review_list_params(*, page: int | str | None, per_page: int | str | None) -> dict:
-    try:
-        page_val = int(page) if page is not None else 1
-    except (TypeError, ValueError):
-        raise ValidationError('El número de página debe ser un entero >= 1')
+    allowed_sort = ['created_at', 'rating', 'user_mail', 'site_name']
+    sort_by_val, sort_order_val = _validate_sort(sort_by, sort_order, allowed_fields=allowed_sort)
 
-    try:
-        per_page_val = int(per_page) if per_page is not None else 10
-    except (TypeError, ValueError):
-        raise ValidationError('per_page debe ser un entero entre 1 y 100')
+    filters = {}
 
-    page_val, per_page_val = _validate_pagination(page_val, per_page_val, max_per_page=100)
+    if status and status not in ['', 'null']:
+        filters['status'] = status
+
+    if site_id:
+        filters['site_id'] = _validate_optional_int(site_id, 'site_id')
+    
+    if rating_from:
+        filters['rating_from'] = _validate_optional_int(rating_from, 'rating_from')
+    
+    if rating_to:
+        filters['rating_to'] = _validate_optional_int(rating_to, 'rating_to')
+
+    if date_from:
+        filters['date_from'] = _validate_optional_date(date_from, 'date_from')
+    if date_to:
+        filters['date_to'] = _validate_optional_date(date_to, 'date_to')
+
+    clean_user = _clean_optional_str(user)
+    if clean_user:
+        filters['user'] = clean_user
+
     return {
         'page': page_val,
-        'per_page': per_page_val
+        'per_page': per_page_val,
+        'sort_by': sort_by_val,
+        'sort_order': sort_order_val,
+        'filters': filters
     }
 
 
@@ -43,4 +79,3 @@ def validate_review_create_payload(*, rating, content):
         'rating': rating_val,
         'content': content_val,
     }
-

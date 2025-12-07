@@ -5,19 +5,23 @@
   <td class="px-3 py-2 text-sm text-gray-700 break-words">
     {{ review.site_name or review.site_id }}
   </td>
-  <td class="px-3 py-2 text-sm text-gray-700 break-words">
-    {{ review.user_mail or '—' }}
-  </td>
+  <td class="px-3 py-2 text-sm text-gray-700 break-words whitespace-nowrap">{{ review.user_mail }}</td>
+
+
   <td class="px-2 py-2 text-sm text-gray-700 text-center">{{ review.rating }}</td>
+
   <td class="px-3 py-2 text-sm text-gray-700 break-words">
     {{ review.content }}
   </td>
+
   <td class="px-2 py-2 text-sm">
     {{ render_status_badge(review.status) }}
   </td>
+
   <td class="px-2 py-2 text-sm text-gray-700">
     {{ (review.created_at[:10] if review.created_at else '') | default('') }}
   </td>
+
   {% if show_rejection_reason_column %}
     <td class="px-3 py-2 text-sm text-gray-700 break-words">
       {% if review.status == 'rejected' %}
@@ -27,13 +31,33 @@
       {% endif %}
     </td>
   {% endif %}
-  <td class="px-2 py-2 text-sm text-right">
-    <div class="flex items-center justify-end gap-1 flex-wrap">
-      <button data-id="{{ review.id }}" data-site-id="{{ review.site_id }}" class="btn-view inline-flex items-center px-2 py-1 border rounded text-xs whitespace-nowrap">Ver</button>
+
+  <td class="px-2 py-2 text-sm text-right align-middle">
+    <div class="flex items-center justify-end gap-2 flex-wrap">
+      <button 
+          data-id="{{ review.id }}" data-site-id="{{ review.site_id }}"
+          class="btn-view inline-flex items-center px-2 py-1 border rounded text-xs whitespace-nowrap hover:bg-gray-100"
+          onclick="openReviewModal({{ review | tojson }})"
+      >
+        Ver
+      </button>
+
       {% if review.status == 'pending' %}
-        <button data-id="{{ review.id }}" class="btn-approve inline-flex items-center px-2 py-1 border rounded text-xs bg-green-50 hover:bg-green-100 whitespace-nowrap">Aprobar</button>
-        <button data-id="{{ review.id }}" data-site-id="{{ review.site_id }}" class="btn-reject inline-flex items-center px-2 py-1 border rounded text-xs bg-yellow-50 hover:bg-yellow-100 whitespace-nowrap">Rechazar</button>
-        <button data-id="{{ review.id }}" class="btn-delete inline-flex items-center px-2 py-1 border rounded text-xs bg-red-50 hover:bg-red-100 whitespace-nowrap">Eliminar</button>
+        <form action="{{ url_for('reviews_web.aprobar_review', review_id=review.id) }}" method="POST" class="inline">
+            <button type="submit" class="btn-approve inline-flex items-center px-2 py-1 border rounded text-xs bg-green-50 hover:bg-green-100 whitespace-nowrap">Aprobar</button>
+        </form>
+        
+        <button 
+            type="button"
+            onclick="openRejectModal('{{ url_for('reviews_web.rechazar_review', review_id=review.id) }}')" 
+            class="btn-reject inline-flex items-center px-2 py-1 border rounded text-xs bg-yellow-50 hover:bg-yellow-100 whitespace-nowrap"
+        >
+            Rechazar
+        </button>
+
+        <form action="{{ url_for('reviews_web.eliminar_review', review_id=review.id) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar esta reseña permanentemente?');">
+            <button type="submit" class="btn-delete inline-flex items-center px-2 py-1 border rounded text-xs bg-red-50 hover:bg-red-100 whitespace-nowrap">Eliminar</button>
+        </form>
       {% endif %}
     </div>
   </td>

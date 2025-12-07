@@ -1,6 +1,5 @@
 from datetime import datetime
 from sqlalchemy import func
-
 from src.core.models.review import HistoricSiteReview
 from src.core.models.historic_site import HistoricSite
 from src.core.models.user import User
@@ -83,13 +82,14 @@ class ReviewService:
                     site_id = int(filters['site_id'])
                     query = query.filter(HistoricSiteReview.site_id == site_id)
                 except (ValueError, TypeError):
-                    pass  # Ignorar site_id inválido
-            if filters.get('user_id'):
+                    pass  
+            if filters.get('user'):
                 try:
                     user_id = int(filters['user_id'])
                     query = query.filter(HistoricSiteReview.user_id == user_id)
                 except (ValueError, TypeError):
-                    pass  # Ignorar user_id inválido
+                    pass  
+
             if filters.get('rating_from') is not None:
                 try:
                     rating_from = int(filters['rating_from'])
@@ -445,7 +445,7 @@ class ReviewService:
         
         return review
 
-        return review
+        
 
     def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
         """Elimina una reseña. Solo el autor puede eliminarla."""

@@ -23,11 +23,11 @@ def _validate_pagination(page: int | str | None, per_page: int | str | None, *, 
 
 
 def _validate_sort(sort_by: str, sort_order: str, *, allowed_fields: list[str]) -> tuple[str, str]:
-    # Fallback a valores por defecto si no son válidos
+    # Lanzar error si no es válido
     if sort_by not in allowed_fields:
-        sort_by = allowed_fields[0] if allowed_fields else 'created_at'
+        raise ValidationError(f"Campo de orden inválido: {sort_by}. Opciones válidas: {allowed_fields}")
     if sort_order not in ['asc', 'desc']:
-        sort_order = 'desc'
+        raise ValidationError(f"Sentido de orden inválido: {sort_order}. Debe ser 'asc' o 'desc'.")
     return sort_by, sort_order
 
 

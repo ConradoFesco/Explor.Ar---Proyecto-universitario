@@ -75,7 +75,7 @@ def create_permissions():
         "view_profile",
         "update_password",
         # Permiso para moderar reseñas 
-        "moderate_reviews",
+        "review_index","review_update","review_destroy"
 
     ]
     
@@ -131,7 +131,7 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "moderate_reviews"
+            "view_profile", "update_password", "review_index","review_update","review_destroy"
         ],
         "editor": [
             # Permisos para gestionar contenido
@@ -142,12 +142,12 @@ def assign_permissions_to_roles(roles):
             "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
             "create_event", "get_event", "get_all_events", "update_event", "delete_event",
             "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "moderate_reviews"
+            "view_profile", "update_password", "review_index","review_update","review_destroy"
         ],
         "moderador": [
             # permisos limitados pero incluye moderación
             "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
-            "view_profile", "update_password", "moderate_reviews"
+            "view_profile", "update_password", "review_index","review_update","review_destroy"
         ],
         "usuario": [
             # Permisos básicos para usuarios autenticados
