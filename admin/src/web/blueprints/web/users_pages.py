@@ -14,8 +14,8 @@ users_web = Blueprint('users_web', __name__)
 @web_permission_required("get_all_users")
 def list_users_page():
     """Listado de usuarios con filtros, orden y paginación (SSR)."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 25
 
     filters = {
         "email": request.args.get('search'),
@@ -28,21 +28,23 @@ def list_users_page():
     sort_by = request.args.get('sort_by', 'created_at')
     sort_order = request.args.get('sort_order', 'desc')
 
-    result = user_service.list_users(
-        filters=filters,
-        page=page,
-        per_page=per_page,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
-
-    current_user = None
-    if session.get('user_id'):
-        try:
-            current_user = user_service.get_user(session.get('user_id'))
-        except Exception:
-            pass
-
+    try:
+        result = user_service.list_users(
+            filters=filters,
+            page=page,
+            per_page=per_page,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+    except ValidationError as e:
+        flash(f'Parámetros inválidos en el listado de usuarios: {str(e)}', 'error')
+        result = user_service.list_users(
+            filters={},
+            page=1,
+            per_page=25,
+            sort_by='created_at',
+            sort_order='desc',
+        )
     try:
         roles_all = user_service.get_available_roles()
         role_options = [{'value': r.get('name'), 'label': r.get('name').capitalize()} for r in roles_all]
@@ -61,7 +63,6 @@ def list_users_page():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        current_user=current_user,
         role_options=role_options
     )
 
@@ -77,9 +78,8 @@ def list_users_fragment():
     sin necesidad de recargar la página completa (layout, menús, scripts).
     Retorna solo el HTML parcial (_list_fragment) para ser inyectado en el DOM.
     """
-
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 25
 
     filters = {
         "email": request.args.get('search'),
@@ -91,19 +91,23 @@ def list_users_fragment():
     sort_by = request.args.get('sort_by', 'created_at')
     sort_order = request.args.get('sort_order', 'desc')
 
-    result = user_service.list_users(
-        filters=filters,
-        page=page,
-        per_page=per_page,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
-    current_user = None
-    if session.get('user_id'):
-        try:
-            current_user = user_service.get_user(session.get('user_id'))
-        except Exception:
-            pass
+    try:
+        result = user_service.list_users(
+            filters=filters,
+            page=page,
+            per_page=per_page,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+    except ValidationError as e:
+        flash(f'Parámetros inválidos en el listado de usuarios: {str(e)}', 'error')
+        result = user_service.list_users(
+            filters={},
+            page=1,
+            per_page=25,
+            sort_by='created_at',
+            sort_order='desc',
+        )
     return render_template(
         'features/users/_list_fragment.html.jinja',
         users=result.get('users', []),
@@ -116,8 +120,7 @@ def list_users_fragment():
             'has_next': result.get('has_next', False),
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
-        },
-        current_user=current_user
+        }
     )
 
 
@@ -142,7 +145,6 @@ def edit_user_page(user_id: int):
 @web_permission_required("create_user")
 def create_user_form_page():
     """Formulario de creación de usuario (SSR de roles disponibles)."""
-
     try:
         available_roles = user_service.get_available_roles()
     except Exception:
@@ -183,16 +185,11 @@ def create_user_web():
 @users_web.post('/users/<int:user_id>/eliminar')
 @web_permission_required("delete_user")
 def delete_user_page(user_id: int):
-    """Elimina lógicamente un usuario con motivo (solo con permiso)."""
-
+    """Elimina lógicamente un usuario (solo con permiso)."""
     admin_id = session.get("user_id")
-    reason = request.form.get("reason", "")
     try:
-        user_service.delete_user_with_reason(user_id=user_id, reason=reason, admin_user_data=admin_id)
-        msg = "Usuario eliminado correctamente"
-        if (reason or '').strip():
-            msg += f". Motivo: {reason.strip()}"
-        flash(msg, "success")
+        user_service.delete_user(user_id=user_id, admin_user_id=admin_id)
+        flash("Usuario eliminado correctamente", "success")
     except ValidationError as ve:
         flash(str(ve), "error")
     except Exception as e:

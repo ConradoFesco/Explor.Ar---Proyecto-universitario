@@ -98,7 +98,7 @@
     detailFragmentUrl: {{ url_for('reviews_web.review_detail_fragment', review_id=0).replace('/0/fragment', '') | tojson }}
   };
 
-  window.CURRENT_USER_ID = {{ session.get('user_id') | tojson }};
+  window.CURRENT_USER_ID = {{ current_user.id | tojson if current_user else 'null' }};
 </script>
 
 <script src="{{ url_for('static', filename='js/reviews.js') }}"></script>

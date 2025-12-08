@@ -16,6 +16,7 @@ from src.core.validators.user_validator import (
     validate_update_user,
     validate_role_ids,
 )
+from src.core.validators.listing_validator import validate_user_list_params
 from src.core.validators.profile_validator import validate_new_password
 
 class UserService:
@@ -175,45 +176,21 @@ class UserService:
             db.session.rollback()
             raise DatabaseError(f"Error al actualizar el usuario: {e}")
 
-    def delete_user(self, user_id, commit=True):
+    def delete_user(self, user_id, admin_user_id, commit=True):
         """
-        Baja lógica del usuario.
+        Baja lógica del usuario, registrando actor pero **sin** motivo de eliminación.
+
+        Regla de negocio:
+        - Un usuario no puede eliminarse a sí mismo.
+        - Solo un SuperAdmin puede eliminar a otro SuperAdmin.
 
         Args:
-            user_id (int): ID del usuario.
+            user_id (int): ID del usuario a eliminar.
+            admin_user_id (int): ID del administrador que ejecuta la acción.
             commit (bool): Confirmar transacción.
 
         Returns:
             dict: Mensaje de resultado.
-
-        Raises:
-            NotFoundError/DatabaseError.
-        """
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        
-        user.deleted = True
-        try:
-            if commit:
-                db.session.commit()
-            return {"message": f"Usuario {user_id} eliminado correctamente"}
-        except IntegrityError as e:
-            db.session.rollback()
-            raise DatabaseError(f"Error al eliminar el usuario: {e}")
-
-    def delete_user_with_reason(self, user_id, reason, admin_user_data, commit=True):
-        """
-        Elimina lógicamente un usuario, guardando motivo y actor.
-
-        Args:
-            user_id (int): ID del usuario a eliminar.
-            reason (str): Motivo.
-            admin_user_data (int|dict): ID o dict del admin actor.
-            commit (bool): Confirmar transacción.
-
-        Returns:
-            str: Mensaje de éxito.
 
         Raises:
             NotFoundError/ValidationError/DatabaseError.
@@ -222,12 +199,10 @@ class UserService:
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
 
-        admin_id = admin_user_data if isinstance(admin_user_data, int) else admin_user_data.get('id', 1)
-
-        if user_id == admin_id:
+        if user_id == admin_user_id:
             raise ValidationError("No puedes eliminarte a ti mismo")
 
-        admin_user = User.query.get(admin_id)
+        admin_user = User.query.get(admin_user_id)
 
         if user.is_super_admin:
             if not admin_user or not admin_user.is_super_admin:
@@ -236,13 +211,12 @@ class UserService:
         user.active = False
         user.deleted = True
         user.deleted_at = datetime.utcnow()
-        user.deletion_reason = reason
-        user.deleted_by_id = admin_id
+        user.deleted_by_id = admin_user_id
 
         try:
             if commit:
                 db.session.commit()
-            return f"El usuario '{user.mail}' ha sido eliminado correctamente."
+            return {"message": f"El usuario '{user.mail}' ha sido eliminado correctamente."}
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al eliminar el usuario: {e}")
@@ -288,29 +262,19 @@ class UserService:
         Returns:
             dict: {'users': [...], 'pagination': {...}}
         """
-        try:
-            page = int(page)
-            if page < 1:
-                page = 1
-        except (ValueError, TypeError):
-            page = 1
-        
-        try:
-            per_page = int(per_page)
-            if per_page < 1:
-                per_page = 25
-        except (ValueError, TypeError):
-            per_page = 25
-
         filters = filters or {}
-
-        valid_sort_fields = ['created_at', 'name']
-        if sort_by not in valid_sort_fields:
-            sort_by = 'created_at'
-
-        valid_sort_orders = ['asc', 'desc']
-        if sort_order not in valid_sort_orders:
-            sort_order = 'desc'
+        v = validate_user_list_params(
+            page=page,
+            per_page=per_page,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        page = v['page']
+        per_page = v['per_page']
+        filters = v['filters']
+        sort_by = v['sort_by']
+        sort_order = v['sort_order']
 
         query = User.query.filter_by(deleted=False)
         
@@ -318,9 +282,9 @@ class UserService:
             if filters.get('email'):
                 query = query.filter(User.mail.ilike(f"{filters['email']}%"))
             if filters.get('activo') is not None:
-                query = query.filter_by(active=bool(filters['activo']))
+                query = query.filter_by(active=filters['activo'])
             if filters.get('blocked') is not None:
-                query = query.filter_by(blocked=bool(filters['blocked']))
+                query = query.filter_by(blocked=filters['blocked'])
             if filters.get('rol'):
                 from src.core.models.rol_user_user import RolUserUser
                 from src.core.models.rol_user import RolUser
@@ -337,11 +301,14 @@ class UserService:
             else:
                 query = query.order_by(User.name.asc(), User.last_name.asc())
 
-        pagination = query.paginate(
-            page=page,
-            per_page=per_page,
-            error_out=False
-        )
+        try:
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+        except Exception as e:
+            raise DatabaseError(f"Error al listar usuarios: {e}")
         users = pagination.items
 
         users_with_roles = []
