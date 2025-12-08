@@ -5,7 +5,7 @@ Requieren permisos equivalentes a los endpoints API.
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
 from src.web.auth.decorators import web_permission_required
 from src.core.services.usuario_service import user_service
-from src.web.exceptions import ValidationError
+from src.web.exceptions import ValidationError, NotFoundError
 
 users_web = Blueprint('users_web', __name__)
 
@@ -119,13 +119,16 @@ def list_users_fragment():
 @web_permission_required("update_user")
 def edit_user_page(user_id: int):
     """Página de edición de usuario con SSR de datos y roles disponibles."""
+    try:
+        user = user_service.get_user(user_id)
+    except NotFoundError:
+        flash("Usuario no encontrado", "error")
+        return redirect(url_for('users_web.list_users_page'))
 
-    user = user_service.get_user(user_id)
     try:
         available_roles = user_service.get_available_roles()
     except Exception:
         available_roles = []
-
     return render_template('users/edit_user.html', user=user, user_id=user_id, available_roles=available_roles)
 
 
