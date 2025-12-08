@@ -5,7 +5,7 @@ Requieren permisos equivalentes a los endpoints API.
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
 from src.web.auth.decorators import web_permission_required
 from src.core.services.usuario_service import user_service
-from src.web.exceptions import ValidationError
+from src.web.exceptions import ValidationError, NotFoundError
 
 users_web = Blueprint('users_web', __name__)
 
@@ -14,9 +14,6 @@ users_web = Blueprint('users_web', __name__)
 @web_permission_required("get_all_users")
 def list_users_page():
     """Listado de usuarios con filtros, orden y paginación (SSR)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
 
@@ -38,12 +35,14 @@ def list_users_page():
         sort_by=sort_by,
         sort_order=sort_order
     )
-    try:
-        admin_summary = user_service.get_user(session.get('user_id'))
-        current_is_super_admin = bool(admin_summary.get('is_super_admin'))
-    except Exception:
-        current_is_super_admin = False
-    # Opciones de roles dinámicas para el filtro (respeta módulo de roles)
+
+    current_user = None
+    if session.get('user_id'):
+        try:
+            current_user = user_service.get_user(session.get('user_id'))
+        except Exception:
+            pass
+
     try:
         roles_all = user_service.get_available_roles()
         role_options = [{'value': r.get('name'), 'label': r.get('name').capitalize()} for r in roles_all]
@@ -62,7 +61,7 @@ def list_users_page():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        current_is_super_admin=current_is_super_admin,
+        current_user=current_user,
         role_options=role_options
     )
 
@@ -70,9 +69,14 @@ def list_users_page():
 @users_web.route('/users/fragment')
 @web_permission_required("get_all_users")
 def list_users_fragment():
-    """Fragmento HTML del listado de usuarios para paginar/filtrar vía fetch HTML."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Endpoint exclusivo para peticiones asíncronas (AJAX/Fetch).
+    
+    RAZÓN DE IMPLEMENTACIÓN:
+    Permite actualizar la tabla de usuarios (filtrado, ordenamiento y paginación)
+    sin necesidad de recargar la página completa (layout, menús, scripts).
+    Retorna solo el HTML parcial (_list_fragment) para ser inyectado en el DOM.
+    """
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
@@ -94,11 +98,12 @@ def list_users_fragment():
         sort_by=sort_by,
         sort_order=sort_order
     )
-    try:
-        admin_summary = user_service.get_user(session.get('user_id'))
-        current_is_super_admin = bool(admin_summary.get('is_super_admin'))
-    except Exception:
-        current_is_super_admin = False
+    current_user = None
+    if session.get('user_id'):
+        try:
+            current_user = user_service.get_user(session.get('user_id'))
+        except Exception:
+            pass
     return render_template(
         'features/users/_list_fragment.html.jinja',
         users=result.get('users', []),
@@ -112,23 +117,24 @@ def list_users_fragment():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        current_is_super_admin=current_is_super_admin
+        current_user=current_user
     )
 
 
 @users_web.route("/users/<int:user_id>/editar")
-@web_permission_required("get_user")
+@web_permission_required("update_user")
 def edit_user_page(user_id: int):
     """Página de edición de usuario con SSR de datos y roles disponibles."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    try:
+        user = user_service.get_user(user_id)
+    except NotFoundError:
+        flash("Usuario no encontrado", "error")
+        return redirect(url_for('users_web.list_users_page'))
 
-    user = user_service.get_user(user_id)
     try:
         available_roles = user_service.get_available_roles()
     except Exception:
         available_roles = []
-
     return render_template('users/edit_user.html', user=user, user_id=user_id, available_roles=available_roles)
 
 
@@ -136,8 +142,6 @@ def edit_user_page(user_id: int):
 @web_permission_required("create_user")
 def create_user_form_page():
     """Formulario de creación de usuario (SSR de roles disponibles)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     try:
         available_roles = user_service.get_available_roles()
@@ -151,8 +155,6 @@ def create_user_form_page():
 @web_permission_required("create_user")
 def create_user_web():
     """Procesa el alta de usuario y redirige con mensajes flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     admin_id = session.get('user_id')
     form = request.form
     name = (form.get('name') or '').strip()
@@ -182,8 +184,6 @@ def create_user_web():
 @web_permission_required("delete_user")
 def delete_user_page(user_id: int):
     """Elimina lógicamente un usuario con motivo (solo con permiso)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     admin_id = session.get("user_id")
     reason = request.form.get("reason", "")
@@ -204,8 +204,6 @@ def delete_user_page(user_id: int):
 @web_permission_required("update_user")
 def update_user_page(user_id: int):
     """Actualiza datos y roles de un usuario y redirige con flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     admin_id = session.get('user_id')
     form = request.form
     name = (form.get('name') or '').strip()
