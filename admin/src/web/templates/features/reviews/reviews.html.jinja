@@ -54,20 +54,8 @@
             <div id="review-detail-body">
                 <p class="text-sm text-gray-600">Cargando...</p>
             </div>
-            <div id="reject-section" class="hidden mt-4 border-t pt-4">
-                <label class="block text-sm font-medium text-gray-700">Motivo de rechazo</label>
-                <textarea id="rejectReason" rows="4" class="w-full mt-2 p-2 border rounded"></textarea>
-                <p id="rejectMsg" class="text-red-500 text-sm mt-2 hidden"></p>
-                <div class="flex justify-end gap-2 mt-4">
-                    <button id="cancelReject" type="button" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
-                    <button id="saveReject" type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Confirmar rechazo</button>
-                </div>
-            </div>
             <div class="flex justify-end gap-2 mt-4">
-            <button id="modal-close" type="button" onclick="closeModal('reviewDetailModal')" class="px-4 py-2 rounded border hover:bg-gray-100">Cerrar</button>
-                <button id="modal-approve" type="button" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 hidden">Aprobar</button>
-                <button id="modal-reject" type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 hidden">Rechazar</button>
-                <button id="modal-delete" type="button" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 hidden">Eliminar</button>
+                <button id="modal-close" type="button" onclick="closeModal('reviewDetailModal')" class="px-4 py-2 rounded border hover:bg-gray-100">Cerrar</button>
             </div>
         {% endcall %}
 
@@ -85,6 +73,29 @@
             <div class="flex justify-center gap-4 mt-4">
                 <button id="cancelDelete" type="button" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
                 <button id="confirmDelete" type="button" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Eliminar</button>
+            </div>
+        {% endcall %}
+
+        {# Modal de confirmación para aprobar #}
+        {% call render_modal_content('approveConfirmModal', 'Confirmar aprobación', 'sm') %}
+            <div class="text-center text-lg py-4">¿Estás seguro que deseas aprobar esta reseña?</div>
+            <div class="flex justify-center gap-4 mt-4">
+                <button id="cancelApprove" type="button" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
+                <button id="confirmApprove" type="button" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Aprobar</button>
+            </div>
+        {% endcall %}
+
+        {# Modal para rechazo con motivo #}
+        {% call render_modal_content('rejectConfirmModal', 'Rechazar reseña', 'sm') %}
+            <div class="mt-2">
+                <p class="text-sm text-gray-600 mb-2">Ingrese el motivo de rechazo para esta reseña.</p>
+                <label class="block text-sm font-medium text-gray-700">Motivo de rechazo</label>
+                <textarea id="rejectReason" rows="4" class="w-full mt-2 p-2 border rounded"></textarea>
+                <p id="rejectMsg" class="text-red-500 text-sm mt-2 hidden"></p>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="cancelReject" type="button" class="px-4 py-2 rounded border hover:bg-gray-100">Cancelar</button>
+                <button id="saveReject" type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Confirmar rechazo</button>
             </div>
         {% endcall %}
 

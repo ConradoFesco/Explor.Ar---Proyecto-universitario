@@ -10,11 +10,9 @@ sites_events_web = Blueprint('sites_events_web', __name__)
 
 
 @sites_events_web.route("/sitios/<int:site_id>/eventos/fragment")
-@web_permission_required("get_all_events")
+@web_permission_required("event_index")
 def historial_eventos_fragment(site_id: int):
     """Fragmento HTML del historial de eventos de un sitio histórico."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     raw = {
         'page': request.args.get('page', 1, type=int),
         'per_page': request.args.get('per_page', 10, type=int),

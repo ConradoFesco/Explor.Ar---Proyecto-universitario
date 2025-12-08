@@ -1,37 +1,11 @@
 from flask import Blueprint, request, current_app, jsonify
 from src.core.services.review_service import review_service
+from src.core.models.historic_site import HistoricSite
 from src.web import exceptions as exc
 from src.web.auth.decorators import token_or_session_required, get_current_user_id
 
 review_api = Blueprint('review_api', __name__)
 
-
-@review_api.route('/sites/<int:site_id>/reviews', methods=['GET'])
-@token_or_session_required
-def list_site_reviews(site_id: int):
-    """Lista reseñas aprobadas de un sitio. Requiere autenticación."""
-    raw_page = request.args.get('page')
-    raw_per_page = request.args.get('per_page')
-    page = raw_page or 1
-    per_page = raw_per_page or 10
-
-    try:
-        result = review_service.list_reviews(
-            site_id=site_id,
-            page=page,
-            per_page=per_page,
-            only_approved=True 
-        )
-        response = jsonify(result)
-        response.headers['Content-Type'] = 'application/json; charset=utf-8'
-        return response, 200
-    except exc.ValidationError as error:
-        return jsonify({'error': str(error)}), 400
-    except exc.NotFoundError as error:
-        return jsonify({'error': str(error)}), 404
-    except Exception as error:
-        current_app.logger.exception("Error al listar reseñas", exc_info=error)
-        return jsonify({'error': 'Error interno al listar reseñas'}), 500
 
 
 def _mask_email(email: str) -> str:
@@ -48,46 +22,92 @@ def _mask_email(email: str) -> str:
 
 @review_api.route('/public/sites/<int:site_id>/reviews', methods=['GET'])
 def list_public_site_reviews(site_id: int):
-    """Lista reseñas aprobadas de un sitio. No requiere autenticación."""
-    raw_page = request.args.get('page')
-    raw_per_page = request.args.get('per_page')
-    page = raw_page or 1
-    per_page = raw_per_page or 10
+    """Lista reseñas aprobadas de un sitio (API usada por el portal público)."""
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 10
 
     try:
+        site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
+        if not site:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Site not found",
+                    }
+                }
+            ), 404
         result = review_service.list_reviews(
             site_id=site_id,
             page=page,
             per_page=per_page,
-            only_approved=True  
+            only_approved=True,
         )
-        for review in result.get('items', []):
+        items = result.get('items', [])
+        pagination = result.get('pagination', {})
+        for review in items:
             if 'user_mail' in review and review['user_mail']:
                 review['user_mail'] = _mask_email(review['user_mail'])
             if 'user' in review and review['user'] and 'mail' in review['user']:
                 review['user']['mail'] = _mask_email(review['user']['mail'])
-        response_data = {
-            'reviews': result.get('items', []),
-            'pagination': result.get('pagination', {})
+        data = []
+        for r in items:
+            item = dict(r)
+            item['comment'] = r.get('content')
+            item['inserted_at'] = r.get('created_at')
+            item.setdefault('updated_at', None)
+            data.append(item)
+        payload = {
+            "data": data,
+            "meta": {
+                "page": pagination.get("page", 1),
+                "per_page": pagination.get("per_page", per_page),
+                "total": pagination.get("total", 0),
+            },
         }
-        response = jsonify(response_data)
+        response = jsonify(payload)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
     except exc.ValidationError as error:
-        return jsonify({'error': str(error)}), 400
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": {
+                        "_global": [str(error)],
+                    },
+                }
+            }
+        ), 400
     except exc.NotFoundError as error:
-        return jsonify({'error': str(error)}), 404
+        return jsonify(
+            {
+                "error": {
+                    "code": "not_found",
+                    "message": str(error),
+                }
+            }
+        ), 404
     except Exception as error:
         current_app.logger.exception("Error al listar reseñas públicas", exc_info=error)
-        return jsonify({'error': 'Error interno al listar reseñas'}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
 
 
 @review_api.route('/sites/<int:site_id>/reviews', methods=['POST'])
 @token_or_session_required
 def create_site_review(site_id: int):
+    """Crea una nueva reseña para un sitio histórico específico."""
     payload = request.get_json(silent=True) or {}
     rating = payload.get('rating')
-    content = payload.get('content')
+    content = payload.get('comment')
     user_id = get_current_user_id()
 
     try:
@@ -97,18 +117,57 @@ def create_site_review(site_id: int):
             rating=rating,
             content=content,
         )
-        response = jsonify(review.to_dict())
+        data = {
+            "id": review.id,
+            "site_id": review.site_id,
+            "rating": review.rating,
+            "comment": review.content,
+            "inserted_at": review.created_at.isoformat() if review.created_at else None,
+        }
+        response = jsonify(data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 201
     except exc.ValidationError as error:
-        return jsonify({'error': str(error)}), 400
-    except exc.NotFoundError as error:
-        return jsonify({'error': str(error)}), 404
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": {
+                        "_global": [str(error)],
+                    },
+                }
+            }
+        ), 400
+    except exc.NotFoundError:
+        return jsonify(
+            {
+                "error": {
+                    "code": "not_found",
+                    "message": "Site not found",
+                }
+            }
+        ), 404
     except exc.DatabaseError as error:
-        return jsonify({'error': str(error)}), 500
+        current_app.logger.exception("Database error al crear reseña", exc_info=error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
     except Exception as error:
         current_app.logger.exception("Error al crear reseña", exc_info=error)
-        return jsonify({'error': 'Error interno al crear reseña'}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
 
 
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['GET'])
@@ -135,7 +194,8 @@ def update_site_review(site_id: int, review_id: int):
     """Actualiza una reseña existente."""
     payload = request.get_json(silent=True) or {}
     rating = payload.get('rating')
-    content = payload.get('content')
+    # La API pública trabaja solo con `comment` como nombre de campo
+    content = payload.get('comment')
     user_id = get_current_user_id()
 
     try:
@@ -187,21 +247,18 @@ def list_my_reviews():
     if not user_id:
         return jsonify({'error': 'Usuario no autenticado'}), 401
 
-    raw_page = request.args.get('page')
-    raw_per_page = request.args.get('per_page')
-    page = raw_page or 1
-    per_page = raw_per_page or 25
+    page = request.args.get('page') or 1
+    per_page = request.args.get('per_page') or 25
     sort = request.args.get('sort', 'desc')
-    sort_order = 'asc' if sort == 'asc' else 'desc'
 
     try:
         result = review_service.list_reviews(
-            filters={'user_id': user_id},
             page=page,
             per_page=per_page,
             sort_by='created_at',
-            sort_order=sort_order,
-            only_approved=False 
+            sort_order=sort,
+            user_id=user_id,
+            only_approved=False,
         )
         response = jsonify(result)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'

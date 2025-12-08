@@ -4,7 +4,6 @@ Utilidades de validación comunes (tipos, longitudes, formatos).
 
 import re
 
-
 def require_fields(data: dict, required: list[str]):
     missing = [f for f in required if (f not in data or data.get(f) in (None, '', []))]
     return missing
@@ -47,10 +46,8 @@ def is_valid_email(email: str | None) -> bool:
 
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{6,}$")
 
-
 def is_strong_password(password: str | None) -> bool:
     if not password or not isinstance(password, str):
         return False
     return PASSWORD_REGEX.match(password) is not None
-
 

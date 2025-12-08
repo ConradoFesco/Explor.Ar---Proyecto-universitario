@@ -124,5 +124,3 @@ def validate_update_site(data: dict) -> dict:
     if 'visible' in data:
         cleaned['visible'] = bool(data.get('visible'))
     return cleaned
-
-

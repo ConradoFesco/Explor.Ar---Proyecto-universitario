@@ -18,63 +18,54 @@ from src.core.models.user import User
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""
     permissions = [
-        # Permisos para sitios históricos
-        "create_historic_site",
-        "get_historic_site", 
-        "get_all_historic_sites",
-        "get_all_sites_for_map",
-        "update_historic_site",
-        "delete_historic_site",
-        "add_tags",
-        "update_tags",
-        "get_filter_options",
-        "export_historic_sites",
+        "site_new",           
+        "site_show",         
+        "site_index",        
+        "site_map_index",   
+        "site_update",       
+        "site_destroy",      
+        "site_tags_add",
+        "site_tags_update",
+        "site_filters_index",
+        "site_export",
         
-        # Permisos para usuarios
-        "create_user",
-        "get_user",
-        "get_all_users", 
-        "update_user",
-        "delete_user",
+        "user_new",     
+        "user_show",   
+        "user_index",  
+        "user_update",  
+        "user_destroy", 
         
-        # Permisos para categorías
-        "create_category",
-        "get_category",
-        "get_all_categories",
-        "update_category", 
-        "delete_category",
+        "category_new",
+        "category_show",
+        "category_index",
+        "category_update",
+        "category_destroy",
         
-        # Permisos para tags
-        "create_tag",
-        "get_tag",
-        "get_all_tags",
-        "update_tag",
-        "delete_tag",
+        "tag_new",
+        "tag_show",
+        "tag_index",
+        "tag_update",
+        "tag_destroy",
         
-        # Permisos para eventos
-        "create_event",
-        "get_event",
-        "get_all_events",
-        "update_event",
-        "delete_event",
+        "event_new",
+        "event_show",
+        "event_index",
+        "event_update",
+        "event_destroy",
         
-        # Permisos para estados
-        "create_state",
-        "get_state", 
-        "get_all_states",
-        "update_state",
-        "delete_state",
+        "state_new",
+        "state_show",
+        "state_index",
+        "state_update",
+        "state_destroy",
 
-        # Permisos para flags
-        "flag_admin",
+        "flag_index",
+        "flag_update",
         
-        # Permisos para exportación
-        "export_historic_sites",
+        "site_export",
         
-        # Permisos para perfil de usuario
-        "view_profile",
-        "update_password",
-        # Permiso para moderar reseñas 
+        "profile_show",
+        "profile_update_password",
         "review_index","review_update","review_destroy"
 
     ]
@@ -123,38 +114,37 @@ def assign_permissions_to_roles(roles):
     role_permissions = {
         "admin": [
             # Todos los permisos excepto gestión de flags
-            "create_historic_site", "get_historic_site", "get_all_historic_sites", 
-            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
-            "create_user", "get_user", "get_all_users", "update_user", "delete_user",
-            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
-            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
-            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "review_index","review_update","review_destroy"
+            "site_new", "site_show", "site_index", "site_map_index", "site_update", "site_destroy",
+            "site_tags_add", "site_tags_update", "site_filters_index", "site_export",
+            "user_new", "user_show", "user_index", "user_update", "user_destroy",
+            "category_new", "category_show", "category_index", "category_update", "category_destroy",
+            "tag_new", "tag_show", "tag_index", "tag_update", "tag_destroy",
+            "event_new", "event_show", "event_index", "event_update", "event_destroy",
+            "state_new", "state_show", "state_index", "state_update", "state_destroy",
+            "profile_show", "profile_update_password", "review_index","review_update","review_destroy",
+            "flag_index", "flag_update",
         ],
         "editor": [
             # Permisos para gestionar contenido
-            "create_historic_site", "get_historic_site", "get_all_historic_sites",
-            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options",
-            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
-            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
-            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "review_index","review_update","review_destroy"
+            "site_new", "site_show", "site_index", "site_map_index", "site_update", "site_destroy",
+            "site_tags_add", "site_tags_update", "site_filters_index",
+            "category_new", "category_show", "category_index", "category_update", "category_destroy",
+            "tag_new", "tag_show", "tag_index", "tag_update", "tag_destroy",
+            "event_new", "event_show", "event_index", "event_update", "event_destroy",
+            "state_new", "state_show", "state_index", "state_update", "state_destroy",
+            "profile_show", "profile_update_password", "review_index","review_update","review_destroy"
         ],
         "moderador": [
             # permisos limitados pero incluye moderación
-            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
-            "view_profile", "update_password", "review_index","review_update","review_destroy"
+            "site_show", "site_index", "site_map_index",
+            "profile_show", "profile_update_password", "review_index","review_update","review_destroy"
         ],
         "usuario": [
             # Permisos básicos para usuarios autenticados
-            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
-            "get_category", "get_all_categories", "get_tag", "get_all_tags",
-            "get_state", "get_all_states", "get_event", "get_all_events",
-            "view_profile", "update_password"
+            "site_show", "site_index", "site_map_index",
+            "category_show", "category_index", "tag_show", "tag_index",
+            "state_show", "state_index", "event_show", "event_index",
+            "profile_show", "profile_update_password"
         ]
 
     }

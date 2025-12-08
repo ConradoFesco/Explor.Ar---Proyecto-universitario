@@ -10,5 +10,3 @@ def validate_new_password(new_password: str) -> str:
     if not is_strong_password(new_password):
         raise ValidationError('La contraseña debe tener al menos 6 caracteres y combinar letras y números')
     return new_password
-
-

@@ -29,7 +29,6 @@ def register_filters(app):
         if isinstance(date_value, datetime):
             return date_value.strftime("%d/%m/%Y")
 
-        # Si es un string, intentar convertirlo
         if isinstance(date_value, str):
             try:
                 date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
