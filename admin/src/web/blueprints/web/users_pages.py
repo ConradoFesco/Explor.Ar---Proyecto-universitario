@@ -70,7 +70,14 @@ def list_users_page():
 @users_web.route('/users/fragment')
 @web_permission_required("get_all_users")
 def list_users_fragment():
-    """Fragmento HTML del listado de usuarios para paginar/filtrar vía fetch HTML."""
+    """
+    Endpoint exclusivo para peticiones asíncronas (AJAX/Fetch).
+    
+    RAZÓN DE IMPLEMENTACIÓN:
+    Permite actualizar la tabla de usuarios (filtrado, ordenamiento y paginación)
+    sin necesidad de recargar la página completa (layout, menús, scripts).
+    Retorna solo el HTML parcial (_list_fragment) para ser inyectado en el DOM.
+    """
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
