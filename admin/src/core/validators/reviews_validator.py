@@ -7,19 +7,16 @@ from .listing_validator import (
     _clean_optional_str
 )
 
-def validate_review_list_params(
-    page=None, per_page=None,
-    sort_by=None, sort_order=None,
-    status=None, site_id=None, user=None,
-    rating_from=None, rating_to=None,
-    date_from=None, date_to=None
-) -> dict:
+def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_order=None,
+                                status=None, site_id=None, user=None,
+                                rating_from=None, rating_to=None,
+                                date_from=None, date_to=None) -> dict:
     """
     Valida y limpia todos los parámetros para el listado de reseñas.
     Centraliza la lógica que antes estaba dispersa en el controlador.
     """
-    
-    page_val, per_page_val = _validate_pagination(page, per_page, max_per_page=50)
+    # Para listados de reseñas permitimos hasta 100 elementos por página
+    page_val, per_page_val = _validate_pagination(page, per_page, max_per_page=100)
 
     allowed_sort = ['created_at', 'rating', 'user_mail', 'site_name']
     sort_by_val, sort_order_val = _validate_sort(sort_by, sort_order, allowed_fields=allowed_sort)

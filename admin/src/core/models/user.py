@@ -71,10 +71,7 @@ class User(db.Model):
         return False
 
     def get_user_roles(self) -> List[str]:
-        """
-        Retorna los nombres de los roles del usuario.
-
-        """
+        """Retorna los nombres de los roles del usuario."""
         return [rol_rel.rol_user.name for rol_rel in self.user_roles]
     
     

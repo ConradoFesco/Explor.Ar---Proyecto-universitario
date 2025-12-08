@@ -9,12 +9,9 @@ tags_web = Blueprint('tags_web', __name__)
 
 
 @tags_web.route("/tags")
-@web_permission_required("get_all_tags")
+@web_permission_required("tag_index")
 def lista_tags():
     """Listado de tags con filtros, orden y paginación (SSR)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-
     page = request.args.get('page') or 1
     per_page = request.args.get('per_page') or 25
     search = request.args.get('search', '')
@@ -58,12 +55,9 @@ def lista_tags():
 
 
 @tags_web.route('/tags/fragment')
-@web_permission_required("get_all_tags")
+@web_permission_required("tag_index")
 def lista_tags_fragment():
     """Fragmento HTML del listado de tags para paginación/filtrado dinámico."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-
     page = request.args.get('page') or 1
     per_page = request.args.get('per_page') or 25
     search = request.args.get('search', '')
@@ -107,11 +101,9 @@ def lista_tags_fragment():
 
 
 @tags_web.route('/tags', methods=['POST'])
-@web_permission_required("create_tag")
+@web_permission_required("tag_new")
 def crear_tag_web():
     """Crea un tag a partir de datos de formulario y redirige con flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     payload_json = request.get_json(silent=True) or {}
     name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
     try:
@@ -123,11 +115,9 @@ def crear_tag_web():
 
 
 @tags_web.route('/tags/<int:tag_id>/editar', methods=['POST'])
-@web_permission_required("update_tag")
+@web_permission_required("tag_update")
 def editar_tag_web(tag_id: int):
     """Actualiza un tag existente con datos del formulario."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     payload_json = request.get_json(silent=True) or {}
     name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
     try:
@@ -139,11 +129,9 @@ def editar_tag_web(tag_id: int):
 
 
 @tags_web.route('/tags/<int:tag_id>/eliminar', methods=['POST'])
-@web_permission_required("delete_tag")
+@web_permission_required("tag_destroy")
 def eliminar_tag_web(tag_id: int):
     """Elimina un tag y redirige al listado con mensaje flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     try:
         tag_service.delete_tag(tag_id)
         flash('Tag eliminado', 'success')

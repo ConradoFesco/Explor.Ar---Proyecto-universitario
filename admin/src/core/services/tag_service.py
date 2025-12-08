@@ -144,6 +144,8 @@ class TagService:
         else:
             order_column = Tag.name.asc()
 
+        query = query.order_by(order_column)
+
         try:
             pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         except Exception as e:

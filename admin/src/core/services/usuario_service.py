@@ -129,8 +129,8 @@ class UserService:
         user = User.query.get(user_id)
         if user is None:
             raise NotFoundError(f"Usuario no encontrado")
-
-        if self._is_admin_user(user):
+        
+        if user and user.is_super_admin:
             if admin_user_id and user_id != admin_user_id:
                 raise ValidationError("No se puede editar un usuario administrador desde el listado de usuarios")
 
@@ -153,7 +153,7 @@ class UserService:
             user.active = cleaned["active"]
         
         if "blocked" in cleaned:
-            if cleaned["blocked"] and self._is_admin_user(user):
+            if cleaned["blocked"] and user and user.is_super_admin:
                 raise ValidationError("No se pueden bloquear usuarios administradores")
             user.blocked = cleaned["blocked"]
         
@@ -178,7 +178,7 @@ class UserService:
 
     def delete_user(self, user_id, admin_user_id, commit=True):
         """
-        Baja lógica del usuario, registrando actor pero **sin** motivo de eliminación.
+        Baja lógica del usuario, registrando actor.
 
         Regla de negocio:
         - Un usuario no puede eliminarse a sí mismo.
@@ -338,11 +338,10 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-
         admin_user = User.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-
+        
         target_user = User.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
@@ -350,8 +349,8 @@ class UserService:
         role = RolUser.query.get(role_id)
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
-
-        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
+        
+        if (target_user and target_user.is_super_admin) and not (admin_user and admin_user.is_super_admin):
             raise ValidationError("Solo los administradores pueden asignar roles a otros administradores")
 
         existing_assignment = RolUserUser.query.filter_by(
@@ -383,7 +382,6 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-
         admin_user = User.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
@@ -395,8 +393,8 @@ class UserService:
         role = RolUser.query.get(role_id)
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
-
-        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
+        
+        if (target_user and target_user.is_super_admin) and not (admin_user and admin_user.is_super_admin):
             raise ValidationError("Solo los administradores pueden revocar roles de otros administradores")
 
         role_assignment = RolUserUser.query.filter_by(
@@ -439,9 +437,7 @@ class UserService:
         return roles
 
     def get_user_permissions(self, user_id):
-        """
-        Devuelve la lista de nombres de permisos asignados al usuario (vía sus roles).
-        """
+        """Devuelve la lista de nombres de permisos asignados al usuario (vía sus roles)."""
         user = User.query.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
@@ -457,31 +453,9 @@ class UserService:
         return list(permissions)
 
     def get_available_roles(self):
-        """
-        Lista roles disponibles (respeta módulo de roles y permisos).
-        """
+        """Lista roles disponibles"""
         roles = RolUser.query.filter_by(deleted=False).all()
         return [role.to_dict() for role in roles]
-
-    def _is_admin_user(self, user):
-        """
-        True si el usuario es superadmin o tiene rol admin.
-        """
-        if not user:
-            return False
-        if user.is_super_admin:
-            return True
-        for role_rel in user.user_roles:
-            role = role_rel.rol_user
-            if role.name.lower() == 'admin':
-                return True
-        return False
-    
-    def _is_super_admin(self, user):
-        """
-        True si el usuario tiene el atributo superadmin.
-        """
-        return bool(user and user.is_super_admin)
 
     def update_user_roles(self, user_id, role_ids, admin_user_id, commit=True):
         """
@@ -490,16 +464,15 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-
         admin_user = User.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-
+        
         target_user = User.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-
-        if self._is_admin_user(target_user) and user_id != admin_user_id:
+        
+        if target_user and target_user.is_super_admin and user_id != admin_user_id:
             raise ValidationError("No se pueden modificar los roles de un usuario administrador")
 
         try:
@@ -534,8 +507,8 @@ class UserService:
         target_user = User.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-
-        if self._is_admin_user(target_user):
+        
+        if target_user and target_user.is_super_admin:
             raise ValidationError("No se pueden bloquear usuarios administradores")
 
         if target_user.blocked:
@@ -555,7 +528,6 @@ class UserService:
         """
         Desbloquea un usuario bloqueado que no sea administrador.
         """
-
         admin_user = User.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
@@ -563,8 +535,8 @@ class UserService:
         target_user = User.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-
-        if self._is_admin_user(target_user):
+        
+        if target_user and target_user.is_super_admin:
             raise ValidationError("No se pueden desbloquear usuarios administradores")
 
         if not target_user.blocked:

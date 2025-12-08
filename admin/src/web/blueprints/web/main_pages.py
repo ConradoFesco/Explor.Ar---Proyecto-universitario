@@ -18,7 +18,6 @@ def home():
     """Home del panel: renderiza el mapa y contenido inicial (SSR)."""
     if "user_id" not in session:
         return redirect(url_for("main.index"))
-    # SSR de sitios para mapa (subset razonable)
     try:
         result = historic_site_service.get_all_sites_for_map(include_deleted=False, page=1, per_page=500)
         sites_for_map = result.get('sites', [])

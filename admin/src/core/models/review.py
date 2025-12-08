@@ -31,4 +31,3 @@ class HistoricSiteReview(db.Model):
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
-

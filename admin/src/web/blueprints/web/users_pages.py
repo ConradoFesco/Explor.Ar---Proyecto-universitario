@@ -11,7 +11,7 @@ users_web = Blueprint('users_web', __name__)
 
 
 @users_web.route("/users")
-@web_permission_required("get_all_users")
+@web_permission_required("user_index")
 def list_users_page():
     """Listado de usuarios con filtros, orden y paginación (SSR)."""
     page = request.args.get('page') or 1
@@ -68,7 +68,7 @@ def list_users_page():
 
 
 @users_web.route('/users/fragment')
-@web_permission_required("get_all_users")
+@web_permission_required("user_index")
 def list_users_fragment():
     """
     Endpoint exclusivo para peticiones asíncronas (AJAX/Fetch).
@@ -125,7 +125,7 @@ def list_users_fragment():
 
 
 @users_web.route("/users/<int:user_id>/editar")
-@web_permission_required("update_user")
+@web_permission_required("user_update")
 def edit_user_page(user_id: int):
     """Página de edición de usuario con SSR de datos y roles disponibles."""
     try:
@@ -142,7 +142,7 @@ def edit_user_page(user_id: int):
 
 
 @users_web.route('/users/nuevo')
-@web_permission_required("create_user")
+@web_permission_required("user_new")
 def create_user_form_page():
     """Formulario de creación de usuario (SSR de roles disponibles)."""
     try:
@@ -154,7 +154,7 @@ def create_user_form_page():
 
 
 @users_web.route('/users', methods=['POST'])
-@web_permission_required("create_user")
+@web_permission_required("user_new")
 def create_user_web():
     """Procesa el alta de usuario y redirige con mensajes flash."""
     admin_id = session.get('user_id')
@@ -183,7 +183,7 @@ def create_user_web():
 
 
 @users_web.post('/users/<int:user_id>/eliminar')
-@web_permission_required("delete_user")
+@web_permission_required("user_destroy")
 def delete_user_page(user_id: int):
     """Elimina lógicamente un usuario (solo con permiso)."""
     admin_id = session.get("user_id")
@@ -198,7 +198,7 @@ def delete_user_page(user_id: int):
 
 
 @users_web.post('/users/<int:user_id>/editar')
-@web_permission_required("update_user")
+@web_permission_required("user_update")
 def update_user_page(user_id: int):
     """Actualiza datos y roles de un usuario y redirige con flash."""
     admin_id = session.get('user_id')

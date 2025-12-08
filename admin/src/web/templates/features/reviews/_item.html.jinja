@@ -37,27 +37,34 @@
       <button 
           data-id="{{ review.id }}" data-site-id="{{ review.site_id }}"
           class="btn-view inline-flex items-center px-2 py-1 border rounded text-xs whitespace-nowrap hover:bg-gray-100"
-          onclick="openReviewModal({{ review | tojson }})"
       >
         Ver
       </button>
 
       {% if review.status == 'pending' %}
-        <form action="{{ url_for('reviews_web.aprobar_review', review_id=review.id) }}" method="POST" class="inline">
-            <button type="submit" class="btn-approve inline-flex items-center px-2 py-1 border rounded text-xs bg-green-50 hover:bg-green-100 whitespace-nowrap">Aprobar</button>
-        </form>
+        <button 
+            data-id="{{ review.id }}" data-site-id="{{ review.site_id }}"
+            type="button"
+            class="btn-approve inline-flex items-center px-2 py-1 border rounded text-xs bg-green-50 hover:bg-green-100 whitespace-nowrap"
+        >
+            Aprobar
+        </button>
         
         <button 
+            data-id="{{ review.id }}" data-site-id="{{ review.site_id }}"
             type="button"
-            onclick="openRejectModal('{{ url_for('reviews_web.rechazar_review', review_id=review.id) }}')" 
             class="btn-reject inline-flex items-center px-2 py-1 border rounded text-xs bg-yellow-50 hover:bg-yellow-100 whitespace-nowrap"
         >
             Rechazar
         </button>
 
-        <form action="{{ url_for('reviews_web.eliminar_review', review_id=review.id) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar esta reseña permanentemente?');">
-            <button type="submit" class="btn-delete inline-flex items-center px-2 py-1 border rounded text-xs bg-red-50 hover:bg-red-100 whitespace-nowrap">Eliminar</button>
-        </form>
+        <button 
+            data-id="{{ review.id }}"
+            type="button"
+            class="btn-delete inline-flex items-center px-2 py-1 border rounded text-xs bg-red-50 hover:bg-red-100 whitespace-nowrap"
+        >
+            Eliminar
+        </button>
       {% endif %}
     </div>
   </td>

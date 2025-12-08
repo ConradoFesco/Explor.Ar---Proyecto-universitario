@@ -46,7 +46,7 @@ def _resolve_site_list_params():
 
 
 @sites_web.route("/sitios")
-@web_permission_required("get_all_historic_sites")
+@web_permission_required("site_index")
 def lista_sitios():
     """Listado SSR de sitios con filtros, orden y paginación."""
     params = _resolve_site_list_params()
@@ -82,7 +82,7 @@ def lista_sitios():
 
 
 @sites_web.route("/sitios/fragment")
-@web_permission_required("get_all_historic_sites")
+@web_permission_required("site_index")
 def lista_sitios_fragment():
     """Fragmento HTML para refrescar el listado de sitios (paginación/orden)."""
     params = _resolve_site_list_params()
@@ -109,7 +109,7 @@ def lista_sitios_fragment():
 
 
 @sites_web.route("/alta-sitios")
-@web_permission_required("create_historic_site")
+@web_permission_required("site_new")
 def alta_sitios():
     """Formulario SSR de alta de sitio (carga de opciones desde servicios)."""
     try:
@@ -129,7 +129,7 @@ def alta_sitios():
 
 
 @sites_web.route("/modificar-sitios")
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def modificar_sitios():
     """Formulario SSR de edición de sitio (incluye opciones y datos del sitio)."""
     edit_id = request.args.get('edit', type=int)
@@ -151,7 +151,7 @@ def modificar_sitios():
 
 
 @sites_web.route("/sitios/<int:site_id>/fragment")
-@web_permission_required("get_historic_site")
+@web_permission_required("site_show")
 def site_detail_fragment(site_id: int):
     """Fragmento HTML con detalle de sitio para uso en modales o vistas parciales."""
     site = historic_site_service.get_historic_site(site_id)
@@ -159,7 +159,7 @@ def site_detail_fragment(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/eliminar", methods=["POST"])
-@web_permission_required("delete_historic_site")
+@web_permission_required("site_destroy")
 def eliminar_sitio(site_id: int):
     """Elimina lógicamente un sitio histórico (solo con permisos)."""
     data_user = session.get('user_id')
@@ -172,7 +172,7 @@ def eliminar_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/tags", methods=["POST"])
-@web_permission_required("update_tags")
+@web_permission_required("site_tags_update")
 def actualizar_tags_sitio(site_id: int):
     """Actualiza las etiquetas asociadas a un sitio histórico."""
     tag_ids = []
@@ -190,7 +190,7 @@ def actualizar_tags_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/tags/fragment")
-@web_permission_required("update_tags")
+@web_permission_required("site_tags_update")
 def editar_tags_fragment(site_id: int):
     """Fragmento HTML para selección/edición de tags de un sitio."""
     site = historic_site_service.get_historic_site(site_id)
@@ -201,7 +201,7 @@ def editar_tags_fragment(site_id: int):
 
 
 @sites_web.route('/sitios', methods=['POST'])
-@web_permission_required("create_historic_site")
+@web_permission_required("site_new")
 def crear_sitio_web():
     """Procesa la creación de un sitio a partir de datos de formulario."""
     data_user = session.get('user_id')
@@ -240,7 +240,7 @@ def crear_sitio_web():
 
 
 @sites_web.route('/sitios/<int:site_id>/editar', methods=['POST'])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def editar_sitio_web(site_id: int):
     """Procesa la actualización de un sitio histórico y redirige al listado."""
     data_user = session.get('user_id')
@@ -266,7 +266,7 @@ def editar_sitio_web(site_id: int):
 
 
 @sites_web.route("/sitios/export-csv", methods=["GET"])
-@web_permission_required("export_historic_sites")
+@web_permission_required("site_export")
 def export_sites_csv_web():
     """Genera un CSV con sitios históricos respetando filtros actuales."""
     try:
@@ -299,7 +299,7 @@ def export_sites_csv_web():
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["GET"])
-@web_permission_required("get_historic_site")
+@web_permission_required("site_show")
 def obtener_imagenes_sitio(site_id: int):
     """Devuelve las imágenes de un sitio en formato JSON para el gestor de imágenes del panel."""
     try:
@@ -310,7 +310,7 @@ def obtener_imagenes_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def subir_imagen_sitio(site_id: int):
     """Sube una o varias imágenes para un sitio histórico."""
     data_user = session.get('user_id')
@@ -394,7 +394,7 @@ def subir_imagen_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>", methods=["DELETE"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def eliminar_imagen_sitio(site_id: int, image_id: int):
     """Elimina una imagen de un sitio. Responde JSON para el gestor de imágenes."""
     data_user = session.get('user_id')
@@ -411,7 +411,7 @@ def eliminar_imagen_sitio(site_id: int, image_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/portada", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def marcar_portada_imagen(site_id: int, image_id: int):
     """Marca una imagen como portada. Responde JSON para el gestor de imágenes."""
     data_user = session.get('user_id')
@@ -426,7 +426,7 @@ def marcar_portada_imagen(site_id: int, image_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/reordenar", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def reordenar_imagenes_sitio(site_id: int):
     """Reordena imágenes de un sitio."""
     data_user = session.get('user_id')
@@ -467,11 +467,8 @@ def reordenar_imagenes_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/actualizar", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def actualizar_metadatos_imagen(site_id: int, image_id: int):
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
     data_user = session.get('user_id')
     
     try:

@@ -9,7 +9,6 @@ class Storage:
 
     def init_app(self, app):
         """Inicializa la conexión a MinIO con la configuración de la app"""
-        # 🔧 Asegurarse de que el endpoint no incluya "http://"
         endpoint = app.config['MINIO_SERVER'].replace("http://", "").replace("https://", "")
 
         self._client = Minio(
