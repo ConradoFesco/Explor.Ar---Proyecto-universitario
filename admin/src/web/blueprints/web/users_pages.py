@@ -14,7 +14,6 @@ users_web = Blueprint('users_web', __name__)
 @web_permission_required("get_all_users")
 def list_users_page():
     """Listado de usuarios con filtros, orden y paginación (SSR)."""
-
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
 
