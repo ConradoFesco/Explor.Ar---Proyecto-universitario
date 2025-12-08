@@ -36,12 +36,14 @@ def list_users_page():
         sort_by=sort_by,
         sort_order=sort_order
     )
-    try:
-        admin_summary = user_service.get_user(session.get('user_id'))
-        current_is_super_admin = bool(admin_summary.get('is_super_admin'))
-    except Exception:
-        current_is_super_admin = False
-    # Opciones de roles dinámicas para el filtro (respeta módulo de roles)
+
+    current_user = None
+    if session.get('user_id'):
+        try:
+            current_user = user_service.get_user(session.get('user_id'))
+        except Exception:
+            pass
+
     try:
         roles_all = user_service.get_available_roles()
         role_options = [{'value': r.get('name'), 'label': r.get('name').capitalize()} for r in roles_all]
@@ -60,7 +62,7 @@ def list_users_page():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        current_is_super_admin=current_is_super_admin,
+        current_user=current_user,
         role_options=role_options
     )
 
@@ -90,11 +92,12 @@ def list_users_fragment():
         sort_by=sort_by,
         sort_order=sort_order
     )
-    try:
-        admin_summary = user_service.get_user(session.get('user_id'))
-        current_is_super_admin = bool(admin_summary.get('is_super_admin'))
-    except Exception:
-        current_is_super_admin = False
+    current_user = None
+    if session.get('user_id'):
+        try:
+            current_user = user_service.get_user(session.get('user_id'))
+        except Exception:
+            pass
     return render_template(
         'features/users/_list_fragment.html.jinja',
         users=result.get('users', []),
@@ -108,12 +111,12 @@ def list_users_fragment():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        current_is_super_admin=current_is_super_admin
+        current_user=current_user
     )
 
 
 @users_web.route("/users/<int:user_id>/editar")
-@web_permission_required("get_user")
+@web_permission_required("update_user")
 def edit_user_page(user_id: int):
     """Página de edición de usuario con SSR de datos y roles disponibles."""
 
