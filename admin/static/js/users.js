@@ -77,9 +77,11 @@
       if (typeof Swal === 'undefined') return;
       Swal.fire({ title:'¿Eliminar usuario?', text:`¿Estás seguro de eliminar a ${userName}? Esta acción no se puede deshacer.`, icon:'warning', showCancelButton:true, confirmButtonColor:'#dc2626', cancelButtonColor:'#6b7280', confirmButtonText:'Sí, eliminar', cancelButtonText:'Cancelar' }).then((result)=>{
         if (!result.isConfirmed) return;
-        const form = document.createElement('form'); form.method='POST'; form.action = `/users/${userId}/eliminar`;
-        const reason = document.createElement('input'); reason.type='hidden'; reason.name='reason'; reason.value='';
-        form.appendChild(reason); document.body.appendChild(form); form.submit();
+        const form = document.createElement('form'); 
+        form.method='POST'; 
+        form.action = `/users/${userId}/eliminar`;
+        document.body.appendChild(form); 
+        form.submit();
       });
     });
   }

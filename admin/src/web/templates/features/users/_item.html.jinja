@@ -26,7 +26,7 @@
             {% set can_delete = (not is_own_profile) and ( (not target_is_super) or actor_is_super ) %}
 
             {% if can_edit %}
-            <a href="/users/{{ user.id }}/editar" 
+            <a href="{{ url_for('users_web.edit_user_page', user_id=user.id) }}" 
                class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition duration-200"
                title="Editar usuario">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
