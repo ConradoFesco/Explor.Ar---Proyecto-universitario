@@ -14,8 +14,6 @@ users_web = Blueprint('users_web', __name__)
 @web_permission_required("get_all_users")
 def list_users_page():
     """Listado de usuarios con filtros, orden y paginación (SSR)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
@@ -71,8 +69,6 @@ def list_users_page():
 @web_permission_required("get_all_users")
 def list_users_fragment():
     """Fragmento HTML del listado de usuarios para paginar/filtrar vía fetch HTML."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
@@ -120,8 +116,6 @@ def list_users_fragment():
 @web_permission_required("get_user")
 def edit_user_page(user_id: int):
     """Página de edición de usuario con SSR de datos y roles disponibles."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     user = user_service.get_user(user_id)
     try:
@@ -136,8 +130,6 @@ def edit_user_page(user_id: int):
 @web_permission_required("create_user")
 def create_user_form_page():
     """Formulario de creación de usuario (SSR de roles disponibles)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     try:
         available_roles = user_service.get_available_roles()
@@ -151,8 +143,6 @@ def create_user_form_page():
 @web_permission_required("create_user")
 def create_user_web():
     """Procesa el alta de usuario y redirige con mensajes flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     admin_id = session.get('user_id')
     form = request.form
     name = (form.get('name') or '').strip()
@@ -182,8 +172,6 @@ def create_user_web():
 @web_permission_required("delete_user")
 def delete_user_page(user_id: int):
     """Elimina lógicamente un usuario con motivo (solo con permiso)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
 
     admin_id = session.get("user_id")
     reason = request.form.get("reason", "")
@@ -204,8 +192,6 @@ def delete_user_page(user_id: int):
 @web_permission_required("update_user")
 def update_user_page(user_id: int):
     """Actualiza datos y roles de un usuario y redirige con flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     admin_id = session.get('user_id')
     form = request.form
     name = (form.get('name') or '').strip()
