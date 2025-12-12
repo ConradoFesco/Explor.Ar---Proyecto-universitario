@@ -13,7 +13,7 @@ from src.core.models.permission import Permission
 from src.core.models.rol_user import RolUser
 from src.core.models.permission_rol_user import PermissionRolUser
 from src.core.models.rol_user_user import RolUserUser
-from src.core.models.user import User
+from src.core.models.user import User, PrivateUser
 
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""
@@ -183,13 +183,13 @@ def create_default_admin_user():
     admin_email = "admin@admin.com"
     
     # Verificar si ya existe
-    existing_admin = User.query.filter_by(mail=admin_email).first()
+    existing_admin = PrivateUser.query.filter_by(mail=admin_email).first()
     if existing_admin:
         print(f"- Usuario administrador ya existe: {admin_email}")
         return existing_admin
     
     # Crear el usuario administrador
-    admin_user = User(
+    admin_user = PrivateUser(
         mail=admin_email,
         name="Administrador",
         last_name="Sistema",

@@ -1,8 +1,9 @@
 """
 Servicios de dominio para gestión de usuarios y roles.
 Provee operaciones CRUD, roles y seguridad para ambos brazos (Web/API).
+Gestiona únicamente usuarios privados (PrivateUser) ya que los públicos no tienen roles ni permisos.
 """
-from src.core.models.user import User
+from src.core.models.user import User, PrivateUser
 from src.core.models.rol_user import RolUser
 from src.core.models.rol_user_user import RolUserUser
 from src.core.models.permission import Permission
@@ -20,7 +21,7 @@ from src.core.validators.listing_validator import validate_user_list_params
 from src.core.validators.profile_validator import validate_new_password
 
 class UserService:
-    """Casos de uso relacionados a usuarios (crear, listar, actualizar, roles, bloqueo)."""
+    """Casos de uso relacionados a usuarios privados (crear, listar, actualizar, roles, bloqueo)."""
     def create_user(self, data_user, data_new_user, commit=True):
         """
         Crea un usuario con roles iniciales.
@@ -52,11 +53,11 @@ class UserService:
         created_at = datetime.now()
         is_super_admin = bool(data_new_user.get('is_super_admin'))
         if is_super_admin:
-            actor = User.query.filter_by(id=data_user, deleted=False).first()
+            actor = PrivateUser.query.filter_by(id=data_user, deleted=False).first()
             if not actor or not actor.is_super_admin:
                 raise ValidationError("Solo un SuperAdmin puede crear otro SuperAdmin")
 
-        user = User(
+        user = PrivateUser(
             mail=mail,
             name=name,
             last_name=last_name,
@@ -91,7 +92,7 @@ class UserService:
 
     def get_user(self, user_id):
         """
-        Obtiene un usuario no eliminado con roles actuales.
+        Obtiene un usuario privado no eliminado con roles actuales.
 
         Args:
             user_id (int): ID del usuario.
@@ -102,7 +103,7 @@ class UserService:
         Raises:
             NotFoundError: Si no existe.
         """
-        user = User.query.filter_by(id=user_id, deleted=False).first()
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
@@ -126,7 +127,7 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if user is None:
             raise NotFoundError(f"Usuario no encontrado")
         
@@ -137,8 +138,10 @@ class UserService:
         cleaned = validate_update_user(changed_fields or {})
 
         if 'mail' in cleaned and cleaned['mail'] != user.mail:
-            if User.query.filter_by(mail=cleaned['mail']).first():
-                raise ValidationError("Ya existe un usuario con ese mail")
+            # Verificar solo en PrivateUser porque el mail es único dentro de cada tipo
+            existing_user = PrivateUser.query.filter_by(mail=cleaned['mail'], deleted=False).first()
+            if existing_user and existing_user.id != user_id:
+                raise ValidationError("Ya existe un usuario privado con ese mail")
 
         if "name" in cleaned:
             user.name = cleaned["name"]
@@ -160,7 +163,7 @@ class UserService:
         if "is_super_admin" in cleaned:
             if not admin_user_id:
                 raise ValidationError("Se requiere un usuario administrador para esta acción")
-            actor = User.query.get(admin_user_id)
+            actor = PrivateUser.query.get(admin_user_id)
             if not actor or not actor.is_super_admin:
                 raise ValidationError("Solo un SuperAdmin puede modificar este atributo")
             user.is_super_admin = cleaned["is_super_admin"]
@@ -178,14 +181,15 @@ class UserService:
 
     def delete_user(self, user_id, admin_user_id, commit=True):
         """
-        Baja lógica del usuario, registrando actor.
+        Baja lógica de un usuario privado, registrando actor.
+        Solo gestiona usuarios privados de la aplicación.
 
         Regla de negocio:
         - Un usuario no puede eliminarse a sí mismo.
         - Solo un SuperAdmin puede eliminar a otro SuperAdmin.
 
         Args:
-            user_id (int): ID del usuario a eliminar.
+            user_id (int): ID del usuario privado a eliminar.
             admin_user_id (int): ID del administrador que ejecuta la acción.
             commit (bool): Confirmar transacción.
 
@@ -195,19 +199,21 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        user = User.query.filter_by(id=user_id, deleted=False).first()
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
         if not user:
-            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+            raise NotFoundError(f"Usuario privado con id {user_id} no encontrado")
 
         if user_id == admin_user_id:
             raise ValidationError("No puedes eliminarte a ti mismo")
 
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
 
+        # Verificar si es super admin
         if user.is_super_admin:
             if not admin_user or not admin_user.is_super_admin:
                 raise ValidationError("Solo usuarios SuperAdmin pueden eliminar a un SuperAdmin")
 
+        # Desactivar y eliminar lógicamente
         user.active = False
         user.deleted = True
         user.deleted_at = datetime.utcnow()
@@ -236,13 +242,13 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if user is None:
             raise NotFoundError("Usuario no encontrado")
 
         new_password = validate_new_password(new_password)
 
-        if check_password_hash(user.password, new_password):
+        if not user.password or check_password_hash(user.password, new_password):
             raise ValidationError("La nueva contraseña no puede ser igual a la actual")
 
         user.password = generate_password_hash(new_password)
@@ -276,7 +282,8 @@ class UserService:
         sort_by = v['sort_by']
         sort_order = v['sort_order']
 
-        query = User.query.filter_by(deleted=False)
+        # Listar solo usuarios privados ya que solo ellos tienen roles, active, blocked
+        query = PrivateUser.query.filter_by(deleted=False)
         
         if filters:
             if filters.get('email'):
@@ -314,7 +321,11 @@ class UserService:
         users_with_roles = []
         for user in users:
             user_dict = user.to_dict()
-            user_dict['roles'] = user.get_user_roles()
+            # Solo usuarios privados tienen roles
+            if isinstance(user, PrivateUser):
+                user_dict['roles'] = user.get_user_roles()
+            else:
+                user_dict['roles'] = []
             users_with_roles.append(user_dict)
 
         return {
@@ -338,11 +349,11 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
         
-        target_user = User.query.get(user_id)
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
 
@@ -382,11 +393,11 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
 
-        target_user = User.query.get(user_id)
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
 
@@ -421,7 +432,7 @@ class UserService:
         Returns:
             list[dict]: [{'id', 'name', 'assigned_at'}]
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
@@ -438,7 +449,7 @@ class UserService:
 
     def get_user_permissions(self, user_id):
         """Devuelve la lista de nombres de permisos asignados al usuario (vía sus roles)."""
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         if user.is_super_admin:
@@ -464,11 +475,11 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-        
-        target_user = User.query.get(user_id)
+
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
@@ -498,13 +509,13 @@ class UserService:
 
     def block_user(self, user_id, admin_user_id, commit=True):
         """
-        Bloquea un usuario no administrador.
+        Bloquea un usuario privado no administrador.
         """
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
 
-        target_user = User.query.get(user_id)
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
@@ -526,13 +537,13 @@ class UserService:
 
     def unblock_user(self, user_id, admin_user_id, commit=True):
         """
-        Desbloquea un usuario bloqueado que no sea administrador.
+        Desbloquea un usuario privado bloqueado que no sea administrador.
         """
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
 
-        target_user = User.query.get(user_id)
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         

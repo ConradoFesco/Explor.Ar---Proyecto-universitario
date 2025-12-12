@@ -17,7 +17,7 @@ from src.core.models.permission import Permission
 from src.core.models.rol_user import RolUser
 from src.core.models.permission_rol_user import PermissionRolUser
 from src.core.models.rol_user_user import RolUserUser
-from src.core.models.user import User
+from src.core.models.user import User, PrivateUser
 from src.core.models.category_site import CategorySite
 from src.core.models.state_site import StateSite
 from src.core.models.flag import Flag
@@ -262,12 +262,12 @@ def create_super_admin():
     admin_email = "grupo06@gmail.com"
     
     # Verificar si ya existe
-    existing_admin = User.query.filter_by(mail=admin_email).first()
+    existing_admin = PrivateUser.query.filter_by(mail=admin_email).first()
     if existing_admin:
         return False
     
     # Crear el usuario super administrador
-    admin_user = User(
+    admin_user = PrivateUser(
         mail=admin_email,
         name="grupo",
         last_name="06",
@@ -299,12 +299,12 @@ def create_dummy_users(existing_roles):
     ]
 
     for mail, name, rol in user_data:
-        existing_user = User.query.filter_by(mail=mail).first()
+        existing_user = PrivateUser.query.filter_by(mail=mail).first()
         if existing_user:
             print(f"   [SKIP] Usuario {mail} ya existe, saltando...")
             continue
 
-        u = User(
+        u = PrivateUser(
             mail=mail,
             name=name,
             last_name="Seed",
@@ -783,7 +783,7 @@ def create_historic_sites_with_images():
     images_total = 0
     
     # Obtener usuario admin para las imágenes (debe existir por el paso anterior)
-    admin_user = User.query.filter_by(mail="grupo06@gmail.com").first()
+    admin_user = PrivateUser.query.filter_by(mail="grupo06@gmail.com").first()
     user_id = admin_user.id if admin_user else None
     
     if not user_id:
@@ -875,7 +875,7 @@ def create_dummy_sites_if_needed(id_category, id_estado):
         
         # Intentar cargar imágenes para sitios dummy también (no fallar si falla)
         try:
-            admin_user = User.query.filter_by(mail="grupo06@gmail.com").first()
+            admin_user = PrivateUser.query.filter_by(mail="grupo06@gmail.com").first()
             user_id = admin_user.id if admin_user else None
             load_images_for_site(s, min_images=2, max_images=5, user_id=user_id)
         except Exception as img_error:
