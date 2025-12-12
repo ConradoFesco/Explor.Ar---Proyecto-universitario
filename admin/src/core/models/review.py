@@ -16,7 +16,7 @@ class HistoricSiteReview(db.Model):
     rejection_reason = db.Column(db.String(200), nullable=True)
     
 
-    user = db.relationship('User', foreign_keys=[user_id], lazy='joined')
+    user = db.relationship('User', foreign_keys=[user_id], lazy='joined', overlaps='reviews')
   
     def __repr__(self) -> str:
         return f'<HistoricSiteReview site={self.site_id} user={self.user_id} rating={self.rating}>'
