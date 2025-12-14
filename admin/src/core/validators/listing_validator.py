@@ -266,13 +266,15 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
                                       per_page: Optional[int], favorites_only: Optional[bool] = None) -> dict:
     page_val, per_page_val = _validate_pagination(page, per_page, default_page=1, default_per_page=20, max_per_page=100)
 
-    allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5']
-    if not order_by or (isinstance(order_by, str) and order_by.strip() == ''):
-        normalized_order = 'latest'
-    else:
-        normalized_order = order_by.strip().lower()
-        if normalized_order not in allowed_order:
-            raise ValidationError(f"order_by inválido. Valores permitidos: {', '.join(allowed_order)}")
+    allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5', 'name-asc', 'name-desc']
+    normalized_order: Optional[str] = None
+    if order_by is not None and order_by != '':
+        normalized_order = str(order_by).strip()
+        if normalized_order: 
+            normalized_order_lower = normalized_order.lower()
+            if normalized_order_lower not in allowed_order:
+                raise ValidationError(f"order_by inválido. Valores permitidos: {', '.join(allowed_order)}")
+            normalized_order = normalized_order_lower
 
     normalized_name = _clean_optional_str(name)
     normalized_description = _clean_optional_str(description)

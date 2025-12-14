@@ -30,7 +30,6 @@ watch(
 
 const debouncedMapSearch = useDebounceFn(() => {
   if (store.lat != null && store.long != null) {
-    store.page = 1
     store.loadFirstPage()
   }
 }, 300)
@@ -62,8 +61,7 @@ onBeforeUnmount(() => {
 })
 
 function handleSortChange(field: string, dir: 'asc' | 'desc') {
-  store.sort.field = field as 'created_at' | 'name' | 'rating'
-  store.sort.dir = dir
+  store.sort = { field: field as 'created_at' | 'name' | 'rating', dir }
   store.loadFirstPage()
 }
 </script>
@@ -100,22 +98,22 @@ function handleSortChange(field: string, dir: 'asc' | 'desc') {
             <span class="text-gray-500 dark:text-gray-400 shrink-0">Ordenar:</span>
             <SortButton
               field="created_at"
-              :current-field="store.sort.field"
-              :current-dir="store.sort.dir"
+              :current-field="typeof store.sort === 'object' && store.sort ? store.sort.field : undefined"
+              :current-dir="typeof store.sort === 'object' && store.sort ? store.sort.dir : undefined"
               label="Fecha"
               @sort-change="handleSortChange"
             />
             <SortButton
               field="name"
-              :current-field="store.sort.field"
-              :current-dir="store.sort.dir"
+              :current-field="typeof store.sort === 'object' && store.sort ? store.sort.field : undefined"
+              :current-dir="typeof store.sort === 'object' && store.sort ? store.sort.dir : undefined"
               label="Nombre"
               @sort-change="handleSortChange"
             />
             <SortButton
               field="rating"
-              :current-field="store.sort.field"
-              :current-dir="store.sort.dir"
+              :current-field="typeof store.sort === 'object' && store.sort ? store.sort.field : undefined"
+              :current-dir="typeof store.sort === 'object' && store.sort ? store.sort.dir : undefined"
               label="Ranking"
               @sort-change="handleSortChange"
             />

@@ -82,10 +82,10 @@ function applyTextSearch() {
 }
 
 function applyMapFilters() {
-  store.lat = lat.value != null ? Number(lat.value) : null
-  store.long = long.value != null ? Number(long.value) : null
-  store.radius = radius.value != null ? Number(radius.value) : null
-  store.page = 1
+  store.lat = lat.value != null && lat.value !== '' ? lat.value : undefined
+  store.long = long.value != null && long.value !== '' ? long.value : undefined
+  store.radius = radius.value != null && radius.value !== '' ? radius.value : undefined
+  store.page = undefined
   store.loadFirstPage()
   emit('apply')
 }
@@ -149,10 +149,10 @@ function clearMapSelection() {
   lat.value = null
   long.value = null
   radius.value = 1000
-  store.lat = null
-  store.long = null
-  store.radius = null
-  store.page = 1
+  store.lat = undefined
+  store.long = undefined
+  store.radius = undefined
+  store.page = undefined
   store.loadFirstPage()
 }
 </script>
@@ -266,7 +266,7 @@ function clearMapSelection() {
                   >
                     <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Radio de búsqueda (metros)</label>
                     <Input
-                      v-model.number="radius"
+                      v-model="radius"
                       type="number"
                       min="100"
                       max="50000"

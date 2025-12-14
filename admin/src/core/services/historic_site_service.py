@@ -656,6 +656,10 @@ class HistoricSiteService:
         elif order_by == 'rating-1-5':
             rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0)
             query = query.order_by(asc(rating_expr), desc(HistoricSite.created_at))
+        elif order_by == 'name-asc':
+            query = query.order_by(asc(HistoricSite.name))
+        elif order_by == 'name-desc':
+            query = query.order_by(desc(HistoricSite.name))
         else:
             query = query.order_by(desc(HistoricSite.created_at))
 

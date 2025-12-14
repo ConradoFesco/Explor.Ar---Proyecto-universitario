@@ -134,15 +134,31 @@ function mapSiteFromBackend(s: any): HistoricSite {
 }
 
 function mapOrderBy(orderBy?: SiteSearchParams['orderBy'], dir?: SiteSearchParams['orderDir']): string | undefined {
-  if (!orderBy) return 'latest';
-  const direction = dir || 'desc';
+  if (!orderBy) return undefined;
+  
+  const direction = dir;
+  
+  if (!direction) {
+    return undefined;
+  }
+  
+  if (direction !== 'asc' && direction !== 'desc') {
+    return `${String(orderBy)}-${String(direction)}`;
+  }
+  
   if (orderBy === 'created_at') {
     return direction === 'asc' ? 'oldest' : 'latest';
   }
+  
   if (orderBy === 'rating') {
     return direction === 'asc' ? 'rating-1-5' : 'rating-5-1';
   }
-  return 'latest';
+  
+  if (orderBy === 'name') {
+    return direction === 'asc' ? 'name-asc' : 'name-desc';
+  }
+  
+  return `${String(orderBy)}-${String(direction)}`;
 }
 
 export async function fetchPublicSites(params: SiteSearchParams): Promise<PaginatedResponse<HistoricSite>> {
@@ -156,11 +172,9 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
     order_by: mapOrderBy(params.orderBy, params.orderDir),
     lat: params.lat,
     long: params.long,
-    radius: (params.lat != null && params.long != null && params.radius != null) 
-      ? params.radius / 1000 
-      : undefined,
-    page: params.page ?? 1,
-    per_page: params.perPage ?? DEFAULT_PER_PAGE,
+    radius: params.radius,
+    page: params.page,
+    per_page: params.perPage,
     fav: params.favoritesOnly ? '1' : undefined,
   });
   const url = `${base}/sites${query}`;
@@ -194,10 +208,9 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
   };
 }
 
-export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Promise<PaginatedResponse<HistoricSite>> {
+export async function fetchMyFavorites(page?: number, perPage?: number): Promise<PaginatedResponse<HistoricSite>> {
   const base = getApiBaseUrl();
-  const safePerPage = Math.min(Math.max(perPage, 1), 100);
-  const query = buildQuery({ page, per_page: safePerPage });
+  const query = buildQuery({ page, per_page: perPage });
   const url = `${base}/me/favorites${query}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
@@ -212,8 +225,8 @@ export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Pr
   const items: HistoricSite[] = itemsSource.map(mapSiteFromBackend);
   const meta = raw.meta ?? {};
 
-  const pageValue = meta.page ?? page;
-  const perPageValue = meta.per_page ?? safePerPage;
+  const pageValue = meta.page ?? page ?? 1;
+  const perPageValue = meta.per_page ?? perPage ?? DEFAULT_PER_PAGE;
   const totalValue = meta.total ?? items.length;
   const totalPagesValue =
     perPageValue > 0 ? Math.max(1, Math.ceil(totalValue / perPageValue)) : 1;
@@ -338,7 +351,7 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
   }
 }
 
-export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): Promise<ReviewsResponse> {
+export async function fetchSiteReviews(siteId: number, page?: number, perPage?: number): Promise<ReviewsResponse> {
   const base = getApiBaseUrl();
   const query = buildQuery({ page, per_page: perPage });
   const url = `${base}/sites/${siteId}/reviews${query}`;
@@ -381,15 +394,17 @@ export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): 
     };
   });
 
+  const pageValue = meta.page ?? page ?? 1;
+  const perPageValue = meta.per_page ?? perPage ?? 25;
   return {
     reviews: mapped,
     pagination: {
-      page: meta.page ?? page,
-      per_page: meta.per_page ?? perPage,
+      page: pageValue,
+      per_page: perPageValue,
       total: meta.total ?? mapped.length,
       pages:
         meta.pages ??
-        (perPage > 0 ? Math.ceil((meta.total ?? mapped.length) / perPage) : 1),
+        (perPageValue > 0 ? Math.ceil((meta.total ?? mapped.length) / perPageValue) : 1),
     },
   };
 }

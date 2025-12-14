@@ -9,8 +9,8 @@ export type SortOption = {
 
 export type SitesState = {
   items: HistoricSite[]
-  page: number
-  perPage: number
+  page: number | string | undefined
+  perPage: number | string | undefined
   total: number
   totalPages: number
   isLoading: boolean
@@ -21,44 +21,10 @@ export type SitesState = {
   province: string
   tags: string[]
   favoritesOnly: boolean
-  lat: number | null
-  long: number | null
-  radius: number | null
-  sort: SortOption
-}
-
-function parseNumber(value: unknown): number | null {
-  const n = typeof value === 'string' ? Number(value) : (value as number)
-  return Number.isFinite(n) ? (n as number) : null
-}
-
-function parseSort(sortRaw: string): SortOption {
-  const [field, dir] = sortRaw.split(':')
-  if ((field === 'created_at' || field === 'name' || field === 'rating') && (dir === 'asc' || dir === 'desc')) {
-    return { field, dir } as SortOption
-  }
-  return { field: 'created_at', dir: 'desc' }
-}
-
-function sortByName(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
-  return [...items].sort((a, b) => {
-    const an = (a.name || '').toLowerCase()
-    const bn = (b.name || '').toLowerCase()
-    return dir === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
-  })
-}
-
-function sortByRating(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
-    return [...items].sort((a, b) => {
-    const aRating = a.rating ?? 0
-    const bRating = b.rating ?? 0
-    
-    if (dir === 'asc') {
-      return aRating - bRating
-    } else {
-      return bRating - aRating
-    }
-  })
+  lat: number | string | null | undefined
+  long: number | string | null | undefined
+  radius: number | string | null | undefined
+  sort: SortOption | string | undefined
 }
 
 function filterSites(
@@ -90,8 +56,8 @@ function filterSites(
 export const useSitesStore = defineStore('sites', {
   state: (): SitesState => ({
     items: [],
-    page: 1,
-    perPage: 20,
+    page: undefined,
+    perPage: undefined,
     total: 0,
     totalPages: 0,
     isLoading: false,
@@ -102,14 +68,17 @@ export const useSitesStore = defineStore('sites', {
     province: '',
     tags: [],
     favoritesOnly: false,
-    lat: null,
-    long: null,
-    radius: null,
-    sort: { field: 'created_at', dir: 'desc' },
+    lat: undefined,
+    long: undefined,
+    radius: undefined,
+    sort: undefined,
   }),
   getters: {
     hasMore(state): boolean {
-      return state.page < state.totalPages
+      if (state.page === undefined || state.page === null) return false
+      const pageNum = typeof state.page === 'number' ? state.page : Number(state.page)
+      if (!Number.isFinite(pageNum)) return false
+      return (pageNum as number) < state.totalPages
     },
     queryParams(state): Record<string, string> {
       const qp: Record<string, string> = {}
@@ -123,9 +92,17 @@ export const useSitesStore = defineStore('sites', {
         qp.long = String(state.long)
       }
       if (state.radius != null) qp.radius = String(state.radius)
-      qp.sort = `${state.sort.field}:${state.sort.dir}`
-      qp.page = String(state.page)
-      qp.perPage = String(state.perPage)
+      if (typeof state.sort === 'string') {
+        qp.sort = state.sort
+      } else if (state.sort) {
+        qp.sort = `${state.sort.field}:${state.sort.dir}`
+      }
+      if (state.page !== undefined && state.page !== null) {
+        qp.page = String(state.page)
+      }
+      if (state.perPage !== undefined && state.perPage !== null) {
+        qp.perPage = String(state.perPage)
+      }
       return qp
     },
   },
@@ -137,26 +114,43 @@ export const useSitesStore = defineStore('sites', {
       const rawTags = (query.tags as string) || ''
       this.tags = rawTags ? rawTags.split(',').map(t => t.trim()).filter(Boolean) : []
       this.favoritesOnly = (query.fav as string) === '1'
-      this.lat = parseNumber(query.lat)
-      this.long = parseNumber(query.long)
-      this.radius = parseNumber(query.radius)
-      this.sort = parseSort((query.sort as string) || 'created_at:desc')
-      this.page = parseNumber(query.page) ?? 1
-      this.perPage = parseNumber(query.perPage) ?? 20
+      this.lat = query.lat as string | number | null | undefined
+      this.long = query.long as string | number | null | undefined
+      this.radius = query.radius as string | number | null | undefined
+      this.sort = query.sort as string | undefined
+      this.page = query.page as string | number | undefined
+      this.perPage = query.perPage as string | number | undefined
     },
     toSearchParams(): SiteSearchParams {
+      let orderBy: 'created_at' | 'name' | 'rating' | undefined = undefined
+      let orderDir: 'asc' | 'desc' | undefined = undefined
+      
+      if (typeof this.sort === 'string') {
+        const parts = this.sort.split(':')
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          orderBy = parts[0] as any
+          orderDir = parts[1] as any
+        } else if (parts.length === 1 && parts[0]) {
+          orderBy = parts[0] as any
+          orderDir = undefined
+        }
+      } else if (this.sort) {
+        orderBy = this.sort.field
+        orderDir = this.sort.dir
+      }
+      
       return {
         text: this.text || undefined,
         city: this.city || null,
         province: this.province || null,
         tags: this.tags.length ? this.tags : null,
-        orderBy: this.sort.field,
-        orderDir: this.sort.dir,
-        lat: this.lat,
-        long: this.long,
-        radius: this.radius,
-        page: this.page,
-        perPage: this.perPage,
+        orderBy,
+        orderDir,
+        lat: this.lat as any,
+        long: this.long as any,
+        radius: this.radius as any,
+        page: this.page as any,
+        perPage: this.perPage as any,
         favoritesOnly: this.favoritesOnly,
       }
     },
@@ -166,19 +160,21 @@ export const useSitesStore = defineStore('sites', {
       this.province = ''
       this.tags = []
       this.favoritesOnly = false
-      this.lat = null
-      this.long = null
-      this.radius = null
-      this.sort = { field: 'created_at', dir: 'desc' }
-      this.page = 1
+      this.lat = undefined
+      this.long = undefined
+      this.radius = undefined
+      this.sort = undefined
+      this.page = undefined
+      this.perPage = undefined
     },
     async loadFirstPage() {
-      this.page = 1
+      this.page = undefined
       await this.loadPage(true)
     },
     async loadNextPage() {
       if (!this.hasMore || this.isLoading || this.isNextLoading) return
-      this.page += 1
+      const currentPage = typeof this.page === 'number' ? this.page : (typeof this.page === 'string' ? Number(this.page) : 1)
+      this.page = currentPage + 1
       await this.loadPage(false)
     },
     async loadPage(replace: boolean) {
@@ -191,10 +187,6 @@ export const useSitesStore = defineStore('sites', {
       try {
         const params = this.toSearchParams()
         let response: PaginatedResponse<HistoricSite> = await fetchPublicSites(params)
-
-        if (this.sort.field === 'name') {
-          response.items = sortByName(response.items, this.sort.dir)
-        }
 
         const pageItems = response.items
 
