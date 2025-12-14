@@ -15,7 +15,9 @@ const store = useSitesStore()
 
 onMounted(async () => {
   store.fromRouteQuery(route.query as Record<string, any>)
-  await store.loadFirstPage()
+  if (Object.keys(store.validationErrors).length === 0) {
+    await store.loadFirstPage()
+  }
   await nextTick()
   setupInfiniteScroll()
 })
@@ -29,7 +31,7 @@ watch(
 )
 
 const debouncedMapSearch = useDebounceFn(() => {
-  if (store.lat != null && store.long != null) {
+  if (store.lat != null && store.long != null && Object.keys(store.validationErrors).length === 0) {
     store.loadFirstPage()
   }
 }, 300)
@@ -120,8 +122,22 @@ function handleSortChange(field: string, dir: 'asc' | 'desc') {
           </div>
         </div>
 
-        <div v-if="store.error" class="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded">
-          {{ store.error }}
+        <div v-if="store.error" class="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded mb-3">
+          <p class="font-medium">Error al cargar sitios:</p>
+          <p>{{ store.error }}</p>
+        </div>
+        
+        <div v-if="Object.keys(store.validationErrors).length > 0" class="p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded mb-3">
+          <p class="font-medium mb-2">⚠️ Errores de validación en los filtros:</p>
+          <ul class="list-disc list-inside space-y-1 text-sm">
+            <li v-if="store.validationErrors.lat">{{ store.validationErrors.lat }}</li>
+            <li v-if="store.validationErrors.long">{{ store.validationErrors.long }}</li>
+            <li v-if="store.validationErrors.radius">{{ store.validationErrors.radius }}</li>
+            <li v-if="store.validationErrors.page">{{ store.validationErrors.page }}</li>
+            <li v-if="store.validationErrors.perPage">{{ store.validationErrors.perPage }}</li>
+            <li v-if="store.validationErrors.sort">{{ store.validationErrors.sort }}</li>
+          </ul>
+          <p class="text-xs mt-2">Por favor, corrige estos errores en los filtros.</p>
         </div>
 
         <div v-if="store.isLoading && !store.items.length" class="grid gap-3" :class="gridCols">

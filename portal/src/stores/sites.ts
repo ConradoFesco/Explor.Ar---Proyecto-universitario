@@ -7,6 +7,15 @@ export type SortOption = {
   dir: 'asc' | 'desc'
 }
 
+export type ValidationErrors = {
+  lat?: string
+  long?: string
+  radius?: string
+  page?: string
+  perPage?: string
+  sort?: string
+}
+
 export type SitesState = {
   items: HistoricSite[]
   page: number | string | undefined
@@ -16,6 +25,7 @@ export type SitesState = {
   isLoading: boolean
   isNextLoading: boolean
   error: string | null
+  validationErrors: ValidationErrors
   text: string
   city: string
   province: string
@@ -52,6 +62,84 @@ function filterSites(
   })
 }
 
+function validateAndCleanNumber(
+  value: unknown,
+  fieldName: string,
+  min?: number,
+  max?: number
+): { value: number | undefined; error?: string } {
+  if (value === undefined || value === null || value === '') {
+    return { value: undefined }
+  }
+
+  const num = typeof value === 'string' ? Number(value) : Number(value)
+  
+  if (!Number.isFinite(num)) {
+    return { value: undefined, error: `${fieldName} debe ser un número válido` }
+  }
+
+  if (min !== undefined && num < min) {
+    return { value: undefined, error: `${fieldName} debe ser mayor o igual a ${min}` }
+  }
+
+  if (max !== undefined && num > max) {
+    return { value: undefined, error: `${fieldName} debe ser menor o igual a ${max}` }
+  }
+
+  return { value: num }
+}
+
+function validateAndCleanSort(
+  sortValue: string | SortOption | undefined
+): { value: SortOption | string | undefined; error?: string } {
+  if (!sortValue) {
+    return { value: undefined }
+  }
+
+  if (typeof sortValue === 'string') {
+    const parts = sortValue.split(':')
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      const field = parts[0].trim()
+      const dir = parts[1].trim().toLowerCase()
+      
+      const validFields = ['created_at', 'name', 'rating']
+      const validDirs = ['asc', 'desc']
+      
+      if (!validFields.includes(field)) {
+        return { value: sortValue, error: `Campo de ordenamiento inválido. Valores permitidos: ${validFields.join(', ')}` }
+      }
+      
+      if (!validDirs.includes(dir)) {
+        return { value: sortValue, error: `Dirección de ordenamiento inválida. Valores permitidos: ${validDirs.join(', ')}` }
+      }
+      
+      return { value: sortValue }
+    } else if (parts.length === 1 && parts[0]) {
+      return { value: sortValue, error: 'Falta la dirección de ordenamiento (asc o desc)' }
+    }
+  } else if (sortValue.field && sortValue.dir) {
+    const validFields = ['created_at', 'name', 'rating']
+    const validDirs = ['asc', 'desc']
+    
+    if (!validFields.includes(sortValue.field)) {
+      return { value: sortValue, error: `Campo de ordenamiento inválido. Valores permitidos: ${validFields.join(', ')}` }
+    }
+    
+    if (!validDirs.includes(sortValue.dir)) {
+      return { value: sortValue, error: `Dirección de ordenamiento inválida. Valores permitidos: ${validDirs.join(', ')}` }
+    }
+    
+    return { value: sortValue }
+  }
+
+  return { value: sortValue }
+}
+
+function cleanString(value: unknown): string {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+
 
 export const useSitesStore = defineStore('sites', {
   state: (): SitesState => ({
@@ -63,6 +151,7 @@ export const useSitesStore = defineStore('sites', {
     isLoading: false,
     isNextLoading: false,
     error: null,
+    validationErrors: {},
     text: '',
     city: '',
     province: '',
@@ -107,19 +196,101 @@ export const useSitesStore = defineStore('sites', {
     },
   },
   actions: {
+    clearValidationErrors() {
+      this.validationErrors = {}
+    },
+    setValidationError(field: keyof ValidationErrors, error: string) {
+      this.validationErrors[field] = error
+    },
+    validateLat(value: unknown): { valid: boolean; error?: string; cleaned?: number } {
+      const result = validateAndCleanNumber(value, 'Latitud', -90, 90)
+      if (result.error) {
+        this.setValidationError('lat', result.error)
+        return { valid: false, error: result.error }
+      }
+      if (result.value !== undefined) {
+        this.lat = result.value
+        delete this.validationErrors.lat
+        return { valid: true, cleaned: result.value }
+      }
+      this.lat = undefined
+      delete this.validationErrors.lat
+      return { valid: true }
+    },
+    validateLong(value: unknown): { valid: boolean; error?: string; cleaned?: number } {
+      const result = validateAndCleanNumber(value, 'Longitud', -180, 180)
+      if (result.error) {
+        this.setValidationError('long', result.error)
+        return { valid: false, error: result.error }
+      }
+      if (result.value !== undefined) {
+        this.long = result.value
+        delete this.validationErrors.long
+        return { valid: true, cleaned: result.value }
+      }
+      this.long = undefined
+      delete this.validationErrors.long
+      return { valid: true }
+    },
+    validateRadius(value: unknown): { valid: boolean; error?: string; cleaned?: number } {
+      const result = validateAndCleanNumber(value, 'Radio', 100, 50000)
+      if (result.error) {
+        this.setValidationError('radius', result.error)
+        return { valid: false, error: result.error }
+      }
+      if (result.value !== undefined) {
+        this.radius = result.value
+        delete this.validationErrors.radius
+        return { valid: true, cleaned: result.value }
+      }
+      this.radius = undefined
+      delete this.validationErrors.radius
+      return { valid: true }
+    },
     fromRouteQuery(query: Record<string, string | string[] | null | undefined>) {
-      this.text = (query.q as string) || ''
-      this.city = (query.city as string) || ''
-      this.province = (query.province as string) || ''
-      const rawTags = (query.tags as string) || ''
+      this.clearValidationErrors()
+      this.text = cleanString(query.q)
+      this.city = cleanString(query.city)
+      this.province = cleanString(query.province)
+      const rawTags = cleanString(query.tags)
       this.tags = rawTags ? rawTags.split(',').map(t => t.trim()).filter(Boolean) : []
       this.favoritesOnly = (query.fav as string) === '1'
-      this.lat = query.lat as string | number | null | undefined
-      this.long = query.long as string | number | null | undefined
-      this.radius = query.radius as string | number | null | undefined
-      this.sort = query.sort as string | undefined
-      this.page = query.page as string | number | undefined
-      this.perPage = query.perPage as string | number | undefined
+      
+      const latResult = validateAndCleanNumber(query.lat, 'Latitud', -90, 90)
+      this.lat = latResult.value
+      if (latResult.error && query.lat !== undefined && query.lat !== null && query.lat !== '') {
+        this.setValidationError('lat', latResult.error)
+      }
+      
+      const longResult = validateAndCleanNumber(query.long, 'Longitud', -180, 180)
+      this.long = longResult.value
+      if (longResult.error && query.long !== undefined && query.long !== null && query.long !== '') {
+        this.setValidationError('long', longResult.error)
+      }
+      
+      const radiusResult = validateAndCleanNumber(query.radius, 'Radio', 100, 50000)
+      this.radius = radiusResult.value
+      if (radiusResult.error && query.radius !== undefined && query.radius !== null && query.radius !== '') {
+        this.setValidationError('radius', radiusResult.error)
+      }
+      
+      const pageResult = validateAndCleanNumber(query.page, 'Página', 1)
+      this.page = pageResult.value
+      if (pageResult.error && query.page !== undefined && query.page !== null && query.page !== '') {
+        this.setValidationError('page', pageResult.error)
+      }
+      
+      const perPageResult = validateAndCleanNumber(query.perPage, 'Elementos por página', 1, 100)
+      this.perPage = perPageResult.value
+      if (perPageResult.error && query.perPage !== undefined && query.perPage !== null && query.perPage !== '') {
+        this.setValidationError('perPage', perPageResult.error)
+      }
+      
+      const sortResult = validateAndCleanSort(query.sort as string | undefined)
+      this.sort = sortResult.value
+      if (sortResult.error && query.sort !== undefined && query.sort !== null && query.sort !== '') {
+        this.setValidationError('sort', sortResult.error)
+      }
     },
     toSearchParams(): SiteSearchParams {
       let orderBy: 'created_at' | 'name' | 'rating' | undefined = undefined
@@ -166,6 +337,7 @@ export const useSitesStore = defineStore('sites', {
       this.sort = undefined
       this.page = undefined
       this.perPage = undefined
+      this.clearValidationErrors()
     },
     async loadFirstPage() {
       this.page = undefined
@@ -178,6 +350,15 @@ export const useSitesStore = defineStore('sites', {
       await this.loadPage(false)
     },
     async loadPage(replace: boolean) {
+      if (Object.keys(this.validationErrors).length > 0) {
+        if (replace) {
+          this.isLoading = false
+        } else {
+          this.isNextLoading = false
+        }
+        return
+      }
+      
       if (replace) {
         this.isLoading = true
         this.error = null
@@ -198,7 +379,33 @@ export const useSitesStore = defineStore('sites', {
         this.total = response.total
         this.totalPages = response.total_pages
       } catch (e: any) {
-        this.error = e?.message || 'Error al cargar sitios'
+        const errorMessage = e?.message || 'Error al cargar sitios'
+        this.error = errorMessage
+        
+        try {
+          if (errorMessage.includes('validation') || errorMessage.includes('inválido') || errorMessage.includes('Invalid')) {
+            if (e?.response || e?.data) {
+              const errorData = e.response || e.data
+              if (errorData?.error?.details) {
+                const details = errorData.error.details
+                if (details.order_by) {
+                  this.setValidationError('sort', Array.isArray(details.order_by) ? details.order_by[0] : details.order_by)
+                }
+                if (details.radius) {
+                  this.setValidationError('radius', Array.isArray(details.radius) ? details.radius[0] : details.radius)
+                }
+                if (details.lat) {
+                  this.setValidationError('lat', Array.isArray(details.lat) ? details.lat[0] : details.lat)
+                }
+                if (details.long || details.longitude) {
+                  this.setValidationError('long', Array.isArray(details.long || details.longitude) ? (details.long || details.longitude)[0] : (details.long || details.longitude))
+                }
+              }
+            }
+          }
+        } catch (parseError) {
+          console.warn('Error al parsear detalles de validación:', parseError)
+        }
       } finally {
         this.isLoading = false
         this.isNextLoading = false

@@ -34,18 +34,33 @@ const province = ref<string>('')
 const selectedTags = ref<string[]>(store.tags)
 const favoritesOnly = ref(store.favoritesOnly)
 
-const lat = ref(store.lat)
-const long = ref(store.long)
-const radius = ref(store.radius ?? 1000)
+const lat = ref<number | null>(typeof store.lat === 'number' ? store.lat : (store.lat && !isNaN(Number(store.lat)) ? Number(store.lat) : null))
+const long = ref<number | null>(typeof store.long === 'number' ? store.long : (store.long && !isNaN(Number(store.long)) ? Number(store.long) : null))
+const radius = ref<number | string>(typeof store.radius === 'number' ? store.radius : (store.radius && !isNaN(Number(store.radius)) ? Number(store.radius) : 1000))
+
+const radiusForMap = ref<number | null>(
+  typeof store.radius === 'number' ? store.radius : (store.radius && !isNaN(Number(store.radius)) ? Number(store.radius) : 1000)
+)
+
+watch(radiusForMap, (newVal) => {
+  radius.value = newVal ?? 1000
+})
 
 const mapAccordionOpen = ref<string | undefined>(undefined)
 const radiusDropdownOpen = ref(false)
 const radiusDropdownRef = ref<HTMLDivElement | null>(null)
 
+const latError = ref<string | undefined>(undefined)
+const longError = ref<string | undefined>(undefined)
+const radiusError = ref<string | undefined>(undefined)
+
+const storeLatError = computed(() => store.validationErrors.lat)
+const storeLongError = computed(() => store.validationErrors.long)
+const storeRadiusError = computed(() => store.validationErrors.radius)
+
 const filterOptions = ref<FilterOptions | null>(null)
 const isLoadingOptions = ref(false)
 
-// Computed para opciones de selectores (sin incluir la opción "Todas", se maneja con placeholder)
 const cityOptions = computed(() => 
   (filterOptions.value?.cities || []).map(c => ({ value: c.name, label: c.name }))
 )
@@ -64,10 +79,13 @@ onMounted(async () => {
     isLoadingOptions.value = false
   }
   
-  // Sincronizar con el store al montar
   if (store.city) city.value = store.city
   if (store.province) province.value = store.province
   favoritesOnly.value = store.favoritesOnly
+  
+  if (store.validationErrors.lat) latError.value = store.validationErrors.lat
+  if (store.validationErrors.long) longError.value = store.validationErrors.long
+  if (store.validationErrors.radius) radiusError.value = store.validationErrors.radius
 })
 
 onClickOutside(radiusDropdownRef, () => {
@@ -75,23 +93,103 @@ onClickOutside(radiusDropdownRef, () => {
 })
 
 function applyTextSearch() {
+  store.clearValidationErrors()
+  
   store.text = text.value.trim()
-  store.page = 1
+  
+  store.page = undefined
   store.loadFirstPage()
   emit('apply')
 }
 
 function applyMapFilters() {
-  store.lat = lat.value != null && lat.value !== '' ? lat.value : undefined
-  store.long = long.value != null && long.value !== '' ? long.value : undefined
-  store.radius = radius.value != null && radius.value !== '' ? radius.value : undefined
+  latError.value = undefined
+  longError.value = undefined
+  radiusError.value = undefined
+  
+  store.clearValidationErrors()
+  
+  let hasErrors = false
+  
+  if (lat.value != null) {
+    const latResult = store.validateLat(lat.value)
+    if (!latResult.valid) {
+      latError.value = latResult.error
+      hasErrors = true
+    } else if (latResult.cleaned !== undefined) {
+      lat.value = latResult.cleaned
+      store.lat = latResult.cleaned
+    } else {
+      store.lat = undefined
+    }
+  } else {
+    store.lat = undefined
+  }
+  
+  if (long.value != null) {
+    const longResult = store.validateLong(long.value)
+    if (!longResult.valid) {
+      longError.value = longResult.error
+      hasErrors = true
+    } else if (longResult.cleaned !== undefined) {
+      long.value = longResult.cleaned
+      store.long = longResult.cleaned
+    } else {
+      store.long = undefined
+    }
+  } else {
+    store.long = undefined
+  }
+  
+  const radiusValue = radius.value
+  if (radiusValue != null && radiusValue !== '' && radiusValue !== '0') {
+    const radiusResult = store.validateRadius(radiusValue)
+    if (!radiusResult.valid) {
+      radiusError.value = radiusResult.error
+      hasErrors = true
+    } else if (radiusResult.cleaned !== undefined) {
+      radius.value = radiusResult.cleaned
+      store.radius = radiusResult.cleaned
+    } else {
+      store.radius = undefined
+    }
+  } else {
+    store.radius = undefined
+  }
+  
+  if (hasErrors) {
+    return
+  }
+  
+  if ((store.lat !== undefined) !== (store.long !== undefined)) {
+    if (store.lat !== undefined) {
+      longError.value = 'La longitud es requerida cuando se especifica latitud'
+      hasErrors = true
+    } else {
+      latError.value = 'La latitud es requerida cuando se especifica longitud'
+      hasErrors = true
+    }
+  }
+  
+  if (store.radius !== undefined && (store.lat === undefined || store.long === undefined)) {
+    radiusError.value = 'El radio requiere especificar latitud y longitud'
+    hasErrors = true
+  }
+  
+  if (hasErrors) {
+    return
+  }
+  
+  if (Object.keys(store.validationErrors).length > 0) {
+    return
+  }
+  
   store.page = undefined
   store.loadFirstPage()
   emit('apply')
 }
 
 async function applyManualFilters() {
-  // Si se activa el filtro de favoritos, verificar autenticación
   if (favoritesOnly.value) {
     await checkAuth()
     if (!isAuthenticated.value) {
@@ -105,11 +203,18 @@ async function applyManualFilters() {
     }
   }
   
+  store.clearValidationErrors()
+  
   store.city = city.value.trim()
   store.province = province.value.trim()
   store.tags = selectedTags.value
   store.favoritesOnly = favoritesOnly.value === true
-  store.page = 1
+  
+  if (Object.keys(store.validationErrors).length > 0) {
+    return
+  }
+  
+  store.page = undefined
   await store.loadFirstPage()
   emit('apply')
 }
@@ -149,6 +254,9 @@ function clearMapSelection() {
   lat.value = null
   long.value = null
   radius.value = 1000
+  latError.value = undefined
+  longError.value = undefined
+  radiusError.value = undefined
   store.lat = undefined
   store.long = undefined
   store.radius = undefined
@@ -237,14 +345,20 @@ function clearMapSelection() {
               <SearchMap
                 v-model:lat="lat"
                 v-model:long="long"
-                v-model:radius="radius"
+                v-model:radius="radiusForMap"
               />
             </div>
             <div class="flex items-center justify-between">
               <div v-if="lat != null && long != null" class="text-xs text-gray-600 dark:text-gray-300">
                 <p class="font-medium">Punto seleccionado:</p>
-                <p>{{ lat.toFixed(5) }}, {{ long.toFixed(5) }}</p>
-                <p class="mt-1">Radio: {{ radius }} m</p>
+                <p>{{ typeof lat === 'number' ? lat.toFixed(5) : lat }}, {{ typeof long === 'number' ? long.toFixed(5) : long }}</p>
+                <p v-if="radius != null && radius !== ''" class="mt-1">Radio: {{ radius }} m</p>
+                <p v-if="latError || storeLatError" class="text-red-600 dark:text-red-400 mt-1 font-medium">
+                  ⚠️ {{ latError || storeLatError }}
+                </p>
+                <p v-if="longError || storeLongError" class="text-red-600 dark:text-red-400 mt-1 font-medium">
+                  ⚠️ {{ longError || storeLongError }}
+                </p>
               </div>
               <div v-else class="text-xs text-gray-500 dark:text-gray-400">
                 Hacé clic en el mapa para seleccionar un punto
@@ -272,10 +386,14 @@ function clearMapSelection() {
                       max="50000"
                       step="100"
                       placeholder="1000"
-                      class="mb-2"
+                      :class="['mb-2', (radiusError || storeRadiusError) && 'border-red-500 dark:border-red-500']"
+                      @blur="applyMapFilters"
                     />
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                      El radio se aplicará desde el punto seleccionado en el mapa.
+                    <p v-if="radiusError || storeRadiusError" class="text-xs text-red-600 dark:text-red-400 mb-2 font-medium">
+                      {{ radiusError || storeRadiusError }}
+                    </p>
+                    <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+                      El radio se aplicará desde el punto seleccionado en el mapa (100-50000 metros).
                     </p>
                   </div>
                 </div>
