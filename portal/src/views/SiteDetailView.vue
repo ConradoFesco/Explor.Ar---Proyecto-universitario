@@ -71,9 +71,6 @@ async function loadSite() {
     await checkAuth()
     site.value = await fetchSiteDetail(siteId.value, isAuthenticated.value)
     await reviews.loadReviews(1)
-    if (isAuthenticated.value) {
-      await reviews.loadMyReview()
-    }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Error al cargar el sitio'
     error.value = message
@@ -95,30 +92,21 @@ function handleFavoriteUpdate(newState: boolean) {
 }
 
 async function openReviewFormForEdit(review?: Review | null) {
-  // Usar la reseña proporcionada o cargar myReview
   if (review) {
     reviewToEdit.value = review
   } else {
-    // Asegurarse de que myReview esté cargado
-    if (!reviews.myReview.value) {
-      await reviews.loadMyReview()
-    }
     reviewToEdit.value = reviews.myReview.value
   }
   
-  // Abrir formulario en modo edición con la reseña existente
   showReviewForm.value = true
 }
 
 async function openReviewFormForCreate() {
-  // Limpiar reseña a editar para modo creación
   reviewToEdit.value = null
-  // Abrir formulario en modo creación (sin reseña)
   showReviewForm.value = true
 }
 
 async function handleWriteReview() {
-  // Verificar si las reseñas están habilitadas (consulta directa sin caché)
   const { checkReviewsEnabledDirectly } = useFlags()
   const reviewsEnabled = await checkReviewsEnabledDirectly()
   if (!reviewsEnabled) {
@@ -129,7 +117,6 @@ async function handleWriteReview() {
     return
   }
   
-  // Verificar autenticación
   if (!isAuthenticated.value) {
     await checkAuth()
     if (!isAuthenticated.value) {
@@ -142,12 +129,6 @@ async function handleWriteReview() {
     }
   }
   
-  // Asegurarse de que myReview esté cargado
-  if (!reviews.myReview.value) {
-    await reviews.loadMyReview()
-  }
-  
-  // Si ya tiene una reseña, mostrar confirmación PRIMERO
   if (reviews.myReview.value) {
     const result = await showConfirm(
       'Modificar reseña',
@@ -155,12 +136,9 @@ async function handleWriteReview() {
     )
     
     if (result.isConfirmed) {
-      // Si confirma, abrir formulario en modo edición
       await openReviewFormForEdit()
     }
-    // Si cancela, no hacer nada
   } else {
-    // Si no tiene reseña, abrir formulario directamente para crear
     await openReviewFormForCreate()
   }
 }
@@ -168,8 +146,6 @@ async function handleWriteReview() {
 async function handleEditReview(review: Review) {
   if (!isAuthenticated.value) return
   
-  // El botón de editar abre directamente el formulario de modificación sin preguntar
-  // Usar la reseña que se pasó como parámetro
   await openReviewFormForEdit(review)
 }
 
@@ -183,21 +159,12 @@ async function handleDeleteReview(reviewId: number) {
   try {
     await reviews.removeReview(reviewId)
   } catch {
-    // El error ya fue manejado en useReviews
   }
 }
 
-/**
- * Muestra confirmación para editar una reseña existente.
- * Cierra el formulario actual y abre el formulario de edición si el usuario confirma.
- */
 async function promptEditExistingReview(): Promise<void> {
   showReviewForm.value = false
   reviewToEdit.value = null
-  
-  if (!reviews.myReview.value) {
-    await reviews.loadMyReview()
-  }
   
   const result = await showConfirm(
     'Reseña existente',
@@ -215,22 +182,12 @@ async function handleSubmitReview(rating: number, content: string) {
   isSubmittingReview.value = true
   
   try {
-    // Asegurarse de que myReview esté cargado antes de determinar el reviewId
-    if (!reviews.myReview.value) {
-      await reviews.loadMyReview()
-    }
-    
-    // Si reviewToEdit no está establecido pero myReview existe, establecerlo
-    // Esto puede pasar si el formulario se abrió en modo creación pero el usuario tiene una reseña
     if (!reviewToEdit.value && reviews.myReview.value) {
       reviewToEdit.value = reviews.myReview.value
     }
     
-    // Determinar el reviewId: si reviewToEdit está establecido, usar ese ID (modo edición)
     const reviewId = reviewToEdit.value?.id || undefined
     
-    // Validación: si no hay reviewId pero existe myReview, no permitir crear
-    // Esto previene el error 400 del backend
     if (!reviewId && reviews.myReview.value) {
       isSubmittingReview.value = false
       await promptEditExistingReview()
@@ -238,17 +195,14 @@ async function handleSubmitReview(rating: number, content: string) {
     }
     
     await reviews.submitReview(rating, content, reviewId)
-    // Cerrar el formulario inmediatamente después del éxito
     showReviewForm.value = false
     reviewToEdit.value = null
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     
-    // Si el error es que ya existe una reseña, mostrar confirmación para editarla
     if (errorMsg === 'REVIEW_EXISTS') {
       await promptEditExistingReview()
     }
-    // Otros errores ya fueron manejados en useReviews
   } finally {
     isSubmittingReview.value = false
   }
@@ -264,27 +218,22 @@ function handleBack() {
   router.push({ name: 'SitesList', query: sitesStore.queryParams })
 }
 
-// Watchers
 watch(() => route.params.id, (newId) => {
   if (newId && Number(newId) !== site.value?.id) {
     loadSite()
   }
 })
 
-// Watcher para detectar cuando se desactiva el flag mientras el formulario está abierto
 watch(areReviewsEnabled, async (newValue, oldValue) => {
-  // Solo actuar si el flag cambió de true a false y el formulario está abierto
   if (oldValue === true && newValue === false && showReviewForm.value) {
     await showWarning(
       'Reseñas deshabilitadas',
       'Las reseñas están temporalmente deshabilitadas. Por favor, intente más tarde.'
     )
-    // Cerrar el formulario
     handleCloseReviewForm()
   }
 })
 
-// Lifecycle
 onMounted(() => {
   loadSite()
 })

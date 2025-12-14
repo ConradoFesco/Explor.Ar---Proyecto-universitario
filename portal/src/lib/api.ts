@@ -61,10 +61,7 @@ export type Review = {
   updated_at?: string | null;
   status?: string;
   author_name?: string | null; 
-  user?: {
-    id: number | null;
-    name: string | null;
-  };
+  user_id?: number | null;
 };
 
 export type ReviewsResponse = {
@@ -362,15 +359,12 @@ export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): 
   const meta = raw.meta ?? {};
 
   const mapped: Review[] = itemsSource.map((r: any) => {
-    const user = r.user ?? {
-      id: null,
-      name: null,
-    };
     const rating = Number(r.rating ?? 0);
     const content = (r.comment ?? r.content ?? '').toString();
     const createdAt = (r.inserted_at ?? r.created_at ?? null) as string | null;
     const updatedAt = (r.updated_at ?? null) as string | null;
-    const authorName = (r.author_name ?? user.name ?? null) as string | null;
+    const authorName = (r.author_name ?? null) as string | null;
+    const userId = r.user_id ?? null;
 
     return {
       id: Number(r.id),
@@ -383,21 +377,19 @@ export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): 
       updated_at: updatedAt,
       status: r.status,
       author_name: authorName,
-      user,
+      user_id: userId !== null ? Number(userId) : null,
     };
   });
 
-  const approvedReviews = mapped.filter(r => !r.status || r.status === 'approved');
-
   return {
-    reviews: approvedReviews,
+    reviews: mapped,
     pagination: {
       page: meta.page ?? page,
       per_page: meta.per_page ?? perPage,
-      total: meta.total ?? approvedReviews.length,
+      total: meta.total ?? mapped.length,
       pages:
         meta.pages ??
-        (perPage > 0 ? Math.ceil((meta.total ?? approvedReviews.length) / perPage) : 1),
+        (perPage > 0 ? Math.ceil((meta.total ?? mapped.length) / perPage) : 1),
     },
   };
 }
@@ -470,47 +462,4 @@ export async function deleteReview(siteId: number, reviewId: number): Promise<vo
     }
     throw new Error(`Error al eliminar reseña (${res.status}): ${errorMsg}`);
   }
-}
-
-export async function getMyReview(siteId: number): Promise<Review | null> {
-  const base = getApiBaseUrl();
-  const url = `${base}/sites/${siteId}/reviews/me`;
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { 
-      'Accept': 'application/json',
-    },
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    if (res.status === 401) {
-      return null;
-    }
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al obtener reseña (${res.status}): ${text}`);
-  }
-  const data = await res.json();
-  const raw = data.review;
-  if (!raw) return null;
-
-  const content = (raw.comment ?? '').toString();
-  const createdAt = (raw.inserted_at ?? null) as string | null;
-  const updatedAt = (raw.updated_at ?? null) as string | null;
-  const user = raw.user ?? {
-    id: null,
-    name: null,
-  };
-  
-  return {
-    id: Number(raw.id),
-    site_id: Number(raw.site_id),
-    rating: Number(raw.rating ?? 0),
-    content,
-    comment: content,
-    inserted_at: createdAt,
-    created_at: createdAt,
-    updated_at: updatedAt,
-    status: raw.status,
-    user,
-  };
 }

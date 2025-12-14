@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { fetchSiteReviews, createReview, updateReview, deleteReview, getMyReview, type Review } from '@/lib/api'
+import { fetchSiteReviews, createReview, updateReview, deleteReview, type Review } from '@/lib/api'
 import { useAlert } from './useAlert'
 import { useAuth } from './useAuth'
 import { useFlags } from './useFlags'
@@ -12,12 +12,14 @@ export function useReviews(siteId: number | (() => number)) {
   const reviewsTotal = ref(0)
   const reviewsTotalPages = ref(0)
   const isLoadingReviews = ref(false)
-  const myReview = ref<Review | null>(null)
-  const isLoadingMyReview = ref(false)
   const { showError, showWarning, showSuccess, showConfirm, showInfo } = useAlert()
   const { loginWithGoogle, user } = useAuth()
   
   const currentSiteId = computed(() => typeof siteId === 'function' ? siteId() : siteId)
+  const myReview = computed(() => {
+    if (!user.value) return null
+    return reviews.value.find(r => r.user_id === user.value?.id) || null
+  })
 
   async function loadReviews(page: number) {
     if (isLoadingReviews.value) return
@@ -43,22 +45,8 @@ export function useReviews(siteId: number | (() => number)) {
     }
   }
 
-  async function loadMyReview() {
-    if (!user.value || isLoadingMyReview.value) return
-
-    isLoadingMyReview.value = true
-    try {
-      myReview.value = await getMyReview(currentSiteId.value)
-    } catch (e: unknown) {
-      console.error('Error loading my review:', e)
-      myReview.value = null
-    } finally {
-      isLoadingMyReview.value = false
-    }
-  }
 
   async function submitReview(rating: number, content: string, reviewId?: number): Promise<void> {
-    // Verificar si las reseñas están habilitadas antes de enviar (consulta directa sin caché)
     const { checkReviewsEnabledDirectly } = useFlags()
     const reviewsEnabled = await checkReviewsEnabledDirectly()
     if (!reviewsEnabled) {
@@ -71,20 +59,13 @@ export function useReviews(siteId: number | (() => number)) {
     
     try {
       if (reviewId) {
-        // Editar reseña existente
         await updateReview(currentSiteId.value, reviewId, rating, content)
       } else {
-        // Crear nueva reseña
         await createReview(currentSiteId.value, rating, content)
       }
       
-      // Recargar mi reseña primero (con await) para que se actualice el estado inmediatamente
-      await loadMyReview()
+      await loadReviews(1)
       
-      // Recargar lista de reseñas en segundo plano (sin await para no bloquear)
-      loadReviews(1).catch(err => console.error('Error al recargar reseñas:', err))
-      
-      // Mostrar mensaje de éxito (sin await para no bloquear el cierre del formulario)
       if (reviewId) {
         showSuccess(
           'Reseña actualizada',
@@ -100,7 +81,6 @@ export function useReviews(siteId: number | (() => number)) {
       const error = e instanceof Error ? e : new Error(String(e))
       const errorMsg = error.message || ''
       
-      // Log del error para debugging
       console.error('Error al enviar reseña:', errorMsg)
 
       if (errorMsg.includes('401') || errorMsg.includes('Autenticación') || errorMsg.includes('no autenticado')) {
@@ -111,13 +91,10 @@ export function useReviews(siteId: number | (() => number)) {
         await loginWithGoogle()
         throw error
       } else if (errorMsg.includes('Ya existe una reseña') || errorMsg.includes('Use la opción de editar')) {
-        // Este error se manejará en el componente padre para mostrar confirmación
         throw new Error('REVIEW_EXISTS')
       } else {
-        // Extraer el mensaje de error más específico
         let displayMsg = errorMsg
         if (errorMsg.includes('400:')) {
-          // El mensaje viene como "Error al crear reseña (400): {mensaje}"
           const parts = errorMsg.split('400:')
           if (parts.length > 1 && parts[1]) {
             displayMsg = parts[1].trim()
@@ -134,7 +111,6 @@ export function useReviews(siteId: number | (() => number)) {
   }
 
   async function removeReview(reviewId: number): Promise<void> {
-    // Verificar si las reseñas están habilitadas antes de eliminar (consulta directa sin caché)
     const { checkReviewsEnabledDirectly } = useFlags()
     const reviewsEnabled = await checkReviewsEnabledDirectly()
     if (!reviewsEnabled) {
@@ -160,8 +136,7 @@ export function useReviews(siteId: number | (() => number)) {
         'Reseña eliminada',
         'Su reseña ha sido eliminada correctamente.'
       )
-      await loadReviews(1) // Recargar primera página
-      await loadMyReview() // Recargar mi reseña
+      await loadReviews(1)
     } catch (e: unknown) {
       const error = e instanceof Error ? e : { message: String(e) }
       const errorMsg = error.message || ''
@@ -182,7 +157,7 @@ export function useReviews(siteId: number | (() => number)) {
   }
 
   const isMyReview = (review: Review) => {
-    return user.value && review.user?.id === user.value.id
+    return user.value && review.user_id === user.value.id
   }
 
   return {
@@ -192,9 +167,7 @@ export function useReviews(siteId: number | (() => number)) {
     reviewsTotalPages,
     isLoadingReviews,
     myReview,
-    isLoadingMyReview,
     loadReviews,
-    loadMyReview,
     submitReview,
     removeReview,
     isMyReview,

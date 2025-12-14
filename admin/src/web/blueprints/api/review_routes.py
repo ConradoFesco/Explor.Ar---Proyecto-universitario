@@ -21,6 +21,8 @@ def list_site_reviews(site_id: int):
     
     Información adicional no especificada en la API:
     - author_name: Nombre del autor de la reseña (string, opcional)
+    - status: Estado de la reseña (string, opcional): 'pending', 'approved', o 'rejected'
+    - user_id: ID del usuario autor de la reseña (number, opcional)
     """
     try:
         historic_site_service.get_historic_site(site_id)
@@ -78,6 +80,8 @@ def list_site_reviews(site_id: int):
                 "inserted_at": r.get('created_at'),
                 "updated_at": r.get('updated_at') or r.get('created_at'),
                 "author_name": user_info.get('name') if user_info else None,
+                "status": r.get('status'),
+                "user_id": user_info.get('id') if user_info else None,
             })
         
         payload = {
@@ -341,56 +345,6 @@ def update_site_review(site_id: int, review_id: int):
         ), 500
     except Exception as error:
         current_app.logger.exception("Error al actualizar reseña", exc_info=error)
-        return jsonify(
-            {
-                "error": {
-                    "code": "server_error",
-                    "message": "An unexpected error occurred",
-                }
-            }
-        ), 500
-
-
-@review_api.route('/sites/<int:site_id>/reviews/me', methods=['GET'])
-@token_or_session_required
-def get_my_review(site_id: int):
-    """
-    Obtiene la reseña del usuario actual para un sitio.
-    
-    Información adicional no especificada en la API:
-    - status: Estado de la reseña (string, opcional): 'pending', 'approved', o 'rejected'
-    """
-    user_id = get_current_user_id()
-    try:
-        review = review_service.get_user_review(site_id=site_id, user_id=user_id)
-        if review:
-            review_data = {
-                'id': review.get('id'),
-                'site_id': review.get('site_id'),
-                'rating': review.get('rating'),
-                'comment': review.get('content'),
-                'inserted_at': review.get('created_at'),
-                'updated_at': review.get('updated_at') or review.get('created_at'),
-                'status': review.get('status'),
-            }
-        else:
-            review_data = None
-        response = jsonify({'review': review_data})
-        response.headers['Content-Type'] = 'application/json; charset=utf-8'
-        return response, 200
-    except exc.ValidationError as error:
-        error_details = format_validation_error_for_api(error)
-        return jsonify(
-            {
-                "error": {
-                    "code": "invalid_data",
-                    "message": "Invalid input data",
-                    "details": error_details,
-                }
-            }
-        ), 400
-    except Exception as error:
-        current_app.logger.exception("Error al obtener reseña del usuario", exc_info=error)
         return jsonify(
             {
                 "error": {
