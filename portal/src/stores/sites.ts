@@ -37,31 +37,6 @@ export type SitesState = {
   sort: SortOption | string | undefined
 }
 
-function filterSites(
-  items: HistoricSite[],
-  text: string,
-  city: string,
-  province: string,
-  tags: string[]
-): HistoricSite[] {
-  const textLower = text.toLowerCase()
-  return items.filter((s) => {
-    const matchesText = !text ||
-      s.name?.toLowerCase().includes(textLower) ||
-      (s.brief_description || '').toLowerCase().includes(textLower)
-    
-    const matchesCity = !city || (s.city || '').toLowerCase() === city.toLowerCase()
-    
-    const matchesProvince = !province || (s.province || '').toLowerCase() === province.toLowerCase()
-    
-    const matchesTags = !tags.length || tags.every(t => 
-      s.tags?.map(x => x.toLowerCase()).includes(t.toLowerCase())
-    )
-    
-    return matchesText && matchesCity && matchesProvince && matchesTags
-  })
-}
-
 function validateAndCleanNumber(
   value: unknown,
   fieldName: string,
@@ -184,13 +159,13 @@ export const useSitesStore = defineStore('sites', {
       if (typeof state.sort === 'string') {
         qp.sort = state.sort
       } else if (state.sort) {
-        qp.sort = `${state.sort.field}:${state.sort.dir}`
+      qp.sort = `${state.sort.field}:${state.sort.dir}`
       }
       if (state.page !== undefined && state.page !== null) {
-        qp.page = String(state.page)
+      qp.page = String(state.page)
       }
       if (state.perPage !== undefined && state.perPage !== null) {
-        qp.perPage = String(state.perPage)
+      qp.perPage = String(state.perPage)
       }
       return qp
     },
@@ -299,15 +274,27 @@ export const useSitesStore = defineStore('sites', {
       if (typeof this.sort === 'string') {
         const parts = this.sort.split(':')
         if (parts.length >= 2 && parts[0] && parts[1]) {
-          orderBy = parts[0] as any
-          orderDir = parts[1] as any
+          const field = parts[0].trim()
+          const dir = parts[1].trim().toLowerCase()
+          if (['created_at', 'name', 'rating'].includes(field) && ['asc', 'desc'].includes(dir)) {
+            orderBy = field as 'created_at' | 'name' | 'rating'
+            orderDir = dir as 'asc' | 'desc'
+          }
         } else if (parts.length === 1 && parts[0]) {
-          orderBy = parts[0] as any
-          orderDir = undefined
+          const field = parts[0].trim()
+          if (['created_at', 'name', 'rating'].includes(field)) {
+            orderBy = field as 'created_at' | 'name' | 'rating'
+          }
         }
       } else if (this.sort) {
         orderBy = this.sort.field
         orderDir = this.sort.dir
+      }
+      
+      const convertToNumber = (value: number | string | undefined): number | undefined => {
+        if (value === undefined || value === null) return undefined
+        const num = typeof value === 'number' ? value : Number(value)
+        return isNaN(num) ? undefined : num
       }
       
       return {
@@ -317,11 +304,11 @@ export const useSitesStore = defineStore('sites', {
         tags: this.tags.length ? this.tags : null,
         orderBy,
         orderDir,
-        lat: this.lat as any,
-        long: this.long as any,
-        radius: this.radius as any,
-        page: this.page as any,
-        perPage: this.perPage as any,
+        lat: convertToNumber(this.lat) ?? null,
+        long: convertToNumber(this.long) ?? null,
+        radius: convertToNumber(this.radius) ?? null,
+        page: convertToNumber(this.page),
+        perPage: convertToNumber(this.perPage),
         favoritesOnly: this.favoritesOnly,
       }
     },
@@ -378,27 +365,46 @@ export const useSitesStore = defineStore('sites', {
         }
         this.total = response.total
         this.totalPages = response.total_pages
-      } catch (e: any) {
-        const errorMessage = e?.message || 'Error al cargar sitios'
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Error al cargar sitios'
         this.error = errorMessage
         
         try {
           if (errorMessage.includes('validation') || errorMessage.includes('inválido') || errorMessage.includes('Invalid')) {
-            if (e?.response || e?.data) {
-              const errorData = e.response || e.data
-              if (errorData?.error?.details) {
-                const details = errorData.error.details
-                if (details.order_by) {
-                  this.setValidationError('sort', Array.isArray(details.order_by) ? details.order_by[0] : details.order_by)
+            const errorData = (error as { response?: unknown; data?: unknown })?.response || (error as { data?: unknown })?.data
+            if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+              const errorObj = errorData.error as { details?: Record<string, unknown> }
+              if (errorObj?.details) {
+                const details = errorObj.details
+                
+                const extractError = (value: unknown): string | undefined => {
+                  if (Array.isArray(value) && value.length > 0) {
+                    return String(value[0])
+                  }
+                  if (typeof value === 'string') {
+                    return value
+                  }
+                  return undefined
                 }
-                if (details.radius) {
-                  this.setValidationError('radius', Array.isArray(details.radius) ? details.radius[0] : details.radius)
+                
+                const orderByError = extractError(details.order_by)
+                if (orderByError) {
+                  this.setValidationError('sort', orderByError)
                 }
-                if (details.lat) {
-                  this.setValidationError('lat', Array.isArray(details.lat) ? details.lat[0] : details.lat)
+                
+                const radiusError = extractError(details.radius)
+                if (radiusError) {
+                  this.setValidationError('radius', radiusError)
                 }
-                if (details.long || details.longitude) {
-                  this.setValidationError('long', Array.isArray(details.long || details.longitude) ? (details.long || details.longitude)[0] : (details.long || details.longitude))
+                
+                const latError = extractError(details.lat)
+                if (latError) {
+                  this.setValidationError('lat', latError)
+                }
+                
+                const longError = extractError(details.long || details.longitude)
+                if (longError) {
+                  this.setValidationError('long', longError)
                 }
               }
             }

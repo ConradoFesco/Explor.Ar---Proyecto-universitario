@@ -22,14 +22,12 @@ const route = useRoute()
 const router = useRouter()
 const sitesStore = useSitesStore()
 
-// Composables
 const siteId = computed(() => Number(route.params.id))
 const { isAuthenticated, checkAuth, loginWithGoogle } = useAuth()
 const { showWarning, showConfirm } = useAlert()
 const { areReviewsEnabled } = useFlags()
 const reviews = useReviews(() => siteId.value)
 
-// State
 const site = ref<HistoricSiteDetail | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -37,13 +35,11 @@ const showReviewForm = ref(false)
 const isSubmittingReview = ref(false)
 const reviewToEdit = ref<Review | null>(null)
 
-// Computed
 const allImages = computed(() => {
   if (!site.value) return []
   
   const images = [...(site.value.images || [])]
   
-  // Agregar imagen de portada si no está en la lista
   if (site.value.cover_image) {
     const coverImage = site.value.cover_image
     const coverExists = images.some(img => img.id === coverImage.id)
@@ -52,7 +48,6 @@ const allImages = computed(() => {
     }
   }
   
-  // Ordenar: portada primero, luego por orden
   return images.sort((a, b) => {
     if (a.es_portada) return -1
     if (b.es_portada) return 1
@@ -60,7 +55,6 @@ const allImages = computed(() => {
   })
 })
 
-// Functions
 async function loadSite() {
   if (isLoading.value) return
   
@@ -84,7 +78,6 @@ function handleFavoriteUpdate(newState: boolean) {
   if (site.value) {
     site.value = { ...site.value, is_favorite: newState }
   }
-  // Actualizar en el store si el sitio está en la lista
   const idx = sitesStore.items.findIndex(s => s.id === site.value?.id)
   if (idx >= 0 && site.value) {
     sitesStore.items[idx] = { ...sitesStore.items[idx], is_favorite: newState } as HistoricSite

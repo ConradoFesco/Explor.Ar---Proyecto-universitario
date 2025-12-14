@@ -89,3 +89,25 @@ def validate_role_ids(role_ids: list[int]) -> list[int]:
     if missing:
         raise NotFoundError(f"Roles no encontrados: {missing}")
     return ids
+
+
+def validate_user_exists(user_id: int) -> User:
+    """
+    Valida que un usuario existe y no está eliminado.
+    
+    Args:
+        user_id: ID del usuario a validar
+    
+    Returns:
+        User: Usuario encontrado
+    
+    Raises:
+        ValidationError: Si el usuario no existe o está eliminado
+    """
+    from src.core.validators.api_validator import validate_positive_int
+    
+    user_id = validate_positive_int(user_id, "user_id")
+    user = User.query.filter_by(id=user_id, deleted=False).first()
+    if not user:
+        raise ValidationError("Usuario inválido")
+    return user

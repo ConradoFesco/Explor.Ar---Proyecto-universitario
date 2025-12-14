@@ -27,19 +27,16 @@ def _validate_pagination(page: Optional[object], per_page: Optional[object], *,
     Raises:
         ValidationError: Si los parámetros son inválidos
     """
-    # Normalizar: tratar None, '' y strings con solo espacios como vacío
     if page is None or (isinstance(page, str) and page.strip() == ''):
         page = default_page
     if per_page is None or (isinstance(per_page, str) and per_page.strip() == ''):
         per_page = default_per_page
     
-    # Si después de normalizar sigue siendo None (no debería pasar), aplicar default
     if page is None:
         page = default_page
     if per_page is None:
         per_page = default_per_page
     
-    # Intentar convertir a int - si falla, lanzar excepción (valor inválido)
     try:
         page = int(page)
     except (TypeError, ValueError):
@@ -49,7 +46,6 @@ def _validate_pagination(page: Optional[object], per_page: Optional[object], *,
     except (TypeError, ValueError):
         raise ValidationError(f'per_page debe ser un entero entre 1 y {max_per_page}')
     
-    # Validar rangos - si está fuera de rango, lanzar excepción (valor inválido)
     if page < 1:
         raise ValidationError('El número de página debe ser un entero >= 1')
     if per_page < 1 or per_page > max_per_page:

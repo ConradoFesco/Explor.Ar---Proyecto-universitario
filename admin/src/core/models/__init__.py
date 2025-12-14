@@ -1,4 +1,3 @@
-# Importar todos los modelos para que estén disponibles
 from .user import User, PrivateUser, PublicUser
 from .category_site import CategorySite
 from .province import Province

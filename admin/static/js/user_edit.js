@@ -16,10 +16,7 @@
     } else {
       setText('user-created-at','N/A');
     }
-    // Roles se renderizan SSR en el template
   }
-
-  // Roles ya SSR
 
   function showError(message){
     const loading = document.getElementById('loading-state'); if (loading) loading.classList.add('hidden');
@@ -77,7 +74,6 @@
     return true;
   }
 
-  // Helpers UI
   function setValue(id, val){ const el = document.getElementById(id); if (el) el.value = val; }
   function setChecked(id, checked){ const el = document.getElementById(id); if (el) el.checked = checked; }
   function setText(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
@@ -89,7 +85,6 @@
   function init(){
     const form = document.getElementById('editUserForm');
     if (form){ form.addEventListener('submit', handleSubmit); }
-    // Datos ya SSR: ocultar loading y mostrar form
     const loading = document.getElementById('loading-state'); if (loading) loading.classList.add('hidden');
     const frm = document.getElementById('editUserForm'); if (frm) frm.classList.remove('hidden');
   }

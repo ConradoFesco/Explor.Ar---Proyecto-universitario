@@ -34,16 +34,35 @@ const province = ref<string>('')
 const selectedTags = ref<string[]>(store.tags)
 const favoritesOnly = ref(store.favoritesOnly)
 
-const lat = ref<number | null>(typeof store.lat === 'number' ? store.lat : (store.lat && !isNaN(Number(store.lat)) ? Number(store.lat) : null))
-const long = ref<number | null>(typeof store.long === 'number' ? store.long : (store.long && !isNaN(Number(store.long)) ? Number(store.long) : null))
-const radius = ref<number | string>(typeof store.radius === 'number' ? store.radius : (store.radius && !isNaN(Number(store.radius)) ? Number(store.radius) : 1000))
+function safeNumber(value: number | string | undefined | null, defaultValue: number | null = null): number | null {
+  if (value === undefined || value === null) return defaultValue
+  if (typeof value === 'number') return isNaN(value) ? defaultValue : value
+  const num = Number(value)
+  return isNaN(num) ? defaultValue : num
+}
 
-const radiusForMap = ref<number | null>(
-  typeof store.radius === 'number' ? store.radius : (store.radius && !isNaN(Number(store.radius)) ? Number(store.radius) : 1000)
-)
+const lat = ref<number | null>(safeNumber(store.lat))
+const long = ref<number | null>(safeNumber(store.long))
+const radius = ref<number | string>(safeNumber(store.radius, 1000) ?? 1000)
+
+const radiusForMap = ref<number | null>(safeNumber(store.radius, 1000))
+
+watch(radius, (newVal) => {
+  const numVal = safeNumber(newVal)
+  if (numVal !== null && numVal > 0 && numVal !== radiusForMap.value) {
+    radiusForMap.value = numVal
+  } else if (numVal === null && radiusForMap.value !== null) {
+    radiusForMap.value = null
+  }
+}, { immediate: true })
 
 watch(radiusForMap, (newVal) => {
-  radius.value = newVal ?? 1000
+  if (newVal !== null) {
+    const currentRadius = safeNumber(radius.value)
+    if (newVal !== currentRadius) {
+      radius.value = newVal
+    }
+  }
 })
 
 const mapAccordionOpen = ref<string | undefined>(undefined)
@@ -116,11 +135,10 @@ function applyMapFilters() {
     if (!latResult.valid) {
       latError.value = latResult.error
       hasErrors = true
-    } else if (latResult.cleaned !== undefined) {
-      lat.value = latResult.cleaned
-      store.lat = latResult.cleaned
     } else {
-      store.lat = undefined
+      if (latResult.cleaned !== undefined) {
+        lat.value = latResult.cleaned
+      }
     }
   } else {
     store.lat = undefined
@@ -131,34 +149,38 @@ function applyMapFilters() {
     if (!longResult.valid) {
       longError.value = longResult.error
       hasErrors = true
-    } else if (longResult.cleaned !== undefined) {
-      long.value = longResult.cleaned
-      store.long = longResult.cleaned
     } else {
-      store.long = undefined
+      if (longResult.cleaned !== undefined) {
+        long.value = longResult.cleaned
+      }
     }
   } else {
     store.long = undefined
   }
   
   const radiusValue = radius.value
+  const hasCoordinates = store.lat !== undefined && store.long !== undefined
+  
   if (radiusValue != null && radiusValue !== '' && radiusValue !== '0') {
-    const radiusResult = store.validateRadius(radiusValue)
-    if (!radiusResult.valid) {
-      radiusError.value = radiusResult.error
-      hasErrors = true
-    } else if (radiusResult.cleaned !== undefined) {
-      radius.value = radiusResult.cleaned
-      store.radius = radiusResult.cleaned
-    } else {
+    if (!hasCoordinates && (radiusValue === 1000 || radiusValue === '1000')) {
       store.radius = undefined
+      radiusForMap.value = null
+    } else {
+      const radiusResult = store.validateRadius(radiusValue)
+      if (!radiusResult.valid) {
+        radiusError.value = radiusResult.error
+        hasErrors = true
+      } else if (radiusResult.cleaned !== undefined) {
+        radius.value = radiusResult.cleaned
+        radiusForMap.value = radiusResult.cleaned
+      } else {
+        store.radius = undefined
+        radiusForMap.value = null
+      }
     }
   } else {
     store.radius = undefined
-  }
-  
-  if (hasErrors) {
-    return
+    radiusForMap.value = null
   }
   
   if ((store.lat !== undefined) !== (store.long !== undefined)) {
@@ -171,22 +193,43 @@ function applyMapFilters() {
     }
   }
   
-  if (store.radius !== undefined && (store.lat === undefined || store.long === undefined)) {
+  if (store.radius !== undefined && store.radius !== null && (store.lat === undefined || store.long === undefined)) {
     radiusError.value = 'El radio requiere especificar latitud y longitud'
     hasErrors = true
   }
   
   if (hasErrors) {
+    if (latError.value) {
+      store.setValidationError('lat', latError.value)
+    }
+    if (longError.value) {
+      store.setValidationError('long', longError.value)
+    }
+    if (radiusError.value) {
+      store.setValidationError('radius', radiusError.value)
+    }
     return
+  }
+  
+  if (!latError.value) {
+    delete store.validationErrors.lat
+  }
+  if (!longError.value) {
+    delete store.validationErrors.long
+  }
+  if (!radiusError.value) {
+    delete store.validationErrors.radius
   }
   
   if (Object.keys(store.validationErrors).length > 0) {
     return
   }
   
-  store.page = undefined
-  store.loadFirstPage()
-  emit('apply')
+  if (store.lat != null && store.long != null) {
+    store.page = undefined
+    store.loadFirstPage()
+    emit('apply')
+  }
 }
 
 async function applyManualFilters() {
@@ -222,7 +265,16 @@ async function applyManualFilters() {
 const debouncedTextSearch = useDebounceFn(applyTextSearch, 500)
 
 watch([text], debouncedTextSearch)
-watch([lat, long, radius], applyMapFilters)
+
+const debouncedMapFilters = useDebounceFn(applyMapFilters, 300)
+watch([lat, long, radius], () => {
+  const hasCoordinates = lat.value != null || long.value != null
+  const hasNonDefaultRadius = radius.value != null && radius.value !== '' && radius.value !== 1000
+  
+  if (hasCoordinates || hasNonDefaultRadius) {
+    debouncedMapFilters()
+  }
+})
 
 function toggleTag(tagSlug: string) {
   const idx = selectedTags.value.indexOf(tagSlug)
@@ -235,6 +287,12 @@ function toggleTag(tagSlug: string) {
 
 
 function reset() {
+  latError.value = undefined
+  longError.value = undefined
+  radiusError.value = undefined
+  
+  store.resetFilters()
+  
   text.value = ''
   city.value = ''
   province.value = ''
@@ -243,23 +301,32 @@ function reset() {
   lat.value = null
   long.value = null
   radius.value = 1000
+  radiusForMap.value = 1000
   mapAccordionOpen.value = undefined
   radiusDropdownOpen.value = false
-  store.resetFilters()
+  
   store.loadFirstPage()
   emit('reset')
 }
 
 function clearMapSelection() {
-  lat.value = null
-  long.value = null
-  radius.value = 1000
   latError.value = undefined
   longError.value = undefined
   radiusError.value = undefined
+  
+  lat.value = null
+  long.value = null
+  radius.value = 1000
+  radiusForMap.value = 1000
+  
   store.lat = undefined
   store.long = undefined
   store.radius = undefined
+  
+  delete store.validationErrors.lat
+  delete store.validationErrors.long
+  delete store.validationErrors.radius
+  
   store.page = undefined
   store.loadFirstPage()
 }

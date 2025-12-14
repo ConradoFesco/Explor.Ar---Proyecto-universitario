@@ -14,7 +14,7 @@ const router = useRouter()
 const store = useSitesStore()
 
 onMounted(async () => {
-  store.fromRouteQuery(route.query as Record<string, any>)
+  store.fromRouteQuery(route.query as Record<string, string | string[] | null | undefined>)
   if (Object.keys(store.validationErrors).length === 0) {
     await store.loadFirstPage()
   }
@@ -29,14 +29,6 @@ watch(
   },
   { deep: true }
 )
-
-const debouncedMapSearch = useDebounceFn(() => {
-  if (store.lat != null && store.long != null && Object.keys(store.validationErrors).length === 0) {
-    store.loadFirstPage()
-  }
-}, 300)
-
-watch([() => store.lat, () => store.long, () => store.radius], debouncedMapSearch)
 
 const gridCols = computed(() => 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')
 const sentinel = ref<HTMLDivElement | null>(null)

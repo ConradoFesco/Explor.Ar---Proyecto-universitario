@@ -1,1 +1,0 @@
-# src/web/auth/__init__.py

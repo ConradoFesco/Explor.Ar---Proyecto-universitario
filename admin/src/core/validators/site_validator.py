@@ -121,3 +121,31 @@ def validate_update_site(data: dict) -> dict:
     if 'visible' in data:
         cleaned['visible'] = bool(data.get('visible'))
     return cleaned
+
+
+def validate_site_exists(site_id: int, must_be_visible: bool = False) -> HistoricSite:
+    """
+    Valida que un sitio histórico existe, no está eliminado y opcionalmente es visible.
+    
+    Args:
+        site_id: ID del sitio a validar
+        must_be_visible: Si True, también valida que el sitio sea visible
+    
+    Returns:
+        HistoricSite: Sitio encontrado
+    
+    Raises:
+        NotFoundError: Si el sitio no existe, está eliminado o no es visible (si se requiere)
+    """
+    from src.core.validators.api_validator import validate_positive_int
+    
+    site_id = validate_positive_int(site_id, "site_id")
+    query = HistoricSite.query.filter_by(id=site_id, deleted=False)
+    if must_be_visible:
+        query = query.filter_by(visible=True)
+    site = query.first()
+    if not site:
+        if must_be_visible:
+            raise NotFoundError("Sitio histórico no encontrado o no visible")
+        raise NotFoundError("Sitio histórico no encontrado")
+    return site

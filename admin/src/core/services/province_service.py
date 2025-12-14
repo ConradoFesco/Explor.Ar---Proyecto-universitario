@@ -17,14 +17,11 @@ class ProvinceService:
         Returns:
             Province: Instancia existente o nueva (no commit).
         """
-        # Validar que el nombre no esté vacío
         if not name or not name.strip():
             raise exc.ValidationError("El nombre de la provincia no puede estar vacío")
             
-        # Busca la provincia por nombre
         province = Province.query.filter_by(name=name.strip()).first()
         
-        # Si no existe, la crea
         if not province:
             province = Province(name=name.strip())
             db.session.add(province)

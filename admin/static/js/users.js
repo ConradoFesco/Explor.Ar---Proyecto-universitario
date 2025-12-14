@@ -55,18 +55,13 @@
     const sortOrderEl = document.getElementById('sort-order'); if (sortOrderEl) sortOrderEl.addEventListener('change', ()=> navigateWithParams(1));
     const applyBtn = document.getElementById('apply-filters'); if (applyBtn) applyBtn.addEventListener('click', ()=> navigateWithParams(1));
     const clearBtn = document.getElementById('clear-filters'); if (clearBtn) clearBtn.addEventListener('click', ()=>{ clearFiltersControls(); navigateWithParams(1); });
-    // Toggle del panel lo maneja el onclick inline del macro (evita doble toggle)
-    // Delegación para mantener funcional tras re-render del fragmento
     document.addEventListener('click', (e)=>{
       const t = e.target;
       if (t && t.id === 'apply-filters'){ e.preventDefault(); navigateWithParams(1); }
       if (t && t.id === 'clear-filters'){ e.preventDefault(); clearFiltersControls(); navigateWithParams(1); }
-      // no delegated toggle handler to avoid double toggle with inline onclick
     });
-    // Paginador
     window.changePage = function(page){ navigateWithParams(page); };
 
-    // Delegación para eliminar usuario
     document.addEventListener('click', function(e){
       const btn = e.target.closest('.js-delete-user');
       if (!btn) return;

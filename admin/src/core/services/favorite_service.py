@@ -1,26 +1,22 @@
 from typing import Optional
 from src.core.models.favorite_site import FavoriteSite
 from src.core.models.historic_site import HistoricSite
-from src.core.models.user import User
+from src.core.models.tag import Tag
+from src.core.models.tag_historic_site import TagHistoricSite
 from src.web import exceptions as exc
 from src.web.extensions import db
 from src.core.validators.listing_validator import _validate_pagination
+from src.core.validators.user_validator import validate_user_exists
+from src.core.validators.site_validator import validate_site_exists
+from src.core.services.site_image_service import site_image_service
 
 
 class FavoriteService:
     """Servicios para favoritos de sitios históricos."""
 
     def mark_favorite(self, *, site_id: int, user_id: int):
-        if not user_id:
-            raise exc.ValidationError("Usuario no autenticado")
-
-        site = HistoricSite.query.filter_by(id=site_id, deleted=False, visible=True).first()
-        if not site:
-            raise exc.NotFoundError("Sitio histórico no encontrado")
-
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise exc.ValidationError("Usuario inválido")
+        validate_user_exists(user_id)
+        validate_site_exists(site_id, must_be_visible=True)
 
         existing = FavoriteSite.query.filter_by(site_id=site_id, user_id=user_id).first()
         if existing:
@@ -30,19 +26,15 @@ class FavoriteService:
         try:
             db.session.add(favorite)
             db.session.commit()
-        except Exception as error:
+        except Exception as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al marcar favorito: {error}")
+            raise exc.DatabaseError(f"Error al marcar favorito: {e}")
 
         return favorite
 
     def unmark_favorite(self, *, site_id: int, user_id: int):
-        if not user_id:
-            raise exc.ValidationError("Usuario no autenticado")
-
-        site = HistoricSite.query.filter_by(id=site_id, deleted=False, visible=True).first()
-        if not site:
-            raise exc.NotFoundError("Sitio histórico no encontrado")
+        validate_user_exists(user_id)
+        validate_site_exists(site_id, must_be_visible=True)
 
         favorite = FavoriteSite.query.filter_by(site_id=site_id, user_id=user_id).first()
         if not favorite:
@@ -51,9 +43,9 @@ class FavoriteService:
         try:
             db.session.delete(favorite)
             db.session.commit()
-        except Exception as error:
+        except Exception as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al eliminar favorito: {error}")
+            raise exc.DatabaseError(f"Error al eliminar favorito: {e}")
 
         return True
 
@@ -71,14 +63,8 @@ class FavoriteService:
             }
         }
         """
-        if not user_id:
-            raise exc.ValidationError("Usuario no autenticado")
+        validate_user_exists(user_id)
 
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise exc.ValidationError("Usuario inválido")
-
-        from src.core.validators.listing_validator import _validate_pagination
         page, per_page = _validate_pagination(
             page, per_page, default_page=1, default_per_page=20, max_per_page=100
         )
@@ -89,10 +75,6 @@ class FavoriteService:
         ).order_by(FavoriteSite.created_at.desc())
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-        from src.core.services.site_image_service import site_image_service
-        from src.core.models.tag import Tag
-        from src.core.models.tag_historic_site import TagHistoricSite
 
         data = []
         for favorite in pagination.items:

@@ -214,6 +214,7 @@ def editar_tags_fragment(site_id: int):
 @web_permission_required("site_new")
 def crear_sitio_web():
     """Procesa la creación de un sitio a partir de datos de formulario."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
     data_user = session.get('user_id')
     form = request.form
     data_site = {
@@ -239,12 +240,23 @@ def crear_sitio_web():
         
         created_site = historic_site_service.create_historic_site(data_site, data_user)
         
+        if is_ajax:
+            return jsonify({
+                'success': True,
+                'site_id': created_site.id,
+                'message': 'Sitio histórico creado correctamente. Ahora puede agregar imágenes.'
+            }), 200
+        
         flash('Sitio histórico creado correctamente. Ahora puede agregar imágenes.', 'success')
         return redirect(url_for('sites_web.modificar_sitios', edit=created_site.id))
     except exc.ValidationError as e:
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(e)}), 400
         flash('Error al crear sitio: ' + str(e), 'error')
         return redirect(url_for('sites_web.alta_sitios'))
     except Exception as e:
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(e)}), 500
         flash('Error al crear sitio: ' + str(e), 'error')
         return redirect(url_for('sites_web.alta_sitios'))
 

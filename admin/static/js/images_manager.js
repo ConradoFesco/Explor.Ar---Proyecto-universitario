@@ -52,7 +52,6 @@ let imagesManager = {
         
         const previewContainer = document.getElementById('selected-images-preview');
         const selectedList = document.getElementById('selected-images-list');
-        const clearBtn = document.getElementById('btn-clear-selection');
         
         if (!previewContainer || !selectedList) return;
         
@@ -65,42 +64,11 @@ let imagesManager = {
             return;
         }
         
-        const validFiles = [];
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        const maxSize = 5 * 1024 * 1024;
-        let invalidCount = 0;
-        let skippedCount = 0;
-        
-        for (let i = 0; i < files.length && validFiles.length < availableSlots; i++) {
-            const file = files[i];
-            
-            if (!allowedTypes.includes(file.type) || file.size > maxSize) {
-                invalidCount++;
-                continue;
-            }
-            
-            validFiles.push(file);
-        }
-        
-        if (files.length > validFiles.length + invalidCount) {
-            skippedCount = files.length - validFiles.length - invalidCount;
-        }
-        
-        if (invalidCount > 0) {
-            this.showMessage(`${invalidCount} archivo(s) fueron rechazados por formato o tamaño inválido.`, 'error');
-        }
-        
-        if (skippedCount > 0) {
-            this.showMessage(`Solo se pueden agregar ${availableSlots} imagen(es) más. Se omitieron ${skippedCount} imagen(es) para no exceder el límite de ${this.MAX_IMAGES_PER_SITE}.`, 'warning');
-        }
+        const validFiles = this._validateFiles(Array.from(files), availableSlots);
         
         if (validFiles.length === 0) {
             this.clearFileSelection();
             return;
-        }
-        
-        if (validFiles.length < files.length - invalidCount) {
-            this.showMessage(`Se seleccionaron ${validFiles.length} de ${files.length} imagen(es) válidas (límite: ${this.MAX_IMAGES_PER_SITE} imágenes por sitio).`, 'info');
         }
         
         this.currentValidFiles = validFiles;
@@ -112,18 +80,49 @@ let imagesManager = {
             index: index,
             titulo_alt: '',
             descripcion: '',
-            isCover: false,
+            isCover: !hasExistingImages && index === 0,
             order: index
         }));
         
-        if (!hasExistingImages && validFiles.length > 0) {
-            this.previewImages[0].isCover = true;
+        this.renderPreviewImages();
+        previewContainer.style.display = 'block';
+        
+        const clearBtn = document.getElementById('btn-clear-selection');
+        if (clearBtn) clearBtn.style.display = 'inline-block';
+    },
+    
+    _validateFiles: function(files, maxCount) {
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        const maxSize = 5 * 1024 * 1024;
+        const validFiles = [];
+        let invalidCount = 0;
+        
+        for (let i = 0; i < files.length && validFiles.length < maxCount; i++) {
+            const file = files[i];
+            
+            if (!allowedTypes.includes(file.type) || file.size > maxSize) {
+                invalidCount++;
+                continue;
+            }
+            
+            validFiles.push(file);
         }
         
-        this.renderPreviewImages();
+        const skippedCount = files.length - validFiles.length - invalidCount;
         
-        previewContainer.style.display = 'block';
-        if (clearBtn) clearBtn.style.display = 'inline-block';
+        if (invalidCount > 0) {
+            this.showMessage(`${invalidCount} archivo(s) fueron rechazados por formato o tamaño inválido.`, 'error');
+        }
+        
+        if (skippedCount > 0) {
+            this.showMessage(`Solo se pueden agregar ${maxCount} imagen(es) más. Se omitieron ${skippedCount} imagen(es) para no exceder el límite de ${this.MAX_IMAGES_PER_SITE}.`, 'warning');
+        }
+        
+        if (validFiles.length < files.length - invalidCount && validFiles.length > 0) {
+            this.showMessage(`Se seleccionaron ${validFiles.length} de ${files.length} imagen(es) válidas (límite: ${this.MAX_IMAGES_PER_SITE} imágenes por sitio).`, 'info');
+        }
+        
+        return validFiles;
     },
     
     renderPreviewImages: function() {
@@ -147,18 +146,15 @@ let imagesManager = {
         sorted.forEach((imgData, displayIndex) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                if (currentRender !== this.renderCounter) {
-                    return;
-                }
+                if (currentRender !== this.renderCounter) return;
+                
                 const imageItem = this.createImagePreviewItem(imgData, displayIndex, totalImages, e.target.result);
                 loadedItems[displayIndex] = imageItem;
                 loadedCount++;
                 
                 if (loadedCount === totalImages) {
                     loadedItems.forEach(item => {
-                        if (item) {
-                            selectedList.appendChild(item);
-                        }
+                        if (item) selectedList.appendChild(item);
                     });
                 }
             };
@@ -175,36 +171,13 @@ let imagesManager = {
         const coverBadge = imgData.isCover ? '<span class="inline-block bg-blue-500 text-white text-xs px-2 py-1 rounded mb-2">PORTADA</span>' : '';
         
         let coverButton = '';
-        if (imgData.isCover) {
-            if (hasExistingImages) {
-                coverButton = `<button type="button" onclick="imagesManager.unsetPreviewCover(${imgData.index})" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded">Quitar Portada</button>`;
-            }
-        } else {
+        if (imgData.isCover && hasExistingImages) {
+            coverButton = `<button type="button" onclick="imagesManager.unsetPreviewCover(${imgData.index})" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded">Quitar Portada</button>`;
+        } else if (!imgData.isCover) {
             coverButton = `<button type="button" onclick="imagesManager.setPreviewCover(${imgData.index})" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">Marcar como Portada</button>`;
         }
         
-        let arrowButtons = '';
-        if (totalImages > 1) {
-            const isFirst = displayIndex === 0;
-            const isLast = displayIndex === totalImages - 1;
-            const upDisabled = isFirst ? 'disabled' : '';
-            const downDisabled = isLast ? 'disabled' : '';
-            const upClass = isFirst ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700';
-            const downClass = isLast ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700';
-            const upOnClick = isFirst ? '' : `onclick="imagesManager.movePreviewImageLeft(${imgData.index})"`;
-            const downOnClick = isLast ? '' : `onclick="imagesManager.movePreviewImageRight(${imgData.index})"`;
-            
-            arrowButtons = `
-                <div class="flex gap-2 justify-center mt-2">
-                    <button type="button" ${upOnClick} 
-                            class="arrow-btn-up ${upClass} text-white px-3 py-1 rounded text-sm" 
-                            title="Mover hacia arriba" ${upDisabled}>↑</button>
-                    <button type="button" ${downOnClick} 
-                            class="arrow-btn-down ${downClass} text-white px-3 py-1 rounded text-sm" 
-                            title="Mover hacia abajo" ${downDisabled}>↓</button>
-                </div>
-            `;
-        }
+        const arrowButtons = this._generateArrowButtons(displayIndex, totalImages, imgData.index, 'Preview');
         
         div.innerHTML = `
             <div class="flex gap-3">
@@ -242,6 +215,49 @@ let imagesManager = {
         return div;
     },
     
+    _generateArrowButtons: function(displayIndex, totalImages, itemId, type) {
+        if (totalImages <= 1) return '';
+        
+        const isFirst = displayIndex === 0;
+        const isLast = displayIndex === totalImages - 1;
+        
+        const upClass = isFirst ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700';
+        const downClass = isLast ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700';
+        
+        let upOnClick = '';
+        let downOnClick = '';
+        
+        if (type === 'Preview') {
+            if (!isFirst) upOnClick = `onclick="imagesManager.movePreviewImage(${itemId}, -1)"`;
+            if (!isLast) downOnClick = `onclick="imagesManager.movePreviewImage(${itemId}, 1)"`;
+            return `
+                <div class="flex gap-2 justify-center mt-2">
+                    <button type="button" ${upOnClick} 
+                            class="arrow-btn-up ${upClass} text-white px-3 py-1 rounded text-sm" 
+                            title="Mover hacia arriba" ${isFirst ? 'disabled' : ''}>↑</button>
+                    <button type="button" ${downOnClick} 
+                            class="arrow-btn-down ${downClass} text-white px-3 py-1 rounded text-sm" 
+                            title="Mover hacia abajo" ${isLast ? 'disabled' : ''}>↓</button>
+                </div>
+            `;
+        } else {
+            if (!isFirst) upOnClick = `onclick="imagesManager.moveImage(${itemId}, -1)"`;
+            if (!isLast) downOnClick = `onclick="imagesManager.moveImage(${itemId}, 1)"`;
+            const leftSymbol = type === 'Horizontal' ? '←' : '↑';
+            const rightSymbol = type === 'Horizontal' ? '→' : '↓';
+            return `
+                <div class="flex gap-2 justify-center mb-2">
+                    <button type="button" ${upOnClick} 
+                            class="arrow-btn-left ${upClass} text-white px-3 py-1 rounded text-sm" 
+                            title="Mover hacia la izquierda" ${isFirst ? 'disabled' : ''}>${leftSymbol}</button>
+                    <button type="button" ${downOnClick} 
+                            class="arrow-btn-right ${downClass} text-white px-3 py-1 rounded text-sm" 
+                            title="Mover hacia la derecha" ${isLast ? 'disabled' : ''}>${rightSymbol}</button>
+                </div>
+            `;
+        }
+    },
+    
     updatePreviewMetadata: function(index, field, value) {
         const imgData = this.previewImages.find(img => img.index === index);
         if (imgData) {
@@ -250,21 +266,16 @@ let imagesManager = {
     },
     
     setPreviewCover: function(index) {
-        this.previewImages.forEach(img => {
-            img.isCover = false;
-        });
-        
+        this.previewImages.forEach(img => img.isCover = false);
         const imgData = this.previewImages.find(img => img.index === index);
         if (imgData) {
             imgData.isCover = true;
         }
-        
         this.renderPreviewImages();
     },
     
     unsetPreviewCover: function(index) {
-        const hasExistingImages = this.images.length > 0;
-        if (!hasExistingImages) {
+        if (this.images.length === 0) {
             this.showMessage('Debe haber al menos una imagen marcada como portada cuando no hay imágenes cargadas previamente.', 'error');
             return;
         }
@@ -273,40 +284,23 @@ let imagesManager = {
         if (imgData) {
             imgData.isCover = false;
         }
-        
         this.renderPreviewImages();
     },
     
-    movePreviewImageLeft: function(imageIndex) {
+    movePreviewImage: function(imageIndex, direction) {
         const currentImg = this.previewImages.find(img => img.index === imageIndex);
         if (!currentImg) return;
         
         const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
         const currentSortedIndex = sorted.findIndex(img => img.index === imageIndex);
         
-        if (currentSortedIndex <= 0 || currentSortedIndex >= sorted.length) return;
+        const targetIndex = currentSortedIndex + direction;
+        if (targetIndex < 0 || targetIndex >= sorted.length) return;
         
-        const previousImg = sorted[currentSortedIndex - 1];
+        const targetImg = sorted[targetIndex];
         const tempOrder = currentImg.order;
-        currentImg.order = previousImg.order;
-        previousImg.order = tempOrder;
-        
-        this.renderPreviewImages();
-    },
-    
-    movePreviewImageRight: function(imageIndex) {
-        const currentImg = this.previewImages.find(img => img.index === imageIndex);
-        if (!currentImg) return;
-        
-        const sorted = [...this.previewImages].sort((a, b) => a.order - b.order);
-        const currentSortedIndex = sorted.findIndex(img => img.index === imageIndex);
-        
-        if (currentSortedIndex < 0 || currentSortedIndex >= sorted.length - 1) return;
-        
-        const nextImg = sorted[currentSortedIndex + 1];
-        const tempOrder = currentImg.order;
-        currentImg.order = nextImg.order;
-        nextImg.order = tempOrder;
+        currentImg.order = targetImg.order;
+        targetImg.order = tempOrder;
         
         this.renderPreviewImages();
     },
@@ -365,9 +359,7 @@ let imagesManager = {
             }
             
             const isCover = imgData.isCover && !coverSet;
-            if (isCover) {
-                coverSet = true;
-            }
+            if (isCover) coverSet = true;
             
             imagesData.push({
                 file: imgData.file,
@@ -395,7 +387,7 @@ let imagesManager = {
         }
     },
     
-    savePendingImages: async function() {
+    savePendingImages: function() {
         const pendingData = this.pendingImages.map(img => ({
             name: img.file.name,
             size: img.file.size,
@@ -480,14 +472,10 @@ let imagesManager = {
         let container = document.getElementById('pending-images-container');
         const imagesSection = document.getElementById('images-section');
         
-        if (!imagesSection) {
-            return;
-        }
+        if (!imagesSection) return;
         
         if (this.pendingImages.length === 0) {
-            if (container) {
-                container.style.display = 'none';
-            }
+            if (container) container.style.display = 'none';
             return;
         }
         
@@ -509,17 +497,14 @@ let imagesManager = {
         
         container.style.display = 'block';
         container.className = 'mb-6 p-4 border border-yellow-300 rounded-md bg-yellow-50';
-        container.innerHTML = `
-            <div id="pending-images-grid" class="space-y-3"></div>
-        `;
+        container.innerHTML = '<div id="pending-images-grid" class="space-y-3"></div>';
         
         const grid = document.getElementById('pending-images-grid');
         if (grid) {
             grid.innerHTML = '';
             this.pendingImages.forEach((imgData, index) => {
-                if (!imgData.file) {
-                    return;
-                }
+                if (!imgData.file) return;
+                
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const imageItem = this.createPendingImageItem(imgData, index, e.target.result);
@@ -581,24 +566,16 @@ let imagesManager = {
     
     updatePendingImage: function(index, field, value) {
         if (this.pendingImages[index]) {
-            if (field === 'descripcion') {
-                this.pendingImages[index][field] = value.trim() || null;
-            } else {
-                this.pendingImages[index][field] = value.trim();
-            }
+            this.pendingImages[index][field] = field === 'descripcion' ? (value.trim() || null) : value.trim();
             this.savePendingImages();
         }
     },
     
     setPendingCover: function(index) {
-        this.pendingImages.forEach(img => {
-            img.is_cover = false;
-        });
-        
+        this.pendingImages.forEach(img => img.is_cover = false);
         if (this.pendingImages[index]) {
             this.pendingImages[index].is_cover = true;
         }
-        
         this.updatePendingImagesDisplay();
         this.savePendingImages();
     },
@@ -661,45 +638,12 @@ let imagesManager = {
         if (noImagesMsg) noImagesMsg.style.display = 'none';
         
         const sortedImages = [...this.images].sort((a, b) => a.orden - b.orden);
-        const totalImages = sortedImages.length;
+        const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\'%3E%3Crect fill=\'%23ccc\' width=\'200\' height=\'200\'/%3E%3Ctext fill=\'%23999\' font-family=\'sans-serif\' font-size=\'14\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dominant-baseline=\'middle\'%3EError al cargar%3C/text%3E%3C/svg%3E';
         
         const html = sortedImages.map((img, index) => {
             const isCover = img.es_portada;
-            
-            let arrowButtons = '';
-            if (totalImages > 1) {
-                if (index > 0 && index < totalImages - 1) {
-                    arrowButtons = `
-                        <div class="flex gap-2 justify-center mb-2">
-                            <button type="button" onclick="imagesManager.moveImageLeft(${img.id})" 
-                                    class="arrow-btn-left bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
-                                    title="Mover hacia la izquierda">←</button>
-                            <button type="button" onclick="imagesManager.moveImageRight(${img.id})" 
-                                    class="arrow-btn-right bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
-                                    title="Mover hacia la derecha">→</button>
-                        </div>
-                    `;
-                } else if (index === 0) {
-                    arrowButtons = `
-                        <div class="flex gap-2 justify-center mb-2">
-                            <button type="button" onclick="imagesManager.moveImageRight(${img.id})" 
-                                    class="arrow-btn-right bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
-                                    title="Mover hacia la derecha">→</button>
-                        </div>
-                    `;
-                } else if (index === totalImages - 1) {
-                    arrowButtons = `
-                        <div class="flex gap-2 justify-center mb-2">
-                            <button type="button" onclick="imagesManager.moveImageLeft(${img.id})" 
-                                    class="arrow-btn-left bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm" 
-                                    title="Mover hacia la izquierda">←</button>
-                        </div>
-                    `;
-                }
-            }
-            
+            const arrowButtons = this._generateArrowButtons(index, sortedImages.length, img.id, 'Horizontal');
             const imageUrl = img.url_publica || '';
-            const placeholderSvg = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\'%3E%3Crect fill=\'%23ccc\' width=\'200\' height=\'200\'/%3E%3Ctext fill=\'%23999\' font-family=\'sans-serif\' font-size=\'14\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dominant-baseline=\'middle\'%3EError al cargar%3C/text%3E%3C/svg%3E';
             
             return `
                 <div class="image-item ${isCover ? 'cover' : ''}" data-image-id="${img.id}">
@@ -724,70 +668,35 @@ let imagesManager = {
         container.innerHTML = html;
     },
     
-    moveImageLeft: async function(imageId) {
+    moveImage: async function(imageId, direction) {
         if (!this.siteId) return;
         
         const sorted = [...this.images].sort((a, b) => a.orden - b.orden);
         const currentIndex = sorted.findIndex(img => img.id === imageId);
+        const targetIndex = currentIndex + direction;
         
-        if (currentIndex <= 0) return;
+        if (targetIndex < 0 || targetIndex >= sorted.length) return;
         
         const currentImg = sorted[currentIndex];
-        const previousImg = sorted[currentIndex - 1];
+        const targetImg = sorted[targetIndex];
         const tempOrder = currentImg.orden;
-        currentImg.orden = previousImg.orden;
-        previousImg.orden = tempOrder;
+        currentImg.orden = targetImg.orden;
+        targetImg.orden = tempOrder;
         
         this.images.forEach(img => {
-            if (img.id === currentImg.id) {
-                img.orden = currentImg.orden;
-            } else if (img.id === previousImg.id) {
-                img.orden = previousImg.orden;
-            }
+            if (img.id === currentImg.id) img.orden = currentImg.orden;
+            else if (img.id === targetImg.id) img.orden = targetImg.orden;
         });
         
         const success = await this.saveImageOrder();
         
         if (success) {
-            setTimeout(() => {
-                this.loadImages();
-            }, 300);
-        }
-    },
-    
-    moveImageRight: async function(imageId) {
-        if (!this.siteId) return;
-        
-        const sorted = [...this.images].sort((a, b) => a.orden - b.orden);
-        const currentIndex = sorted.findIndex(img => img.id === imageId);
-        
-        if (currentIndex >= sorted.length - 1) return;
-        
-        const currentImg = sorted[currentIndex];
-        const nextImg = sorted[currentIndex + 1];
-        const tempOrder = currentImg.orden;
-        currentImg.orden = nextImg.orden;
-        nextImg.orden = tempOrder;
-        
-        this.images.forEach(img => {
-            if (img.id === currentImg.id) {
-                img.orden = currentImg.orden;
-            } else if (img.id === nextImg.id) {
-                img.orden = nextImg.orden;
-            }
-        });
-        
-        const success = await this.saveImageOrder();
-        
-        if (success) {
-            setTimeout(() => {
-                this.loadImages();
-            }, 300);
+            setTimeout(() => this.loadImages(), 300);
         }
     },
     
     saveImageOrder: async function() {
-        if (!this.siteId) return;
+        if (!this.siteId) return false;
         
         const sorted = [...this.images].sort((a, b) => a.orden - b.orden);
         const imageOrders = sorted.map((img, index) => ({
@@ -795,7 +704,7 @@ let imagesManager = {
             orden: index + 1
         }));
         
-        if (imageOrders.length === 0) return;
+        if (imageOrders.length === 0) return false;
         
         try {
             const formData = new FormData();
@@ -892,16 +801,14 @@ let imagesManager = {
             document.body.appendChild(messageContainer);
         }
         
-        let bgColor = 'bg-blue-500';
-        if (type === 'success') {
-            bgColor = 'bg-green-500';
-        } else if (type === 'error') {
-            bgColor = 'bg-red-500';
-        } else if (type === 'warning') {
-            bgColor = 'bg-yellow-500';
-        } else if (type === 'info') {
-            bgColor = 'bg-blue-500';
-        }
+        const bgColors = {
+            success: 'bg-green-500',
+            error: 'bg-red-500',
+            warning: 'bg-yellow-500',
+            info: 'bg-blue-500'
+        };
+        
+        const bgColor = bgColors[type] || 'bg-blue-500';
         
         const messageEl = document.createElement('div');
         messageEl.className = `${bgColor} text-white px-4 py-2 rounded shadow-lg mb-2`;

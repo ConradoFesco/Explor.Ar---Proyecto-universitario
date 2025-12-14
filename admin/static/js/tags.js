@@ -1,5 +1,4 @@
 (function(){
-  // Estado para modales
   let editingTagId = null;
   let tagToDelete = null;
 
@@ -55,14 +54,12 @@
     const clearBtn = document.getElementById('clear-filters'); if (clearBtn) clearBtn.addEventListener('click', ()=>{ clearControls(); navigateWithParams(1); });
     window.changePage = function(page){ navigateWithParams(page); };
 
-    // Form submit crear/editar tag
     const form = document.getElementById('tagForm');
     if (form){ form.addEventListener('submit', handleTagSubmit); }
     const nameInput = document.getElementById('tagName');
     if (nameInput){ nameInput.addEventListener('input', generateSlug); }
   }
 
-  // Modales crear/editar
   function showCreateTagModal(){
     editingTagId = null;
     const t = document.getElementById('tagModalTitle'); if (t) t.textContent = 'Agregar Tag';
@@ -107,7 +104,6 @@
     e.preventDefault();
     const name = (document.getElementById('tagName')?.value || '').trim();
     if (!name){ const err = document.getElementById('tagNameError'); if (err) err.classList.remove('hidden'); return; }
-    // Enviar a endpoints Web mediante form POST
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = editingTagId ? `/tags/${editingTagId}/editar` : '/tags';
@@ -116,7 +112,6 @@
     form.submit();
   }
 
-  // Modal eliminar
   function showDeleteModal(id, name, sitesCount){
     tagToDelete = id;
     const msg = sitesCount > 0 ? `No se puede eliminar el tag "${name}" porque está asociado a ${sitesCount} sitio(s) histórico(s).` : `¿Estás seguro de que deseas eliminar el tag "${name}"?`;
@@ -150,7 +145,6 @@
     setupTagsSSR();
   });
 
-  // Exponer funciones usadas por onclick en el template
   window.showCreateTagModal = showCreateTagModal;
   window.editTag = editTag;
   window.closeTagModal = closeTagModal;

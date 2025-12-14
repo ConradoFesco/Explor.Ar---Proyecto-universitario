@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 
-  // Editar mensaje (popup) para admin_maintenance_mode
   document.querySelectorAll('.js-edit-flag-message').forEach(btn => {
     btn.addEventListener('click', function(){
       const flagId = this.getAttribute('data-flag-id');

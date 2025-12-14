@@ -29,7 +29,6 @@ class FlagService:
             flag.set_enabled(bool(enabled), actor=user, msg=message)
             changed = True
         elif message is not None and (flag.message or '') != message:
-            # Actualiza solo el mensaje manteniendo estado
             flag.set_enabled(flag.enabled, actor=user, msg=message)
             changed = True
         if changed:
@@ -46,14 +45,11 @@ class FlagService:
         db.session.commit()
         return flag
 
-    # Métodos obsoletos removidos: toggle_flag, update_flag_message
-
     def is_maintenance_mode(self):
         """Devuelve True si el modo mantenimiento está activado."""
         flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
         return flag.enabled if flag else False
 
-    # 🔹 NUEVA FUNCIÓN: obtener el mensaje de mantenimiento
     def get_maintenance_message(self):
         """Devuelve el mensaje del modo mantenimiento, si existe."""
         flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
@@ -91,7 +87,6 @@ class FlagService:
             flag.set_enabled(bool(enabled), actor=user, msg=message)
             changed = True
         elif message is not None and (flag.message or '') != message:
-            # Actualiza solo el mensaje manteniendo estado
             flag.set_enabled(flag.enabled, actor=user, msg=message)
             changed = True
         
@@ -99,7 +94,6 @@ class FlagService:
             db.session.commit()
         return flag
 
-    # Métodos específicos para portal maintenance
     def is_portal_maintenance_mode(self):
         """Devuelve True si el modo mantenimiento del portal público está activado."""
         flag = Flag.query.filter_by(key="portal_maintenance_mode").first()
@@ -110,7 +104,6 @@ class FlagService:
         flag = Flag.query.filter_by(key="portal_maintenance_mode").first()
         return flag.message if flag else None
 
-    # Métodos específicos para reviews
     def is_reviews_enabled(self):
         """Devuelve True si las reseñas están habilitadas."""
         flag = Flag.query.filter_by(key="reviews_enabled").first()

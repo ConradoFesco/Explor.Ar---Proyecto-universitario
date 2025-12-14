@@ -1,4 +1,3 @@
-// static/js/reviews.js
 document.addEventListener('DOMContentLoaded', () => {
   const cfg = window.REVIEWS_CONFIG || {};
   const container = document.getElementById('ssr-list-container');
@@ -7,12 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let modalReviewId = null;
   let modalSiteId = null;
 
-  // Helper modal functions (ensure availability and consistent behavior)
   function openModal(id) {
     const m = document.getElementById(id);
     if (!m) return;
     m.classList.remove('hidden');
-    // close on backdrop click
     m.addEventListener('click', function onBackdrop(e){ if (e.target === m) { closeModal(id); m.removeEventListener('click', onBackdrop); } });
   }
   function closeModal(id) {
@@ -20,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!m) return;
     m.classList.add('hidden');
   }
-  // expose to global in case other scripts expect them
   window.openModal = openModal;
   window.closeModal = closeModal;
 
@@ -29,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     params.set('page', page);
     params.set('per_page', cfg.perPage || 25);
     for (const k in filters) {
-      // Siempre enviar el filtro 'status', aunque sea vacío
       if (k === 'status') {
         params.set('status', filters[k] ?? '');
       } else if (filters[k] !== '' && filters[k] !== null && filters[k] !== undefined) {
@@ -49,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     bindButtons();
   }
 
-  // Load review detail fragment and populate modal body
   async function loadReviewDetail(reviewId, siteId) {
     const body = document.getElementById('review-detail-body');
     if (!body) return;
@@ -91,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
       form.appendChild(input);
     }
     
-    // Agregar CSRF token si existe
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (csrfToken) {
       const csrfInput = document.createElement('input');
@@ -253,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (clearBtn) {
       clearBtn.onclick = () => {
-        // clear inputs inside filters panel
         const panel = document.getElementById(prefix + 'filters-panel');
         if (panel) {
           panel.querySelectorAll('input').forEach(i => i.value = '');
@@ -291,10 +283,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   if (!initialFilters.sort_by) initialFilters.sort_by = 'created_at';
   if (!initialFilters.sort_order) initialFilters.sort_order = 'desc';
-  // No establecer status por defecto (mostrar todas)
   fetchFragment(1, initialFilters);
 
-  // modal reject save/cancel handlers (bind directly - we're already in DOMContentLoaded)
   const saveReject = document.getElementById('saveReject');
   const cancelReject = document.getElementById('cancelReject');
   if (saveReject) {
@@ -321,7 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
   
-  // Modal helpers para confirmación de acción y confirmación de borrado
   function showActionConfirmModal(message) {
     const modal = document.getElementById('actionConfirmModal');
     const msgDiv = document.getElementById('action-confirm-message');
@@ -335,7 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal('deleteConfirmModal');
     const confirmBtn = document.getElementById('confirmDelete');
     const cancelBtn = document.getElementById('cancelDelete');
-    // limpiar listeners previos
     confirmBtn.onclick = () => {
       closeModal('deleteConfirmModal');
       if (typeof onConfirm === 'function') onConfirm();
@@ -352,7 +340,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById('confirmApprove');
     const cancelBtn = document.getElementById('cancelApprove');
     if (!confirmBtn || !cancelBtn) return;
-    // limpiar listeners previos
     confirmBtn.onclick = () => {
       closeModal('approveConfirmModal');
       if (typeof onConfirm === 'function') onConfirm();

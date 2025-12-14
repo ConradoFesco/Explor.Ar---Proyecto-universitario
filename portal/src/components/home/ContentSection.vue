@@ -23,12 +23,10 @@ const router = useRouter()
 
 function handleVerTodos() {
   if (!props.category) {
-    // Si no hay categoría, ir al listado normal
     router.push({ name: 'SitesList' })
     return
   }
 
-  // Navegar al listado con los filtros correspondientes
   const query: Record<string, string> = {}
   
   if (props.category === 'favorites') {
@@ -37,8 +35,6 @@ function handleVerTodos() {
     query.sort = 'rating:desc'
   } else if (props.category === 'recent') {
     query.sort = 'created_at:desc'
-    // Para recientes, podríamos agregar un filtro de fecha si el backend lo soporta
-    // Por ahora, solo ordenamos por fecha descendente
   }
   
   router.push({ 

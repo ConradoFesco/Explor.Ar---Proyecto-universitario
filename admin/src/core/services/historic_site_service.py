@@ -9,6 +9,7 @@ from src.core.models.city import City
 from src.core.models.province import Province
 from src.core.models.state_site import StateSite
 from src.core.models.review import HistoricSiteReview
+from src.core.models.favorite_site import FavoriteSite
 from src.web import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -18,6 +19,8 @@ from src.core.services.tag_service import tag_service
 from src.core.services.city_service import city_service
 from src.core.services.province_service import province_service
 from src.core.validators.site_validator import validate_create_site, validate_update_site
+from src.core.validators.tag_validator import validate_tag_ids_exist
+from src.core.services.site_image_service import site_image_service
 import csv
 import io
 import math
@@ -25,6 +28,21 @@ import math
 
 class HistoricSiteService:
     """Casos de uso de sitios históricos (crear, obtener, listar, actualizar, tags, exportar)."""
+    
+    @staticmethod
+    def _build_pagination_dict(pagination):
+        """Construye un diccionario de paginación estándar."""
+        return {
+            'page': pagination.page,
+            'pages': pagination.pages,
+            'per_page': pagination.per_page,
+            'total': pagination.total,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev,
+            'next_num': pagination.next_num,
+            'prev_num': pagination.prev_num
+        }
+    
     def create_historic_site(self, data_site, data_user):
         """
         Crea un sitio histórico y registra evento de creación.
@@ -58,8 +76,8 @@ class HistoricSiteService:
         visible = validated.get('visible')
         deleted = False
         created_at = datetime.now()
+        
         try:
-
             province = province_service.find_or_create(name_province)
             city = city_service.find_or_create(name_city, province)
 
@@ -84,11 +102,11 @@ class HistoricSiteService:
             
             tag_ids = data_site.get('tag_ids', [])
             if tag_ids:
-                self.add_tags(historic_site.id, tag_ids, id_user, event_action=False)
+                self.add_tags(historic_site.id, tag_ids, data_user, event_action=False)
             
             event_data = {
                 'id_site': historic_site.id,
-                'id_user': id_user,
+                'id_user': data_user,
                 'type_Action': 'CREATE'
             }
             event_service.create_event(event_data,commit=False)
@@ -120,7 +138,6 @@ class HistoricSiteService:
             NotFoundError: Si no existe.
         """
         from src.core.models.category_site import CategorySite
-        from src.core.models.favorite_site import FavoriteSite
         
         site = HistoricSite.query.join(City, HistoricSite.id_ciudad == City.id)\
                                  .join(Province, City.id_province == Province.id)\
@@ -134,7 +151,6 @@ class HistoricSiteService:
         
         site_data = site.to_dict()
         
-        from src.core.models.tag import Tag
         site_tags = Tag.query.join(TagHistoricSite).\
             filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
         site_data['tags'] = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in site_tags]
@@ -150,9 +166,7 @@ class HistoricSiteService:
             is_favorite = favorite is not None
         site_data['is_favorite'] = is_favorite
         
-        from src.core.services.site_image_service import site_image_service
         site_data['images'] = site_image_service.get_images_by_site(site.id)
-        
         site_data['cover_image'] = site_image_service.get_cover_image(site.id)
         
         return site_data
@@ -256,7 +270,6 @@ class HistoricSiteService:
         sites_data = []
         for site in sites:
             site_tags = self._get_site_tags(site.id)
-            from src.core.services.site_image_service import site_image_service
             cover_image = site_image_service.get_cover_image(site.id)
             sites_data.append({
                 'id': site.id, 
@@ -273,16 +286,7 @@ class HistoricSiteService:
         
         return {
             'sites': sites_data,
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev,
-                'next_num': pagination.next_num,
-                'prev_num': pagination.prev_num
-            }
+            'pagination': self._build_pagination_dict(pagination)
         }
 
     def update_historic_site(self, id, data_site, data_user):
@@ -467,15 +471,7 @@ class HistoricSiteService:
             raise exc.ValidationError("Los tags deben enviarse como una lista.")
         
         if new_tag_ids:
-            non_existent_tags = []
-            for tag_id in new_tag_ids:
-                try:
-                    tag_service.get_tag_by_id(tag_id)
-                except exc.NotFoundError:
-                    non_existent_tags.append(tag_id)
-            
-            if non_existent_tags:
-                raise exc.NotFoundError(f"Los siguientes tags no existen: {non_existent_tags}")
+            validate_tag_ids_exist(new_tag_ids)
 
         current_relations = TagHistoricSite.query.filter_by(Historic_Site_id=site_id).all()
         current_tag_ids = [rel.Tag_id for rel in current_relations]
@@ -557,16 +553,7 @@ class HistoricSiteService:
         
         return {
             'sites': sites_data,
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev,
-                'next_num': pagination.next_num,
-                'prev_num': pagination.prev_num
-            }
+            'pagination': self._build_pagination_dict(pagination)
         }
 
     def search_public_sites(self, *, name=None, description=None, city=None, province=None, tags=None, order_by=None, latitude=None, longitude=None, radius_km=None, page=None, per_page=None, user_id=None, favorites_only=False):
@@ -581,7 +568,6 @@ class HistoricSiteService:
         }
         """
         from sqlalchemy import asc, desc, func, or_, cast, Float
-        from src.core.models.favorite_site import FavoriteSite
 
         tags = tags or []
 
@@ -661,8 +647,6 @@ class HistoricSiteService:
             query = query.order_by(desc(HistoricSite.created_at))
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-        from src.core.services.site_image_service import site_image_service
 
         favorite_site_ids: set[int] = set()
         if user_id:

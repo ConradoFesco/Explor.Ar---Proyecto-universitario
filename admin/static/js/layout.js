@@ -1,4 +1,3 @@
-// Cerrar sesión con confirmación
 async function cerrarSesion() {
   try {
     const result = await Swal.fire({
@@ -20,7 +19,6 @@ async function cerrarSesion() {
 }
 window.cerrarSesion = cerrarSesion;
 
-// Sidebar toggle
 const menuToggle = document.getElementById('menuToggle');
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
@@ -52,7 +50,6 @@ function toggleSidebar(){
 if (menuToggle) menuToggle.addEventListener('click', toggleSidebar);
 if (overlay) overlay.addEventListener('click', toggleSidebar);
 
-// User dropdown
 const userMenuToggle = document.getElementById('userMenuToggle');
 const userDropdown = document.getElementById('userDropdown');
 const userArrow = document.getElementById('userArrow');
@@ -79,7 +76,6 @@ document.addEventListener('click', e => {
   }
 });
 
-// Modal helpers
 function loadModalContent(url, title, renderFunction, errorFunction = null){
   const modal = document.getElementById('detail-modal');
   const modalTitle = document.getElementById('modal-title');
