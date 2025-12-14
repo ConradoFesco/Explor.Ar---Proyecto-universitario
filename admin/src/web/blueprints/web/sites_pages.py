@@ -11,12 +11,16 @@ sites_web = Blueprint('sites_web', __name__)
 
 
 def _resolve_site_list_params():
+    """
+    Resuelve y valida parámetros de listado de sitios.
+    No aplica valores por defecto antes de validar - el validador lo hará.
+    """
     raw_args = {
-        'page': request.args.get('page') or 1,
-        'per_page': request.args.get('per_page') or 25,
+        'page': request.args.get('page'),
+        'per_page': request.args.get('per_page'),
         'search_text': request.args.get('search'),
-        'sort_by': request.args.get('sort_by') or 'created_at',
-        'sort_order': request.args.get('sort_order') or 'desc',
+        'sort_by': request.args.get('sort_by'),
+        'sort_order': request.args.get('sort_order'),
         'city_id': request.args.get('city_id'),
         'province_id': request.args.get('province_id'),
         'tag_ids': request.args.get('tag_ids'),
@@ -30,14 +34,14 @@ def _resolve_site_list_params():
     except exc.ValidationError as error:
         flash('Parámetros inválidos en el listado: ' + str(error), 'error')
         return validate_site_list_params(
-            page=1,
-            per_page=25,
+            page=None,  
+            per_page=None, 
             search_text=None,
-            sort_by='created_at',
-            sort_order='desc',
+            sort_by=None,  
+            sort_order=None, 
             city_id=None,
             province_id=None,
-            tag_ids=[],
+            tag_ids=None,
             state_id=None,
             date_from=None,
             date_to=None,

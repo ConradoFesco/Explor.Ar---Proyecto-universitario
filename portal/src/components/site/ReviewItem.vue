@@ -33,7 +33,7 @@ function handleDelete() {
       <div class="flex-1">
         <div class="flex items-center gap-2 mb-1">
           <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">
-            {{ review.user.name || review.user.mail || 'Usuario anónimo' }}
+            {{ review.author_name || review.user?.name || 'Usuario anónimo' }}
           </span>
           <div class="flex items-center gap-1" :aria-label="`Calificación: ${review.rating} de 5 estrellas`">
             <Star

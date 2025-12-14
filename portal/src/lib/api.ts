@@ -55,11 +55,14 @@ export type Review = {
   site_id: number;
   rating: number;
   content: string;
+  comment?: string; 
+  inserted_at?: string | null;
   created_at: string | null;
+  updated_at?: string | null;
   status?: string;
+  author_name?: string | null; 
   user?: {
     id: number | null;
-    mail: string | null;
     name: string | null;
   };
 };
@@ -341,11 +344,11 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
 export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): Promise<ReviewsResponse> {
   const base = getApiBaseUrl();
   const query = buildQuery({ page, per_page: perPage });
-  const url = `${base}/public/sites/${siteId}/reviews${query}`;
+  const url = `${base}/sites/${siteId}/reviews${query}`;
   
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    credentials: 'omit',
+    credentials: 'include',
   });
   
   if (!res.ok) {
@@ -361,20 +364,25 @@ export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): 
   const mapped: Review[] = itemsSource.map((r: any) => {
     const user = r.user ?? {
       id: null,
-      mail: r.user_mail ?? null,
       name: null,
     };
     const rating = Number(r.rating ?? 0);
     const content = (r.comment ?? r.content ?? '').toString();
     const createdAt = (r.inserted_at ?? r.created_at ?? null) as string | null;
+    const updatedAt = (r.updated_at ?? null) as string | null;
+    const authorName = (r.author_name ?? user.name ?? null) as string | null;
 
     return {
       id: Number(r.id),
       site_id: Number(r.site_id),
       rating,
       content,
+      comment: content,
+      inserted_at: createdAt,
       created_at: createdAt,
+      updated_at: updatedAt,
       status: r.status,
+      author_name: authorName,
       user,
     };
   });
@@ -482,5 +490,27 @@ export async function getMyReview(siteId: number): Promise<Review | null> {
     throw new Error(`Error al obtener reseña (${res.status}): ${text}`);
   }
   const data = await res.json();
-  return data.review || null;
+  const raw = data.review;
+  if (!raw) return null;
+
+  const content = (raw.comment ?? '').toString();
+  const createdAt = (raw.inserted_at ?? null) as string | null;
+  const updatedAt = (raw.updated_at ?? null) as string | null;
+  const user = raw.user ?? {
+    id: null,
+    name: null,
+  };
+  
+  return {
+    id: Number(raw.id),
+    site_id: Number(raw.site_id),
+    rating: Number(raw.rating ?? 0),
+    content,
+    comment: content,
+    inserted_at: createdAt,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    status: raw.status,
+    user,
+  };
 }

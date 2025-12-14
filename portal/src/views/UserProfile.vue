@@ -67,8 +67,8 @@ const fetchData = async () => {
         id: r.id,
         site_name: r.site_name || 'Sitio sin nombre',
         rating: r.rating,
-        date: r.created_at ? new Date(r.created_at).toLocaleDateString('es-AR') : '',
-        excerpt: r.content ? (r.content.length > 100 ? r.content.substring(0, 100) + '...' : r.content) : ''
+        date: r.inserted_at ? new Date(r.inserted_at).toLocaleDateString('es-AR') : '',
+        excerpt: (r.comment || '') ? ((r.comment || '').length > 100 ? (r.comment || '').substring(0, 100) + '...' : (r.comment || '')) : ''
       }))
       totalPages.value = data.pagination?.pages || 1
     } else {

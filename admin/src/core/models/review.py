@@ -13,6 +13,7 @@ class HistoricSiteReview(db.Model):
     content = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
     rejection_reason = db.Column(db.String(200), nullable=True)
     
 
@@ -30,4 +31,5 @@ class HistoricSiteReview(db.Model):
             'content': self.content,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

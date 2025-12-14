@@ -160,8 +160,8 @@ class HistoricSiteService:
         
         return site_data
     
-    def get_all_historic_sites(self, include_deleted=False, page=1, per_page=25, 
-                              search_text=None, sort_by='created_at', sort_order='desc',
+    def get_all_historic_sites(self, include_deleted=False, page=None, per_page=None, 
+                              search_text=None, sort_by=None, sort_order=None,
                               city_id=None, province_id=None, tag_ids=None, 
                               state_id=None, date_from=None, date_to=None, 
                               visible=None): 
@@ -572,7 +572,7 @@ class HistoricSiteService:
             }
         }
 
-    def search_public_sites(self, *, name=None, description=None, city=None, province=None, tags=None, order_by='latest', latitude=None, longitude=None, radius_km=None, page=1, per_page=25, user_id=None, favorites_only=False):
+    def search_public_sites(self, *, name=None, description=None, city=None, province=None, tags=None, order_by=None, latitude=None, longitude=None, radius_km=None, page=None, per_page=None, user_id=None, favorites_only=False):
         """
         Devuelve sitios visibles para el portal público respetando filtros estandarizados
         y formateados según la especificación del cliente.
@@ -714,6 +714,9 @@ class HistoricSiteService:
             state_name = getattr(getattr(site, 'state_site', None), 'state', None)
 
             inserted_at = site.created_at.isoformat() if site.created_at else None
+            updated_at = (
+                site.updated_at.isoformat() if hasattr(site, 'updated_at') and site.updated_at else inserted_at
+            )
 
             item = {
                 'id': site.id,
@@ -728,6 +731,7 @@ class HistoricSiteService:
                 'tags': tags_list,
                 'state_of_conservation': state_name,
                 'inserted_at': inserted_at,
+                'updated_at': updated_at,
                 'rating': avg_rating,
                 'cover_image_url': cover_image['url_publica'] if cover_image else None,
                 'is_favorite': is_favorite,

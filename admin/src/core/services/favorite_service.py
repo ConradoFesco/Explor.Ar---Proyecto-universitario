@@ -1,3 +1,4 @@
+from typing import Optional
 from src.core.models.favorite_site import FavoriteSite
 from src.core.models.historic_site import HistoricSite
 from src.core.models.user import User
@@ -56,7 +57,7 @@ class FavoriteService:
 
         return True
 
-    def list_favorites(self, *, user_id: int, page: int = 1, per_page: int = 20):
+    def list_favorites(self, *, user_id: int, page: Optional[int] = None, per_page: Optional[int] = None):
         """
         Lista los sitios favoritos del usuario autenticado.
 
@@ -77,7 +78,11 @@ class FavoriteService:
         if not user:
             raise exc.ValidationError("Usuario inválido")
 
-        page, per_page = _validate_pagination(page, per_page, max_per_page=100)
+        from src.core.validators.listing_validator import _normalize_pagination_params
+        normalized_page, normalized_per_page = _normalize_pagination_params(
+            page, per_page, default_page=1, default_per_page=20
+        )
+        page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=100)
 
         query = FavoriteSite.query.filter_by(user_id=user_id).join(HistoricSite).filter(
             HistoricSite.deleted == False,
@@ -113,6 +118,10 @@ class FavoriteService:
             inserted_at = (
                 favorite.created_at.isoformat() if favorite.created_at else None
             )
+            updated_at = (
+                site.updated_at.isoformat() if hasattr(site, 'updated_at') and site.updated_at else 
+                (site.created_at.isoformat() if site.created_at else inserted_at)
+            )
 
             data.append(
                 {
@@ -132,6 +141,7 @@ class FavoriteService:
                     if getattr(site, "state_site", None)
                     else None,
                     "inserted_at": inserted_at,
+                    "updated_at": updated_at,
                     "cover_image_url": cover_image["url_publica"]
                     if cover_image
                     else None,

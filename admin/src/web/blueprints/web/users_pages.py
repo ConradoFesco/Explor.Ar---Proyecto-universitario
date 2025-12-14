@@ -14,8 +14,8 @@ users_web = Blueprint('users_web', __name__)
 @web_permission_required("user_index")
 def list_users_page():
     """Listado de usuarios con filtros, orden y paginación (SSR)."""
-    page = request.args.get('page') or 1
-    per_page = request.args.get('per_page') or 25
+    page = request.args.get('page')
+    per_page = request.args.get('per_page')
 
     filters = {
         "email": request.args.get('search'),
@@ -25,8 +25,8 @@ def list_users_page():
     }
     filters = {k: v for k, v in filters.items() if v}
 
-    sort_by = request.args.get('sort_by', 'created_at')
-    sort_order = request.args.get('sort_order', 'desc')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
 
     try:
         result = user_service.list_users(
@@ -40,10 +40,10 @@ def list_users_page():
         flash(f'Parámetros inválidos en el listado de usuarios: {str(e)}', 'error')
         result = user_service.list_users(
             filters={},
-            page=1,
-            per_page=25,
-            sort_by='created_at',
-            sort_order='desc',
+            page=None,
+            per_page=None,
+            sort_by=None,
+            sort_order=None,
         )
     try:
         roles_all = user_service.get_available_roles()
@@ -78,8 +78,8 @@ def list_users_fragment():
     sin necesidad de recargar la página completa (layout, menús, scripts).
     Retorna solo el HTML parcial (_list_fragment) para ser inyectado en el DOM.
     """
-    page = request.args.get('page') or 1
-    per_page = request.args.get('per_page') or 25
+    page = request.args.get('page')
+    per_page = request.args.get('per_page')
 
     filters = {
         "email": request.args.get('search'),
@@ -88,8 +88,8 @@ def list_users_fragment():
     }
     filters = {k: v for k, v in filters.items() if v}
 
-    sort_by = request.args.get('sort_by', 'created_at')
-    sort_order = request.args.get('sort_order', 'desc')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
 
     try:
         result = user_service.list_users(

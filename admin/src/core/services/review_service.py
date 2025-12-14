@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from src.core.models.review import HistoricSiteReview
 from src.core.models.historic_site import HistoricSite
 from src.core.models.user import User
@@ -26,17 +26,22 @@ class ReviewService:
         ).first()
         return existing_review is not None
 
-    def list_reviews(self, *, page=1, per_page=25, sort_by='created_at',
-                    sort_order='desc', status=None, site_id=None,
+    def list_reviews(self, *, page=None, per_page=None, sort_by=None, sort_order=None,
+                    status=None, site_id=None,
                     user=None, rating_from=None, rating_to=None,
                     date_from=None, date_to=None,
                     user_id: int | None = None,
-                    only_approved: bool = False) -> dict:
+                    only_approved: bool = False,
+                    include_user_pending: int | None = None) -> dict:
         """
         Lista reseñas con filtros, orden y paginación.
 
         Valida todos los parámetros mediante `validate_review_list_params` y
         devuelve un diccionario con `items` y `pagination`.
+        
+        Args:
+            include_user_pending: Si se proporciona un user_id, incluye la reseña pendiente
+                de ese usuario incluso cuando only_approved=True.
         """
         params = validate_review_list_params(
             page=page,
@@ -61,7 +66,16 @@ class ReviewService:
         query = HistoricSiteReview.query.join(User).join(HistoricSite)
 
         if only_approved:
-            query = query.filter(HistoricSiteReview.status == 'approved')
+            if include_user_pending is not None:
+                query = query.filter(
+                    or_(
+                        HistoricSiteReview.status == 'approved',
+                        (HistoricSiteReview.status == 'pending') & 
+                        (HistoricSiteReview.user_id == include_user_pending)
+                    )
+                )
+            else:
+                query = query.filter(HistoricSiteReview.status == 'approved')
 
         if user_id is not None:
             try:
@@ -127,10 +141,8 @@ class ReviewService:
                     'id': review.id,
                     'site_id': review.site_id,
                     'site_name': review.site.name,
-                    'user_id': review.user_id,
                     'user': {
                         'id': user_obj.id if user_obj else None,
-                        'mail': user_obj.mail if user_obj else None,
                         'name': user_obj.name if user_obj else None,
                     },
                     'user_mail': user_obj.mail if user_obj else None,
@@ -140,6 +152,9 @@ class ReviewService:
                     'rejection_reason': review.rejection_reason,
                     'created_at': review.created_at.isoformat()
                     if review.created_at
+                    else None,
+                    'updated_at': review.updated_at.isoformat()
+                    if review.updated_at
                     else None,
                 }
             )
@@ -346,7 +361,6 @@ class ReviewService:
         data = review.to_dict()
         data['user'] = {
             'id': user.id if user else None,
-            'mail': user.mail if user else None,
             'name': user.name if user else None
         }
         data['site_name'] = review.site.name if review.site else None

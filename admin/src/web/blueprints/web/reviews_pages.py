@@ -28,10 +28,10 @@ def list_reviews_page():
 
     try:
         result = review_service.list_reviews(
-            page=request.args.get('page') or 1,
-            per_page=request.args.get('per_page') or 25,
-            sort_by=request.args.get('sort_by', 'created_at'),
-            sort_order=request.args.get('sort_order', 'desc'),
+            page=request.args.get('page'),
+            per_page=request.args.get('per_page'),
+            sort_by=request.args.get('sort_by'),
+            sort_order=request.args.get('sort_order'),
             status=request.args.get('status'),
             site_id=request.args.get('site_id'),
             user=request.args.get('user'),
@@ -71,10 +71,10 @@ def list_reviews_fragment():
     
     try:
         result = review_service.list_reviews(
-            page=request.args.get('page') or 1,
-            per_page=request.args.get('per_page') or 25,
-            sort_by=request.args.get('sort_by', 'created_at'),
-            sort_order=request.args.get('sort_order', 'desc'),
+            page=request.args.get('page'),
+            per_page=request.args.get('per_page'),
+            sort_by=request.args.get('sort_by'),
+            sort_order=request.args.get('sort_order'),
             status=request.args.get('status'),
             site_id=request.args.get('site_id'),
             user=request.args.get('user'),
@@ -87,6 +87,8 @@ def list_reviews_fragment():
         pagination = result.get('pagination', {})
         show_rejection_reason_column = any(item.get('status') == 'rejected' for item in items)
 
+    except exc.ValidationError as e:
+        current_app.logger.warning(f"Error de validación en fragmento de reseñas: {e}")
     except Exception as e:
         current_app.logger.error(f"Error en fragmento de reseñas: {e}")
     

@@ -6,6 +6,7 @@ from src.core.models.historic_site import HistoricSite
 from src.core.models.state_site import StateSite
 from src.core.models.category_site import CategorySite
 from .utils import require_fields, is_float_like, ensure_max_length
+from .listing_validator import _validate_optional_int
 
 MAX_NAME = 255
 MAX_BRIEF = 2000
@@ -40,23 +41,19 @@ def validate_create_site(data: dict) -> dict:
         raise ValidationError('Ya existe un sitio histórico con este nombre')
 
     if id_estado is not None:
-        try:
-            id_estado = int(id_estado)
-        except Exception:
-            raise ValidationError('id_estado debe ser entero')
-        if not StateSite.query.get(id_estado):
+        id_estado = _validate_optional_int(id_estado, 'id_estado', must_be_positive=True)
+        if id_estado is not None and not StateSite.query.get(id_estado):
             raise NotFoundError('Estado de conservación no encontrado')
-    try:
-        id_category = int(id_category)
-    except Exception:
-        raise ValidationError('id_category debe ser entero')
+    
+    id_category = _validate_optional_int(id_category, 'id_category', must_be_positive=True)
+    if id_category is None:
+        raise ValidationError('id_category es requerido')
     if not CategorySite.query.get(id_category):
         raise NotFoundError('Categoría no encontrada')
 
     if year_inauguration not in (None, ''):
-        try:
-            int(year_inauguration)
-        except Exception:
+        year_val = _validate_optional_int(year_inauguration, 'year_inauguration')
+        if year_val is not None and year_val <= 0:
             raise ValidationError('Año de inauguración inválido')
 
     return {

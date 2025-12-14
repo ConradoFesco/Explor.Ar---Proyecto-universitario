@@ -6,7 +6,40 @@ from typing import Optional
 from src.web.exceptions import ValidationError
 
 
+def _normalize_pagination_params(page: Optional[object], per_page: Optional[object],
+                                 default_page: int = 1, default_per_page: int = 20) -> tuple[Optional[object], Optional[object]]:
+    """
+    Normaliza parámetros de paginación aplicando valores por defecto.
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        default_page: Valor por defecto para page
+        default_per_page: Valor por defecto para per_page
+    
+    Returns:
+        tuple: (page_normalizado, per_page_normalizado)
+    """
+    normalized_page = page if page is not None and page != '' else default_page
+    normalized_per_page = per_page if per_page is not None and per_page != '' else default_per_page
+    return normalized_page, normalized_per_page
+
+
 def _validate_pagination(page: int | str | None, per_page: int | str | None, *, max_per_page: int = 25) -> tuple[int, int]:
+    """
+    Valida parámetros de paginación.
+    
+    Args:
+        page: Número de página
+        per_page: Elementos por página
+        max_per_page: Máximo de elementos por página
+    
+    Returns:
+        tuple: (page, per_page) validados
+    
+    Raises:
+        ValidationError: Si los parámetros son inválidos
+    """
     try:
         page = int(page)
     except (TypeError, ValueError):
@@ -22,7 +55,40 @@ def _validate_pagination(page: int | str | None, per_page: int | str | None, *, 
     return page, per_page
 
 
-def _validate_sort(sort_by: str, sort_order: str, *, allowed_fields: list[str]) -> tuple[str, str]:
+def _validate_sort(sort_by: Optional[str], sort_order: Optional[str], *, 
+                  allowed_fields: list[str], default_sort_by: Optional[str] = None,
+                  default_sort_order: str = 'desc') -> tuple[str, str]:
+    """
+    Valida parámetros de ordenamiento.
+    
+    Args:
+        sort_by: Campo por el cual ordenar (opcional)
+        sort_order: Dirección del orden (opcional)
+        allowed_fields: Lista de campos permitidos
+        default_sort_by: Valor por defecto para sort_by (debe estar en allowed_fields)
+        default_sort_order: Valor por defecto para sort_order ('asc' o 'desc')
+    
+    Returns:
+        tuple: (sort_by, sort_order) validados
+    
+    Raises:
+        ValidationError: Si los valores son inválidos
+    """
+    if not sort_by or sort_by.strip() == '':
+        if default_sort_by and default_sort_by in allowed_fields:
+            sort_by = default_sort_by
+        elif allowed_fields:
+            sort_by = allowed_fields[0] 
+        else:
+            raise ValidationError("No hay campos de orden permitidos")
+    else:
+        sort_by = sort_by.strip()
+    
+    if not sort_order or sort_order.strip() == '':
+        sort_order = default_sort_order
+    else:
+        sort_order = sort_order.strip().lower()
+    
     if sort_by not in allowed_fields:
         raise ValidationError(f"Campo de orden inválido: {sort_by}. Opciones válidas: {allowed_fields}")
     if sort_order not in ['asc', 'desc']:
@@ -30,12 +96,31 @@ def _validate_sort(sort_by: str, sort_order: str, *, allowed_fields: list[str]) 
     return sort_by, sort_order
 
 
-def _validate_optional_int(value: Optional[int], field_name: str) -> Optional[int]:
-    if value is None:
+def _validate_optional_int(value: Optional[int | str | object], field_name: str, 
+                          must_be_positive: bool = False) -> Optional[int]:
+    """
+    Valida un entero opcional.
+    
+    Args:
+        value: Valor a validar (puede ser int, str o None)
+        field_name: Nombre del campo para mensajes de error
+        must_be_positive: Si True, valida que el entero sea positivo
+    
+    Returns:
+        Optional[int]: Entero validado o None
+    """
+    if value is None or value == '':
         return None
-    if not isinstance(value, int):
+    
+    try:
+        int_val = int(value)
+    except (TypeError, ValueError):
         raise ValidationError(f"{field_name} debe ser entero")
-    return value
+    
+    if must_be_positive and int_val <= 0:
+        raise ValidationError(f"{field_name} debe ser un entero positivo")
+    
+    return int_val
 
 
 def _validate_optional_bool_str(value: Optional[str]) -> Optional[bool]:
@@ -130,12 +215,24 @@ def _end_of_day(dt: datetime) -> datetime:
     return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
-def validate_site_list_params(*, page: int, per_page: int, search_text: Optional[str], sort_by: str, sort_order: str,
-                              city_id: Optional[int], province_id: Optional[int], tag_ids: Optional[list[int]],
-                              state_id: Optional[int], date_from: Optional[str], date_to: Optional[str],
-                              visible: Optional[bool | str]) -> dict:
-    page, per_page = _validate_pagination(page, per_page, max_per_page=25)
-    sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=['name', 'city', 'created_at'])
+def validate_site_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None, 
+                              search_text: Optional[str] = None, sort_by: Optional[str] = None, 
+                              sort_order: Optional[str] = None,
+                              city_id: Optional[int] = None, province_id: Optional[int] = None, 
+                              tag_ids: Optional[list[int]] = None,
+                              state_id: Optional[int] = None, date_from: Optional[str] = None, 
+                              date_to: Optional[str] = None,
+                              visible: Optional[bool | str] = None) -> dict:
+    normalized_page, normalized_per_page = _normalize_pagination_params(
+        page, per_page, default_page=1, default_per_page=25
+    )
+    page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=25)
+    sort_by, sort_order = _validate_sort(
+        sort_by, sort_order, 
+        allowed_fields=['name', 'city', 'created_at'],
+        default_sort_by='created_at',
+        default_sort_order='desc'
+    )
     city_id = _validate_optional_int(city_id, 'city_id')
     province_id = _validate_optional_int(province_id, 'province_id')
     state_id = _validate_optional_int(state_id, 'state_id')
@@ -166,8 +263,7 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
                                       latitude: Optional[object], longitude: Optional[object],
                                       radius: Optional[object], page: Optional[int],
                                       per_page: Optional[int], favorites_only: Optional[bool] = None) -> dict:
-    normalized_page = page if page is not None else 1
-    normalized_per_page = per_page if per_page is not None else 20
+    normalized_page, normalized_per_page = _normalize_pagination_params(page, per_page, default_page=1, default_per_page=20)
     page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=100)
 
     allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5']
@@ -208,9 +304,19 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
     }
 
 
-def validate_tag_list_params(*, page: int, per_page: int, search: Optional[str], sort_by: str, sort_order: str) -> dict:
-    page, per_page = _validate_pagination(page, per_page, max_per_page=50)
-    sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=['name', 'created_at'])
+def validate_tag_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None, 
+                             search: Optional[str] = None, sort_by: Optional[str] = None, 
+                             sort_order: Optional[str] = None) -> dict:
+    normalized_page, normalized_per_page = _normalize_pagination_params(
+        page, per_page, default_page=1, default_per_page=25
+    )
+    page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=50)
+    sort_by, sort_order = _validate_sort(
+        sort_by, sort_order,
+        allowed_fields=['name', 'created_at'],
+        default_sort_by='name',
+        default_sort_order='asc'
+    )
     return {
         'page': page,
         'per_page': per_page,
@@ -220,9 +326,19 @@ def validate_tag_list_params(*, page: int, per_page: int, search: Optional[str],
     }
 
 
-def validate_user_list_params(*, page: int, per_page: int, filters: dict, sort_by: str, sort_order: str) -> dict:
-    page, per_page = _validate_pagination(page, per_page, max_per_page=25)
-    sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=['created_at', 'name'])
+def validate_user_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None, 
+                              filters: Optional[dict] = None, sort_by: Optional[str] = None, 
+                              sort_order: Optional[str] = None) -> dict:
+    normalized_page, normalized_per_page = _normalize_pagination_params(
+        page, per_page, default_page=1, default_per_page=25
+    )
+    page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=25)
+    sort_by, sort_order = _validate_sort(
+        sort_by, sort_order,
+        allowed_fields=['created_at', 'name'],
+        default_sort_by='created_at',
+        default_sort_order='desc'
+    )
     email = (filters.get('email') or '').strip() if filters else ''
     raw_activo = filters.get('activo') if filters else None
     raw_blocked = filters.get('blocked') if filters else None
