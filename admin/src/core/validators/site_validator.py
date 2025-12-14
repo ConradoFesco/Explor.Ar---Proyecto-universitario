@@ -5,7 +5,7 @@ from src.web.exceptions import ValidationError, NotFoundError
 from src.core.models.historic_site import HistoricSite
 from src.core.models.state_site import StateSite
 from src.core.models.category_site import CategorySite
-from .utils import require_fields, is_float_like, ensure_max_length
+from .utils import require_fields, is_float_like, ensure_max_length, clean_string
 from .listing_validator import _validate_optional_int
 
 MAX_NAME = 255
@@ -18,11 +18,11 @@ def validate_create_site(data: dict) -> dict:
     if missing:
         raise ValidationError(f"Faltan campos obligatorios del sitio histórico: {', '.join(missing)}")
 
-    name = (data.get('name') or '').strip()
-    brief = (data.get('brief_description') or '').strip()
-    complete = (data.get('complete_description') or None)
-    name_city = (data.get('name_city') or '').strip()
-    name_province = (data.get('name_province') or '').strip()
+    name = clean_string(data.get('name'))
+    brief = clean_string(data.get('brief_description'))
+    complete = data.get('complete_description') or None
+    name_city = clean_string(data.get('name_city'))
+    name_province = clean_string(data.get('name_province'))
     lat = data.get('latitude')
     lng = data.get('longitude')
     id_estado = data.get('id_estado')
@@ -74,14 +74,14 @@ def validate_create_site(data: dict) -> dict:
 def validate_update_site(data: dict) -> dict:
     cleaned = {}
     if 'name' in data:
-        name = (data.get('name') or '').strip()
+        name = clean_string(data.get('name'))
         if not name:
             raise ValidationError('El nombre es requerido')
         if not ensure_max_length(name, MAX_NAME):
             raise ValidationError('El nombre no debe superar 255 caracteres')
         cleaned['name'] = name
     if 'brief_description' in data:
-        brief = (data.get('brief_description') or '').strip()
+        brief = clean_string(data.get('brief_description'))
         if not brief:
             raise ValidationError('La descripción breve es requerida')
         if not ensure_max_length(brief, MAX_BRIEF):
@@ -98,26 +98,26 @@ def validate_update_site(data: dict) -> dict:
             raise ValidationError('Longitud inválida')
         cleaned['longitude'] = str(data.get('longitude'))
     if 'id_estado' in data and data.get('id_estado') is not None:
-        try:
-            val = int(data.get('id_estado'))
-        except Exception:
-            raise ValidationError('id_estado debe ser entero')
+        val = _validate_optional_int(data.get('id_estado'), 'id_estado', must_be_positive=True)
+        if val is None:
+            raise ValidationError('id_estado debe ser un entero positivo')
         if not StateSite.query.get(val):
             raise NotFoundError('Estado de conservación no encontrado')
         cleaned['id_estado'] = val
     if 'id_category' in data and data.get('id_category') is not None:
-        try:
-            val = int(data.get('id_category'))
-        except Exception:
-            raise ValidationError('id_category debe ser entero')
+        val = _validate_optional_int(data.get('id_category'), 'id_category', must_be_positive=True)
+        if val is None:
+            raise ValidationError('id_category debe ser un entero positivo')
         if not CategorySite.query.get(val):
             raise NotFoundError('Categoría no encontrada')
         cleaned['id_category'] = val
     if 'year_inauguration' in data and data.get('year_inauguration') not in (None, ''):
-        try:
-            cleaned['year_inauguration'] = int(data.get('year_inauguration'))
-        except Exception:
+        year_val = _validate_optional_int(data.get('year_inauguration'), 'year_inauguration')
+        if year_val is None:
             raise ValidationError('Año de inauguración inválido')
+        if year_val <= 0:
+            raise ValidationError('Año de inauguración debe ser positivo')
+        cleaned['year_inauguration'] = year_val
     if 'visible' in data:
         cleaned['visible'] = bool(data.get('visible'))
     return cleaned

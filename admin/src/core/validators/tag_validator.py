@@ -4,7 +4,7 @@ Validaciones de entrada para tags.
 from slugify import slugify
 from src.web.exceptions import ValidationError
 from src.core.models.tag import Tag
-from .utils import ensure_max_length
+from .utils import ensure_max_length, clean_string
 
 MAX_TAG_NAME = 50
 
@@ -15,7 +15,7 @@ def validate_tag(name: str, tag_id: int | None = None) -> dict:
         name: Nombre del tag (input crudo).
         tag_id: ID del tag a excluir en la verificación de unicidad (solo update).
     """
-    name = (name or '').strip()
+    name = clean_string(name)
     if not name:
         raise ValidationError('El nombre del tag es requerido.')
     if not ensure_max_length(name, MAX_TAG_NAME):

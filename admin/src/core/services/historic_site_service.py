@@ -41,12 +41,9 @@ class HistoricSiteService:
             ValidationError: Si faltan campos o datos inválidos.
             DatabaseError: Si falla la persistencia.
         """
-        required_fields = ['name', 'brief_description', 'name_city', 'name_province', 'latitude', 'longitude', 'id_category', 'visible']
-        if ( not all(field in data_site for field in required_fields)):
-            raise exc.ValidationError("Faltan campos obligatorios del sitio histórico: Nombre, descripción, ciudad, latitud, longitud, categoría y visible")
-        id_user = data_user
-        if not id_user:
+        if not data_user:
             raise exc.ValidationError("Usuario no autenticado. Por favor, inicie sesión.")
+        
         validated = validate_create_site(data_site)
         name = validated.get('name')
         brief_description = validated.get('brief_description')

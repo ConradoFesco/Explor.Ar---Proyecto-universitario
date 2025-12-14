@@ -4,6 +4,7 @@ Validaciones de entrada para listados (paginación, filtros y ordenamiento).
 from datetime import datetime
 from typing import Optional
 from src.web.exceptions import ValidationError
+from .utils import clean_optional_string
 
 
 def _validate_pagination(page: Optional[object], per_page: Optional[object], *, 
@@ -78,7 +79,8 @@ def _validate_sort(sort_by: Optional[str], sort_order: Optional[str], *,
     Raises:
         ValidationError: Si los valores son inválidos
     """
-    if not sort_by or (isinstance(sort_by, str) and sort_by.strip() == ''):
+    cleaned_sort_by = clean_optional_string(sort_by)
+    if not cleaned_sort_by:
         if default_sort_by and default_sort_by in allowed_fields:
             sort_by = default_sort_by
         elif allowed_fields:
@@ -86,14 +88,15 @@ def _validate_sort(sort_by: Optional[str], sort_order: Optional[str], *,
         else:
             raise ValidationError("No hay campos de orden permitidos")
     else:
-        sort_by = sort_by.strip()
+        sort_by = cleaned_sort_by
         if sort_by not in allowed_fields:
             raise ValidationError(f"Campo de orden inválido: {sort_by}. Opciones válidas: {allowed_fields}")
     
-    if not sort_order or (isinstance(sort_order, str) and sort_order.strip() == ''):
+    cleaned_sort_order = clean_optional_string(sort_order)
+    if not cleaned_sort_order:
         sort_order = default_sort_order
     else:
-        sort_order = sort_order.strip().lower()
+        sort_order = cleaned_sort_order.lower()
         if sort_order not in ['asc', 'desc']:
             raise ValidationError(f"Sentido de orden inválido: {sort_order}. Debe ser 'asc' o 'desc'.")
     
@@ -128,21 +131,19 @@ def _validate_optional_int(value: Optional[int | str | object], field_name: str,
 
 
 def _validate_optional_bool_str(value: Optional[str]) -> Optional[bool]:
+    """Valida un string opcional como booleano."""
     if value is None:
         return None
-    s = str(value).strip().lower()
+    cleaned = clean_optional_string(value)
+    if not cleaned:
+        return None
+    s = cleaned.lower()
     if s in ['true', '1', 'si', 'sí', 'yes', 'y']:
         return True
     if s in ['false', '0', 'no', 'n']:
         return False
     raise ValidationError('Parámetro booleano inválido')
 
-
-def _clean_optional_str(value: Optional[object]) -> Optional[str]:
-    if value is None:
-        return None
-    normalized = str(value).strip()
-    return normalized or None
 
 
 def _validate_optional_float(value: Optional[object], field_name: str) -> Optional[float]:
@@ -155,12 +156,16 @@ def _validate_optional_float(value: Optional[object], field_name: str) -> Option
 
 
 def _split_csv_values(raw_values: Optional[object]) -> list[str]:
+    """Divide valores separados por comas y los normaliza."""
     if not raw_values:
         return []
+    cleaned = clean_string(raw_values)
+    if not cleaned:
+        return []
     return [
-        item.strip().lower()
-        for item in str(raw_values).split(',')
-        if item.strip()
+        clean_string(item).lower()
+        for item in cleaned.split(',')
+        if clean_string(item)
     ]
 
 
@@ -269,17 +274,17 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
     allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5', 'name-asc', 'name-desc']
     normalized_order: Optional[str] = None
     if order_by is not None and order_by != '':
-        normalized_order = str(order_by).strip()
+        normalized_order = clean_optional_string(order_by)
         if normalized_order: 
             normalized_order_lower = normalized_order.lower()
             if normalized_order_lower not in allowed_order:
                 raise ValidationError(f"order_by inválido. Valores permitidos: {', '.join(allowed_order)}")
             normalized_order = normalized_order_lower
 
-    normalized_name = _clean_optional_str(name)
-    normalized_description = _clean_optional_str(description)
-    normalized_city = _clean_optional_str(city)
-    normalized_province = _clean_optional_str(province)
+    normalized_name = clean_optional_string(name)
+    normalized_description = clean_optional_string(description)
+    normalized_city = clean_optional_string(city)
+    normalized_province = clean_optional_string(province)
     normalized_tags = _split_csv_values(tags)
 
     lat = _validate_optional_float(latitude, 'lat')
@@ -292,6 +297,10 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
         raise ValidationError('radius requiere lat y long')
     if radius_value is not None and radius_value <= 0:
         raise ValidationError('radius debe ser mayor a 0')
+    
+    radius_km = None
+    if radius_value is not None:
+        radius_km = radius_value / 1000.0
 
     return {
         'name': normalized_name,
@@ -302,7 +311,7 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
         'order_by': normalized_order,
         'latitude': lat,
         'longitude': lon,
-        'radius_km': radius_value,
+        'radius_km': radius_km,
         'page': page_val,
         'per_page': per_page_val,
         'favorites_only': favorites_only if favorites_only is not None else False,
@@ -322,7 +331,7 @@ def validate_tag_list_params(*, page: Optional[int] = None, per_page: Optional[i
     return {
         'page': page,
         'per_page': per_page,
-        'search': (search or '').strip(),
+        'search': clean_optional_string(search) or '',
         'sort_by': sort_by,
         'sort_order': sort_order,
     }
@@ -338,10 +347,10 @@ def validate_user_list_params(*, page: Optional[int] = None, per_page: Optional[
         default_sort_by='created_at',
         default_sort_order='desc'
     )
-    email = (filters.get('email') or '').strip() if filters else ''
+    email = clean_optional_string(filters.get('email') if filters else None) or '' if filters else ''
     raw_activo = filters.get('activo') if filters else None
     raw_blocked = filters.get('blocked') if filters else None
-    rol = (filters.get('rol') or '').strip() if filters else ''
+    rol = clean_optional_string(filters.get('rol') if filters else None) or '' if filters else ''
     activo = None
     if raw_activo is not None:
         activo = _validate_optional_bool_str(raw_activo)
@@ -375,8 +384,8 @@ def validate_event_list_params(*, page: Optional[object], per_page: Optional[obj
         'page': page,
         'per_page': per_page,
         'user_id': user_id,
-        'user_email': (user_email or '').strip() or None,
-        'type_action': (type_action or '').strip() or None,
+        'user_email': clean_optional_string(user_email),
+        'type_action': clean_optional_string(type_action),
         'date_from': date_from_dt,
         'date_to': date_to_dt,
     }

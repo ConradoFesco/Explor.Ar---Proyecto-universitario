@@ -4,7 +4,6 @@ from .listing_validator import (
     _validate_sort, 
     _validate_optional_int, 
     _validate_optional_date, 
-    _clean_optional_str
 )
 
 def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_order=None,
@@ -70,7 +69,8 @@ def validate_review_create_payload(*, rating, content):
     if rating_val < 1 or rating_val > 5:
         raise ValidationError('rating debe estar entre 1 y 5')
 
-    content_val = (content or '').strip()
+    from .utils import clean_string
+    content_val = clean_string(content)
     if not content_val:
         raise ValidationError('El contenido de la reseña es obligatorio')
     
