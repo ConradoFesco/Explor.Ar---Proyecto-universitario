@@ -4,7 +4,7 @@ Maneja validación de parámetros y formateo de errores según la especificació
 """
 from typing import Optional
 from src.web.exceptions import ValidationError
-from .listing_validator import _validate_pagination, _normalize_pagination_params
+from .listing_validator import _validate_pagination
 
 
 def validate_api_pagination_params(page: Optional[object] = None, per_page: Optional[object] = None, 
@@ -16,8 +16,8 @@ def validate_api_pagination_params(page: Optional[object] = None, per_page: Opti
     Args:
         page: Número de página (opcional)
         per_page: Elementos por página (opcional)
-        default_page: Valor por defecto para page
-        default_per_page: Valor por defecto para per_page
+        default_page: Valor por defecto para page (solo si viene vacío/None)
+        default_per_page: Valor por defecto para per_page (solo si viene vacío/None)
         max_per_page: Máximo de elementos por página
     
     Returns:
@@ -26,12 +26,13 @@ def validate_api_pagination_params(page: Optional[object] = None, per_page: Opti
     Raises:
         ValidationError: Si los parámetros son inválidos
     """
-    normalized_page, normalized_per_page = _normalize_pagination_params(
-        page, per_page, default_page=default_page, default_per_page=default_per_page
-    )
-    
     try:
-        page_val, per_page_val = _validate_pagination(normalized_page, normalized_per_page, max_per_page=max_per_page)
+        page_val, per_page_val = _validate_pagination(
+            page, per_page, 
+            default_page=default_page, 
+            default_per_page=default_per_page, 
+            max_per_page=max_per_page
+        )
         return page_val, per_page_val
     except ValidationError as e:
         error_msg = str(e).lower()

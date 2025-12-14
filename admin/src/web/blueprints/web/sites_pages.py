@@ -136,8 +136,14 @@ def alta_sitios():
 @web_permission_required("site_update")
 def modificar_sitios():
     """Formulario SSR de edición de sitio (incluye opciones y datos del sitio)."""
-    edit_id = request.args.get('edit', type=int)
+    edit_id = request.args.get('edit')
     site = None
+    if edit_id:
+        try:
+            edit_id = int(edit_id)
+        except (ValueError, TypeError):
+            flash('ID de sitio inválido', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
     if edit_id:
         try:
             site = historic_site_service.get_historic_site(edit_id)
@@ -326,7 +332,13 @@ def subir_imagen_sitio(site_id: int):
         
         titulos = request.form.getlist('titulo_alt[]')
         descripciones = request.form.getlist('descripcion[]')
-        cover_index = request.form.get('cover_index', type=int)
+        cover_index = request.form.get('cover_index')
+        if cover_index is not None:
+            try:
+                cover_index = int(cover_index)
+            except (ValueError, TypeError):
+                flash('Índice de portada inválido', 'error')
+                return redirect(url_for('sites_web.lista_sitios'))
         
         files_data = []
         for idx, file in enumerate(files):

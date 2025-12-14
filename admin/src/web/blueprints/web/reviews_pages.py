@@ -104,10 +104,15 @@ def list_reviews_fragment():
 @web_permission_required("review_show")
 def review_detail_fragment(review_id):
     """Fragmento HTML con detalle de reseña."""
-    site_id = request.args.get('site_id', type=int)
+    site_id = request.args.get('site_id')
     
     if not site_id:
         return '<div class="text-red-600 p-4">Error: Falta site_id</div>', 400
+    
+    try:
+        site_id = int(site_id)
+    except (ValueError, TypeError):
+        return '<div class="text-red-600 p-4">Error: site_id debe ser un número válido</div>', 400
     
     try:
         review_data = review_service.get_review(

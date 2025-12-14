@@ -78,11 +78,10 @@ class FavoriteService:
         if not user:
             raise exc.ValidationError("Usuario inválido")
 
-        from src.core.validators.listing_validator import _normalize_pagination_params
-        normalized_page, normalized_per_page = _normalize_pagination_params(
-            page, per_page, default_page=1, default_per_page=20
+        from src.core.validators.listing_validator import _validate_pagination
+        page, per_page = _validate_pagination(
+            page, per_page, default_page=1, default_per_page=20, max_per_page=100
         )
-        page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=100)
 
         query = FavoriteSite.query.filter_by(user_id=user_id).join(HistoricSite).filter(
             HistoricSite.deleted == False,
