@@ -89,5 +89,21 @@ class AuthService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al crear el usuario: {e}")
         return user
+    
+    def get_user_by_id(self, user_id):
+        """
+        Obtiene un usuario por ID (puede ser PrivateUser o PublicUser).
+        
+        Args:
+            user_id (int): ID del usuario
+            
+        Returns:
+            User: Objeto User (PrivateUser o PublicUser) o None si no existe o está eliminado
+        """
+        if not user_id:
+            return None
+        
+        user = User.query.filter_by(id=user_id, deleted=False).first()
+        return user
 
 auth_service = AuthService()

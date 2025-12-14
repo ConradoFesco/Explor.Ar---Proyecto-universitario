@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 from src.web.exceptions import ValidationError
 from .utils import clean_optional_string
+from .tag_validator import validate_tag_ids_exist
 
 
 def _validate_pagination(page: Optional[object], per_page: Optional[object], *, 
@@ -239,6 +240,8 @@ def validate_site_list_params(*, page: Optional[int] = None, per_page: Optional[
     province_id = _validate_optional_int(province_id, 'province_id')
     state_id = _validate_optional_int(state_id, 'state_id')
     tag_ids = _validate_tag_ids(tag_ids)
+    if tag_ids:
+        validate_tag_ids_exist(tag_ids)
     if isinstance(visible, str):
         visible = _validate_optional_bool_str(visible)
     date_from = _validate_optional_date(date_from, 'date_from')

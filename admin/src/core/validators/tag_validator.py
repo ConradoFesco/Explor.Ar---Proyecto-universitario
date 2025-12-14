@@ -16,7 +16,7 @@ def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
         tag_ids_list: Lista de IDs de tags a validar
     
     Raises:
-        NotFoundError: Si algún tag no existe o está eliminado
+        ValidationError: Si algún tag no existe o está eliminado
     """
     if not tag_ids_list:
         return
@@ -28,7 +28,7 @@ def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
             non_existent_tags.append(tag_id)
     
     if non_existent_tags:
-        raise NotFoundError(f"Los siguientes tags no existen: {non_existent_tags}")
+        raise ValidationError(f"Los siguientes tags no existen: {non_existent_tags}")
 
 def validate_tag(name: str, tag_id: int | None = None) -> dict:
     """

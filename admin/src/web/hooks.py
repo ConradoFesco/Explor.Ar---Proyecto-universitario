@@ -90,15 +90,6 @@ def register_hooks(app):
                     'user_permissions': perms,
                     'user_initials': initials,
                     'is_super_admin': is_super_admin,
-                    'is_admin': is_super_admin or any(
-                        p in perms for p in [
-                            'user_index',
-                            'user_new',
-                            'user_update',
-                            'user_destroy',
-                            'flag_update',
-                        ]
-                    ),
                 }
             except Exception:
                 pass
@@ -106,7 +97,6 @@ def register_hooks(app):
             'current_user': None,
             'user_roles': [],
             'user_initials': '',
-            'is_admin': False,
             'is_super_admin': False
         }
 
