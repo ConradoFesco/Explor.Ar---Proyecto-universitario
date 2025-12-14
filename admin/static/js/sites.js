@@ -59,7 +59,7 @@
       .catch(()=>{});
   }
 
-  function loadFilterOptions(){ /* SSR supplies options now */ }
+  function loadFilterOptions(){ }
 
   function populateOptions(data){
     if (!data) return;
@@ -88,7 +88,6 @@
     const clearBtn=document.getElementById('clear-filters'); if (clearBtn) clearBtn.addEventListener('click', ()=>{ ['search-input','sort-by','sort-order','filter-city','filter-province','filter-state','filter-visible','filter-date-from','filter-date-to'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); document.querySelectorAll('#filter-tag_ids-container input[type="checkbox"]').forEach(cb=>cb.checked=false); const p=collectParams(); p.set('page',1); p.set('per_page', perPage); replaceList(p); });
     window.changePage = function(page){ const p=collectParams(); p.set('page', page); p.set('per_page', perPage); replaceList(p); };
     const exportBtn=document.getElementById('export-btn'); if (exportBtn && cfg.exportCsvUrl){ exportBtn.addEventListener('click', (e)=>{ e.preventDefault(); const p=collectParams(); const url=cfg.exportCsvUrl + '?' + p.toString(); const a=document.createElement('a'); a.href=url; document.body.appendChild(a); a.click(); a.remove(); }); }
-    // modal functions moved to events.js
   }
 
   document.addEventListener('DOMContentLoaded', setup);

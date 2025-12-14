@@ -341,7 +341,6 @@ def google_callback():
     Callback de Google OAuth (mantenido para compatibilidad, pero ya no se usa en el nuevo flujo).
     Este endpoint puede mantenerse para otros usos o eliminarse si no es necesario.
     """
-    # Este endpoint ya no se usa en el nuevo flujo, pero lo mantenemos por compatibilidad
     return _error_response(
         code="deprecated_endpoint",
         message="Este endpoint está deprecado. Use /google/exchange en su lugar.",

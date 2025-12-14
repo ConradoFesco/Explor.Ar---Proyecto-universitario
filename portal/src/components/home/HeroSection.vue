@@ -52,6 +52,4 @@ import heroImageUrl from '@/assets/images/ImageHero.jpg'
 </template>
 
 <style scoped>
-/* Estilos específicos para este componente si fueran necesarios */
-/* Tailwind se encarga de la mayoría del diseño mobile-first */
 </style>

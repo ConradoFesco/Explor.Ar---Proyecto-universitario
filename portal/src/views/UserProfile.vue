@@ -40,11 +40,13 @@ const fetchData = async () => {
 
   try {
     const base = getApiBaseUrl()
-    const params = new URLSearchParams({
-      page: page.value.toString(),
-      per_page: '25',
-      sort: sortOrder.value
-    })
+    const params = new URLSearchParams()
+    if (page.value !== undefined && page.value !== null) {
+      params.set('page', page.value.toString())
+    }
+    if (sortOrder.value) {
+      params.set('sort', sortOrder.value)
+    }
 
     if (activeTab.value === 'reviews') {
       const url = `${base}/me/reviews?${params.toString()}`
@@ -67,8 +69,8 @@ const fetchData = async () => {
         id: r.id,
         site_name: r.site_name || 'Sitio sin nombre',
         rating: r.rating,
-        date: r.created_at ? new Date(r.created_at).toLocaleDateString('es-AR') : '',
-        excerpt: r.content ? (r.content.length > 100 ? r.content.substring(0, 100) + '...' : r.content) : ''
+        date: r.inserted_at ? new Date(r.inserted_at).toLocaleDateString('es-AR') : '',
+        excerpt: (r.comment || '') ? ((r.comment || '').length > 100 ? (r.comment || '').substring(0, 100) + '...' : (r.comment || '')) : ''
       }))
       totalPages.value = data.pagination?.pages || 1
     } else {
@@ -98,7 +100,7 @@ const fetchData = async () => {
         location: item.city ? `${item.city}${item.province ? ', ' + item.province : ''}` : 'Ubicación no disponible',
         added_at: item.inserted_at ? new Date(item.inserted_at).toLocaleDateString('es-AR') : ''
       }))
-      const perPage = Number(params.get('per_page') || '25')
+      const perPage = meta.per_page ?? 25
       const total = meta.total ?? items.length
       totalPages.value = Math.max(1, Math.ceil(total / perPage))
     }

@@ -14,9 +14,9 @@ sites_events_web = Blueprint('sites_events_web', __name__)
 def historial_eventos_fragment(site_id: int):
     """Fragmento HTML del historial de eventos de un sitio histórico."""
     raw = {
-        'page': request.args.get('page', 1, type=int),
-        'per_page': request.args.get('per_page', 10, type=int),
-        'user_id': request.args.get('user_id', type=int),
+        'page': request.args.get('page'),
+        'per_page': request.args.get('per_page'),
+        'user_id': request.args.get('user_id'),
         'user_email': request.args.get('user_email'),
         'type_action': request.args.get('type_action'),
         'date_from': request.args.get('date_from'),

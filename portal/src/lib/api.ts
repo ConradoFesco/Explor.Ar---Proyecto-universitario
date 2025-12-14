@@ -55,13 +55,13 @@ export type Review = {
   site_id: number;
   rating: number;
   content: string;
+  comment?: string; 
+  inserted_at?: string | null;
   created_at: string | null;
+  updated_at?: string | null;
   status?: string;
-  user?: {
-    id: number | null;
-    mail: string | null;
-    name: string | null;
-  };
+  author_name?: string | null; 
+  user_id?: number | null;
 };
 
 export type ReviewsResponse = {
@@ -96,6 +96,49 @@ export function getApiBaseUrl(): string {
   return envUrl ?? '/api';
 }
 
+async function handleHttpError(res: Response, defaultMessage: string): Promise<never> {
+  const text = await res.text().catch(() => '');
+  let errorMessage = text;
+  
+  try {
+    const errorData = JSON.parse(text);
+    if (errorData && typeof errorData === 'object') {
+      errorMessage = errorData.error?.message || errorData.error || text;
+    }
+  } catch {
+  }
+  
+  throw new Error(`${defaultMessage} (${res.status}): ${errorMessage || 'Error desconocido'}`);
+}
+
+
+function parsePaginatedResponse<T>(
+  raw: any,
+  mapper: (item: any) => T,
+  defaultPage?: number,
+  defaultPerPage?: number
+): PaginatedResponse<T> {
+  const itemsSource = (raw.data ?? []) as any[];
+  const items: T[] = itemsSource.map(mapper);
+  const meta = raw.meta ?? {};
+
+  const pageValue = (typeof meta.page === 'number' ? meta.page : defaultPage) ?? 1;
+  const perPageValue = (typeof meta.per_page === 'number' ? meta.per_page : defaultPerPage) ?? DEFAULT_PER_PAGE;
+  const totalValue = (typeof meta.total === 'number' ? meta.total : items.length);
+  const totalPagesValue =
+    (typeof meta.total_pages === 'number' ? meta.total_pages : undefined) ??
+    (typeof meta.pages === 'number' ? meta.pages : undefined) ??
+    (perPageValue > 0 ? Math.ceil(totalValue / perPageValue) : 1);
+
+  return {
+    items,
+    page: pageValue,
+    per_page: perPageValue,
+    total: totalValue,
+    total_pages: totalPagesValue,
+  };
+}
+
 function buildQuery(params: Record<string, unknown>): string {
   const qp = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -111,38 +154,59 @@ function buildQuery(params: Record<string, unknown>): string {
   return s ? `?${s}` : '';
 }
 
-function mapSiteFromBackend(s: any): HistoricSite {
+function mapSiteFromBackend(s: Record<string, unknown>): HistoricSite {
+  const mapTag = (tag: unknown): string => {
+    if (typeof tag === 'string') return tag;
+    if (tag && typeof tag === 'object') {
+      const tagObj = tag as { name?: unknown; slug?: unknown };
+      return String(tagObj.name ?? tagObj.slug ?? tag);
+    }
+    return String(tag ?? '');
+  };
+
   return {
-    id: s.id,
-    name: s.name,
-    brief_description: s.short_description ?? null,
-    city: s.city ?? null,
-    province: s.province ?? null,
-    state: s.state_of_conservation ?? null,
-    tags: Array.isArray(s.tags)
-      ? s.tags.map((t: any) =>
-          typeof t === 'string' ? t : (t.name ?? t.slug ?? String(t))
-        )
-      : [],
-    cover_image_url: s.cover_image_url ?? s.cover_image?.url_publica ?? null,
-    rating: s.rating ?? null,
-    created_at: s.inserted_at,
-    latitude: s.lat ?? null,
-    longitude: s.long ?? null,
-    is_favorite: s.is_favorite ?? false,
+    id: Number(s.id) || 0,
+    name: String(s.name || ''),
+    brief_description: s.short_description ? String(s.short_description) : null,
+    city: s.city ? String(s.city) : null,
+    province: s.province ? String(s.province) : null,
+    state: s.state_of_conservation ? String(s.state_of_conservation) : null,
+    tags: Array.isArray(s.tags) ? s.tags.map(mapTag) : [],
+    cover_image_url: s.cover_image_url 
+      ? String(s.cover_image_url) 
+      : (s.cover_image && typeof s.cover_image === 'object' && 'url_publica' in s.cover_image)
+        ? String((s.cover_image as { url_publica: unknown }).url_publica)
+        : null,
+    rating: s.rating != null ? Number(s.rating) : null,
+    created_at: s.inserted_at ? String(s.inserted_at) : undefined,
+    latitude: s.lat != null ? Number(s.lat) : null,
+    longitude: s.long != null ? Number(s.long) : null,
+    is_favorite: Boolean(s.is_favorite ?? false),
   };
 }
 
 function mapOrderBy(orderBy?: SiteSearchParams['orderBy'], dir?: SiteSearchParams['orderDir']): string | undefined {
-  if (!orderBy) return 'latest';
-  const direction = dir || 'desc';
+  if (!orderBy || !dir) {
+    return undefined;
+  }
+  
+  if (dir !== 'asc' && dir !== 'desc') {
+    return `${String(orderBy)}-${String(dir)}`;
+  }
+  
   if (orderBy === 'created_at') {
-    return direction === 'asc' ? 'oldest' : 'latest';
+    return dir === 'asc' ? 'oldest' : 'latest';
   }
+  
   if (orderBy === 'rating') {
-    return direction === 'asc' ? 'rating-1-5' : 'rating-5-1';
+    return dir === 'asc' ? 'rating-1-5' : 'rating-5-1';
   }
-  return 'latest';
+  
+  if (orderBy === 'name') {
+    return dir === 'asc' ? 'name-asc' : 'name-desc';
+  }
+  
+  return `${String(orderBy)}-${String(dir)}`;
 }
 
 export async function fetchPublicSites(params: SiteSearchParams): Promise<PaginatedResponse<HistoricSite>> {
@@ -156,11 +220,9 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
     order_by: mapOrderBy(params.orderBy, params.orderDir),
     lat: params.lat,
     long: params.long,
-    radius: (params.lat != null && params.long != null && params.radius != null) 
-      ? params.radius / 1000 
-      : undefined,
-    page: params.page ?? 1,
-    per_page: params.perPage ?? DEFAULT_PER_PAGE,
+    radius: params.radius,
+    page: params.page,
+    per_page: params.perPage,
     fav: params.favoritesOnly ? '1' : undefined,
   });
   const url = `${base}/sites${query}`;
@@ -169,62 +231,25 @@ export async function fetchPublicSites(params: SiteSearchParams): Promise<Pagina
     credentials: 'include', 
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al cargar sitios (${res.status}): ${text}`);
+    await handleHttpError(res, 'Error al cargar sitios');
   }
   const raw = await res.json();
-  const itemsSource = (raw.data ?? []) as any[];
-  const items: HistoricSite[] = itemsSource.map(mapSiteFromBackend);
-  const meta = raw.meta ?? {};
-
-  const pageValue = meta.page ?? 1;
-  const perPageValue = meta.per_page ?? (params.perPage ?? DEFAULT_PER_PAGE);
-  const totalValue = meta.total ?? items.length;
-  const totalPagesValue =
-    meta.total_pages ??
-    meta.pages ??
-    (perPageValue > 0 ? Math.ceil(totalValue / perPageValue) : 1);
-
-  return {
-    items,
-    page: pageValue,
-    per_page: perPageValue,
-    total: totalValue,
-    total_pages: totalPagesValue,
-  };
+  return parsePaginatedResponse(raw, mapSiteFromBackend, 1, params.perPage ?? DEFAULT_PER_PAGE);
 }
 
-export async function fetchMyFavorites(page = 1, perPage = DEFAULT_PER_PAGE): Promise<PaginatedResponse<HistoricSite>> {
+export async function fetchMyFavorites(page?: number, perPage?: number): Promise<PaginatedResponse<HistoricSite>> {
   const base = getApiBaseUrl();
-  const safePerPage = Math.min(Math.max(perPage, 1), 100);
-  const query = buildQuery({ page, per_page: safePerPage });
+  const query = buildQuery({ page, per_page: perPage });
   const url = `${base}/me/favorites${query}`;
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
     credentials: 'include',
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al cargar favoritos (${res.status}): ${text}`);
+    await handleHttpError(res, 'Error al cargar favoritos');
   }
   const raw = await res.json();
-  const itemsSource = (raw.data ?? []) as any[];
-  const items: HistoricSite[] = itemsSource.map(mapSiteFromBackend);
-  const meta = raw.meta ?? {};
-
-  const pageValue = meta.page ?? page;
-  const perPageValue = meta.per_page ?? safePerPage;
-  const totalValue = meta.total ?? items.length;
-  const totalPagesValue =
-    perPageValue > 0 ? Math.max(1, Math.ceil(totalValue / perPageValue)) : 1;
-
-  return {
-    items,
-    page: pageValue,
-    per_page: perPageValue,
-    total: totalValue,
-    total_pages: totalPagesValue,
-  };
+  return parsePaginatedResponse(raw, mapSiteFromBackend, page, perPage);
 }
 
 export async function toggleFavorite(siteId: number, favorite: boolean): Promise<void> {
@@ -233,20 +258,17 @@ export async function toggleFavorite(siteId: number, favorite: boolean): Promise
   const url = `${base}/sites/${siteId}/favorite`;
   
   try {
-  const res = await fetch(url, {
-    method,
-    headers: { 'Accept': 'application/json' },
-    credentials: 'include',
-  });
+    const res = await fetch(url, {
+      method,
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
     
-  if (!res.ok && res.status !== 204) {
-    const text = await res.text().catch(() => '');
-      
+    if (!res.ok && res.status !== 204) {
       if (res.status === 401) {
         throw new Error('AUTH_REQUIRED: Debe iniciar sesión para marcar como favorito');
       }
-      
-      throw new Error(`Error al actualizar favorito (${res.status}): ${text || 'Error desconocido'}`);
+      await handleHttpError(res, 'Error al actualizar favorito');
     }
   } catch (error: unknown) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -264,8 +286,7 @@ export async function fetchFilterOptions(): Promise<FilterOptions> {
     credentials: 'omit',
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al cargar opciones de filtro (${res.status}): ${text}`);
+    await handleHttpError(res, 'Error al cargar opciones de filtro');
   }
   return res.json();
 }
@@ -288,8 +309,7 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
     }
     
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Error al cargar sitio (${res.status}): ${text}`);
+      await handleHttpError(res, 'Error al cargar sitio');
     }
     
     const contentType = res.headers.get('content-type');
@@ -338,19 +358,18 @@ export async function fetchSiteDetail(siteId: number, includeAuth = false): Prom
   }
 }
 
-export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): Promise<ReviewsResponse> {
+export async function fetchSiteReviews(siteId: number, page?: number, perPage?: number): Promise<ReviewsResponse> {
   const base = getApiBaseUrl();
   const query = buildQuery({ page, per_page: perPage });
-  const url = `${base}/public/sites/${siteId}/reviews${query}`;
+  const url = `${base}/sites/${siteId}/reviews${query}`;
   
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json' },
-    credentials: 'omit',
+    credentials: 'include',
   });
   
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al cargar reseñas (${res.status}): ${text}`);
+    await handleHttpError(res, 'Error al cargar reseñas');
   }
   
   const raw = await res.json();
@@ -358,38 +377,48 @@ export async function fetchSiteReviews(siteId: number, page = 1, perPage = 25): 
   const itemsSource = (raw.data ?? []) as any[];
   const meta = raw.meta ?? {};
 
-  const mapped: Review[] = itemsSource.map((r: any) => {
-    const user = r.user ?? {
-      id: null,
-      mail: r.user_mail ?? null,
-      name: null,
-    };
-    const rating = Number(r.rating ?? 0);
-    const content = (r.comment ?? r.content ?? '').toString();
-    const createdAt = (r.inserted_at ?? r.created_at ?? null) as string | null;
+  const mapReview = (r: Record<string, unknown>): Review => {
+    const id = Number(r.id) || 0;
+    const siteId = Number(r.site_id) || 0;
+    const rating = r.rating != null ? Number(r.rating) : 0;
+    const content = String(r.comment ?? r.content ?? '');
+    const createdAt = r.inserted_at ? String(r.inserted_at) : (r.created_at ? String(r.created_at) : null);
+    const updatedAt = r.updated_at ? String(r.updated_at) : null;
+    const authorName = r.author_name ? String(r.author_name) : null;
+    const userId = r.user_id != null ? Number(r.user_id) : null;
+    const status = r.status ? String(r.status) : undefined;
 
     return {
-      id: Number(r.id),
-      site_id: Number(r.site_id),
+      id,
+      site_id: siteId,
       rating,
       content,
+      comment: content,
+      inserted_at: createdAt,
       created_at: createdAt,
-      status: r.status,
-      user,
+      updated_at: updatedAt,
+      status,
+      author_name: authorName,
+      user_id: userId,
     };
-  });
+  };
 
-  const approvedReviews = mapped.filter(r => !r.status || r.status === 'approved');
+  const mapped: Review[] = itemsSource.map(mapReview);
+
+  const pageValue = meta.page ?? page ?? 1;
+  const perPageValue = meta.per_page ?? perPage ?? 25;
+  const totalValue = meta.total ?? mapped.length;
+  const totalPagesValue =
+    meta.pages ??
+    (perPageValue > 0 ? Math.ceil((meta.total ?? mapped.length) / perPageValue) : 1);
 
   return {
-    reviews: approvedReviews,
+    reviews: mapped,
     pagination: {
-      page: meta.page ?? page,
-      per_page: meta.per_page ?? perPage,
-      total: meta.total ?? approvedReviews.length,
-      pages:
-        meta.pages ??
-        (perPage > 0 ? Math.ceil((meta.total ?? approvedReviews.length) / perPage) : 1),
+      page: pageValue as number,
+      per_page: perPageValue as number,
+      total: totalValue as number,
+      pages: totalPagesValue as number,
     },
   };
 }
@@ -407,14 +436,7 @@ export async function createReview(siteId: number, rating: number, content: stri
     body: JSON.stringify({ rating, comment: content }),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    let errorMsg = text;
-    try {
-      const errorData = JSON.parse(text);
-      errorMsg = errorData.error || text;
-    } catch {
-    }
-    throw new Error(`Error al crear reseña (${res.status}): ${errorMsg}`);
+    await handleHttpError(res, 'Error al crear reseña');
   }
 }
 
@@ -431,14 +453,7 @@ export async function updateReview(siteId: number, reviewId: number, rating: num
     body: JSON.stringify({ rating, comment: content }),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    let errorMsg = text;
-    try {
-      const errorData = JSON.parse(text);
-      errorMsg = errorData.error || text;
-    } catch {
-    }
-    throw new Error(`Error al actualizar reseña (${res.status}): ${errorMsg}`);
+    await handleHttpError(res, 'Error al actualizar reseña');
   }
 }
 
@@ -453,34 +468,6 @@ export async function deleteReview(siteId: number, reviewId: number): Promise<vo
     credentials: 'include',
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    let errorMsg = text;
-    try {
-      const errorData = JSON.parse(text);
-      errorMsg = errorData.error || text;
-    } catch {
-    }
-    throw new Error(`Error al eliminar reseña (${res.status}): ${errorMsg}`);
+    await handleHttpError(res, 'Error al eliminar reseña');
   }
-}
-
-export async function getMyReview(siteId: number): Promise<Review | null> {
-  const base = getApiBaseUrl();
-  const url = `${base}/sites/${siteId}/reviews/me`;
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { 
-      'Accept': 'application/json',
-    },
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    if (res.status === 401) {
-      return null;
-    }
-    const text = await res.text().catch(() => '');
-    throw new Error(`Error al obtener reseña (${res.status}): ${text}`);
-  }
-  const data = await res.json();
-  return data.review || null;
 }

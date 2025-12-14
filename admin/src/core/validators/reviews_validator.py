@@ -4,7 +4,6 @@ from .listing_validator import (
     _validate_sort, 
     _validate_optional_int, 
     _validate_optional_date, 
-    _clean_optional_str
 )
 
 def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_order=None,
@@ -15,11 +14,15 @@ def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_ord
     Valida y limpia todos los parámetros para el listado de reseñas.
     Centraliza la lógica que antes estaba dispersa en el controlador.
     """
-    # Para listados de reseñas permitimos hasta 100 elementos por página
-    page_val, per_page_val = _validate_pagination(page, per_page, max_per_page=100)
+    page_val, per_page_val = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=100)
 
     allowed_sort = ['created_at', 'rating', 'user_mail', 'site_name']
-    sort_by_val, sort_order_val = _validate_sort(sort_by, sort_order, allowed_fields=allowed_sort)
+    sort_by_val, sort_order_val = _validate_sort(
+        sort_by, sort_order,
+        allowed_fields=allowed_sort,
+        default_sort_by='created_at',
+        default_sort_order='desc'
+    )
 
     filters = {}
 
@@ -54,15 +57,20 @@ def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_ord
 
 
 def validate_review_create_payload(*, rating, content):
-    try:
-        rating_val = int(rating)
-    except (TypeError, ValueError):
-        raise ValidationError('rating debe ser un entero entre 1 y 5')
-
+    """
+    Valida el payload para crear una reseña.
+    Usa _validate_optional_int para validar el rating.
+    """
+    rating_val = _validate_optional_int(rating, 'rating', must_be_positive=True)
+    
+    if rating_val is None:
+        raise ValidationError('rating es requerido')
+    
     if rating_val < 1 or rating_val > 5:
         raise ValidationError('rating debe estar entre 1 y 5')
 
-    content_val = (content or '').strip()
+    from .utils import clean_string
+    content_val = clean_string(content)
     if not content_val:
         raise ValidationError('El contenido de la reseña es obligatorio')
     

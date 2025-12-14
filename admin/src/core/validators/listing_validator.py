@@ -4,9 +4,40 @@ Validaciones de entrada para listados (paginación, filtros y ordenamiento).
 from datetime import datetime
 from typing import Optional
 from src.web.exceptions import ValidationError
+from .utils import clean_optional_string
+from .tag_validator import validate_tag_ids_exist
 
 
-def _validate_pagination(page: int | str | None, per_page: int | str | None, *, max_per_page: int = 25) -> tuple[int, int]:
+def _validate_pagination(page: Optional[object], per_page: Optional[object], *, 
+                        default_page: int = 1, default_per_page: int = 20, max_per_page: int = 25) -> tuple[int, int]:
+    """
+    Valida parámetros de paginación.
+    Aplica valores por defecto solo si el parámetro viene vacío/None/solo espacios.
+    Si viene con valor pero es inválido, lanza excepción.
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        default_page: Valor por defecto para page (solo si viene vacío/None)
+        default_per_page: Valor por defecto para per_page (solo si viene vacío/None)
+        max_per_page: Máximo de elementos por página
+    
+    Returns:
+        tuple: (page, per_page) validados
+    
+    Raises:
+        ValidationError: Si los parámetros son inválidos
+    """
+    if page is None or (isinstance(page, str) and page.strip() == ''):
+        page = default_page
+    if per_page is None or (isinstance(per_page, str) and per_page.strip() == ''):
+        per_page = default_per_page
+    
+    if page is None:
+        page = default_page
+    if per_page is None:
+        per_page = default_per_page
+    
     try:
         page = int(page)
     except (TypeError, ValueError):
@@ -15,45 +46,101 @@ def _validate_pagination(page: int | str | None, per_page: int | str | None, *, 
         per_page = int(per_page)
     except (TypeError, ValueError):
         raise ValidationError(f'per_page debe ser un entero entre 1 y {max_per_page}')
+    
     if page < 1:
         raise ValidationError('El número de página debe ser un entero >= 1')
     if per_page < 1 or per_page > max_per_page:
         raise ValidationError(f'per_page debe ser un entero entre 1 y {max_per_page}')
+    
     return page, per_page
 
 
-def _validate_sort(sort_by: str, sort_order: str, *, allowed_fields: list[str]) -> tuple[str, str]:
-    if sort_by not in allowed_fields:
-        raise ValidationError(f"Campo de orden inválido: {sort_by}. Opciones válidas: {allowed_fields}")
-    if sort_order not in ['asc', 'desc']:
-        raise ValidationError(f"Sentido de orden inválido: {sort_order}. Debe ser 'asc' o 'desc'.")
+def _validate_sort(sort_by: Optional[str], sort_order: Optional[str], *, 
+                  allowed_fields: list[str], default_sort_by: Optional[str] = None,
+                  default_sort_order: str = 'desc') -> tuple[str, str]:
+    """
+    Valida parámetros de ordenamiento.
+    Aplica valores por defecto solo si el parámetro viene vacío/None.
+    Si viene con valor pero es inválido, lanza excepción.
+    
+    Args:
+        sort_by: Campo por el cual ordenar (opcional)
+        sort_order: Dirección del orden (opcional)
+        allowed_fields: Lista de campos permitidos
+        default_sort_by: Valor por defecto para sort_by (solo si viene vacío/None)
+        default_sort_order: Valor por defecto para sort_order (solo si viene vacío/None)
+    
+    Returns:
+        tuple: (sort_by, sort_order) validados
+    
+    Raises:
+        ValidationError: Si los valores son inválidos
+    """
+    cleaned_sort_by = clean_optional_string(sort_by)
+    if not cleaned_sort_by:
+        if default_sort_by and default_sort_by in allowed_fields:
+            sort_by = default_sort_by
+        elif allowed_fields:
+            sort_by = allowed_fields[0] 
+        else:
+            raise ValidationError("No hay campos de orden permitidos")
+    else:
+        sort_by = cleaned_sort_by
+        if sort_by not in allowed_fields:
+            raise ValidationError(f"Campo de orden inválido: {sort_by}. Opciones válidas: {allowed_fields}")
+    
+    cleaned_sort_order = clean_optional_string(sort_order)
+    if not cleaned_sort_order:
+        sort_order = default_sort_order
+    else:
+        sort_order = cleaned_sort_order.lower()
+        if sort_order not in ['asc', 'desc']:
+            raise ValidationError(f"Sentido de orden inválido: {sort_order}. Debe ser 'asc' o 'desc'.")
+    
     return sort_by, sort_order
 
 
-def _validate_optional_int(value: Optional[int], field_name: str) -> Optional[int]:
-    if value is None:
+def _validate_optional_int(value: Optional[int | str | object], field_name: str, 
+                          must_be_positive: bool = False) -> Optional[int]:
+    """
+    Valida un entero opcional.
+    
+    Args:
+        value: Valor a validar (puede ser int, str o None)
+        field_name: Nombre del campo para mensajes de error
+        must_be_positive: Si True, valida que el entero sea positivo
+    
+    Returns:
+        Optional[int]: Entero validado o None
+    """
+    if value is None or value == '':
         return None
-    if not isinstance(value, int):
+    
+    try:
+        int_val = int(value)
+    except (TypeError, ValueError):
         raise ValidationError(f"{field_name} debe ser entero")
-    return value
+    
+    if must_be_positive and int_val <= 0:
+        raise ValidationError(f"{field_name} debe ser un entero positivo")
+    
+    return int_val
 
 
 def _validate_optional_bool_str(value: Optional[str]) -> Optional[bool]:
+    """Valida un string opcional como booleano."""
     if value is None:
         return None
-    s = str(value).strip().lower()
+    cleaned = clean_optional_string(value)
+    if not cleaned:
+        return None
+    s = cleaned.lower()
     if s in ['true', '1', 'si', 'sí', 'yes', 'y']:
         return True
     if s in ['false', '0', 'no', 'n']:
         return False
     raise ValidationError('Parámetro booleano inválido')
 
-
-def _clean_optional_str(value: Optional[object]) -> Optional[str]:
-    if value is None:
-        return None
-    normalized = str(value).strip()
-    return normalized or None
 
 
 def _validate_optional_float(value: Optional[object], field_name: str) -> Optional[float]:
@@ -66,12 +153,16 @@ def _validate_optional_float(value: Optional[object], field_name: str) -> Option
 
 
 def _split_csv_values(raw_values: Optional[object]) -> list[str]:
+    """Divide valores separados por comas y los normaliza."""
     if not raw_values:
         return []
+    cleaned = clean_string(raw_values)
+    if not cleaned:
+        return []
     return [
-        item.strip().lower()
-        for item in str(raw_values).split(',')
-        if item.strip()
+        clean_string(item).lower()
+        for item in cleaned.split(',')
+        if clean_string(item)
     ]
 
 
@@ -130,16 +221,27 @@ def _end_of_day(dt: datetime) -> datetime:
     return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
-def validate_site_list_params(*, page: int, per_page: int, search_text: Optional[str], sort_by: str, sort_order: str,
-                              city_id: Optional[int], province_id: Optional[int], tag_ids: Optional[list[int]],
-                              state_id: Optional[int], date_from: Optional[str], date_to: Optional[str],
-                              visible: Optional[bool | str]) -> dict:
-    page, per_page = _validate_pagination(page, per_page, max_per_page=25)
-    sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=['name', 'city', 'created_at'])
+def validate_site_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None, 
+                              search_text: Optional[str] = None, sort_by: Optional[str] = None, 
+                              sort_order: Optional[str] = None,
+                              city_id: Optional[int] = None, province_id: Optional[int] = None, 
+                              tag_ids: Optional[list[int]] = None,
+                              state_id: Optional[int] = None, date_from: Optional[str] = None, 
+                              date_to: Optional[str] = None,
+                              visible: Optional[bool | str] = None) -> dict:
+    page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=25)
+    sort_by, sort_order = _validate_sort(
+        sort_by, sort_order, 
+        allowed_fields=['name', 'city', 'created_at'],
+        default_sort_by='created_at',
+        default_sort_order='desc'
+    )
     city_id = _validate_optional_int(city_id, 'city_id')
     province_id = _validate_optional_int(province_id, 'province_id')
     state_id = _validate_optional_int(state_id, 'state_id')
     tag_ids = _validate_tag_ids(tag_ids)
+    if tag_ids:
+        validate_tag_ids_exist(tag_ids)
     if isinstance(visible, str):
         visible = _validate_optional_bool_str(visible)
     date_from = _validate_optional_date(date_from, 'date_from')
@@ -166,19 +268,22 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
                                       latitude: Optional[object], longitude: Optional[object],
                                       radius: Optional[object], page: Optional[int],
                                       per_page: Optional[int], favorites_only: Optional[bool] = None) -> dict:
-    normalized_page = page if page is not None else 1
-    normalized_per_page = per_page if per_page is not None else 20
-    page, per_page = _validate_pagination(normalized_page, normalized_per_page, max_per_page=100)
+    page_val, per_page_val = _validate_pagination(page, per_page, default_page=1, default_per_page=20, max_per_page=100)
 
-    allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5']
-    normalized_order = (order_by or 'latest').strip().lower()
-    if normalized_order not in allowed_order:
-        raise ValidationError(f"order_by inválido. Valores permitidos: {', '.join(allowed_order)}")
+    allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5', 'name-asc', 'name-desc']
+    normalized_order: Optional[str] = None
+    if order_by is not None and order_by != '':
+        normalized_order = clean_optional_string(order_by)
+        if normalized_order: 
+            normalized_order_lower = normalized_order.lower()
+            if normalized_order_lower not in allowed_order:
+                raise ValidationError(f"order_by inválido. Valores permitidos: {', '.join(allowed_order)}")
+            normalized_order = normalized_order_lower
 
-    normalized_name = _clean_optional_str(name)
-    normalized_description = _clean_optional_str(description)
-    normalized_city = _clean_optional_str(city)
-    normalized_province = _clean_optional_str(province)
+    normalized_name = clean_optional_string(name)
+    normalized_description = clean_optional_string(description)
+    normalized_city = clean_optional_string(city)
+    normalized_province = clean_optional_string(province)
     normalized_tags = _split_csv_values(tags)
 
     lat = _validate_optional_float(latitude, 'lat')
@@ -191,6 +296,10 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
         raise ValidationError('radius requiere lat y long')
     if radius_value is not None and radius_value <= 0:
         raise ValidationError('radius debe ser mayor a 0')
+    
+    radius_km = None
+    if radius_value is not None:
+        radius_km = radius_value / 1000.0
 
     return {
         'name': normalized_name,
@@ -201,32 +310,46 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
         'order_by': normalized_order,
         'latitude': lat,
         'longitude': lon,
-        'radius_km': radius_value,
-        'page': page,
-        'per_page': per_page,
+        'radius_km': radius_km,
+        'page': page_val,
+        'per_page': per_page_val,
         'favorites_only': favorites_only if favorites_only is not None else False,
     }
 
 
-def validate_tag_list_params(*, page: int, per_page: int, search: Optional[str], sort_by: str, sort_order: str) -> dict:
-    page, per_page = _validate_pagination(page, per_page, max_per_page=50)
-    sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=['name', 'created_at'])
+def validate_tag_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None, 
+                             search: Optional[str] = None, sort_by: Optional[str] = None, 
+                             sort_order: Optional[str] = None) -> dict:
+    page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=50)
+    sort_by, sort_order = _validate_sort(
+        sort_by, sort_order,
+        allowed_fields=['name', 'created_at'],
+        default_sort_by='name',
+        default_sort_order='asc'
+    )
     return {
         'page': page,
         'per_page': per_page,
-        'search': (search or '').strip(),
+        'search': clean_optional_string(search) or '',
         'sort_by': sort_by,
         'sort_order': sort_order,
     }
 
 
-def validate_user_list_params(*, page: int, per_page: int, filters: dict, sort_by: str, sort_order: str) -> dict:
-    page, per_page = _validate_pagination(page, per_page, max_per_page=25)
-    sort_by, sort_order = _validate_sort(sort_by, sort_order, allowed_fields=['created_at', 'name'])
-    email = (filters.get('email') or '').strip() if filters else ''
+def validate_user_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None,
+                             filters: Optional[dict] = None, sort_by: Optional[str] = None, 
+                             sort_order: Optional[str] = None) -> dict:
+    page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=25)
+    sort_by, sort_order = _validate_sort(
+        sort_by, sort_order,
+        allowed_fields=['created_at', 'name'],
+        default_sort_by='created_at',
+        default_sort_order='desc'
+    )
+    email = clean_optional_string(filters.get('email') if filters else None) or '' if filters else ''
     raw_activo = filters.get('activo') if filters else None
     raw_blocked = filters.get('blocked') if filters else None
-    rol = (filters.get('rol') or '').strip() if filters else ''
+    rol = clean_optional_string(filters.get('rol') if filters else None) or '' if filters else ''
     activo = None
     if raw_activo is not None:
         activo = _validate_optional_bool_str(raw_activo)
@@ -247,10 +370,10 @@ def validate_user_list_params(*, page: int, per_page: int, filters: dict, sort_b
     }
 
 
-def validate_event_list_params(*, page: int, per_page: int, user_id: Optional[int], user_email: Optional[str],
+def validate_event_list_params(*, page: Optional[object], per_page: Optional[object], user_id: Optional[object], user_email: Optional[str],
                                type_action: Optional[str], date_from: Optional[str], date_to: Optional[str]) -> dict:
     """Valida filtros de eventos y devuelve tipos correctos para el servicio (datetime)."""
-    page, per_page = _validate_pagination(page, per_page, max_per_page=50)
+    page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=10, max_per_page=50)
     user_id = _validate_optional_int(user_id, 'user_id')
     date_from_str = _validate_optional_date(date_from, 'date_from')
     date_to_str = _validate_optional_date(date_to, 'date_to')
@@ -260,8 +383,8 @@ def validate_event_list_params(*, page: int, per_page: int, user_id: Optional[in
         'page': page,
         'per_page': per_page,
         'user_id': user_id,
-        'user_email': (user_email or '').strip() or None,
-        'type_action': (type_action or '').strip() or None,
+        'user_email': clean_optional_string(user_email),
+        'type_action': clean_optional_string(type_action),
         'date_from': date_from_dt,
         'date_to': date_to_dt,
     }

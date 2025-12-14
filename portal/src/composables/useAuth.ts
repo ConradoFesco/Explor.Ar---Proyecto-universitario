@@ -2,7 +2,6 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getApiBaseUrl } from '@/lib/api'
 
-// Estado global (fuera de la función para que se comparta entre componentes)
 const user = ref<any>(null)
 
 export function useAuth() {

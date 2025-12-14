@@ -22,6 +22,30 @@ from src.core.validators.profile_validator import validate_new_password
 
 class UserService:
     """Casos de uso relacionados a usuarios privados (crear, listar, actualizar, roles, bloqueo)."""
+    
+    @staticmethod
+    def _require_super_admin(actor_id: int, action: str = "realizar esta acción") -> PrivateUser:
+        """
+        Valida que el actor es un SuperAdmin.
+        
+        Args:
+            actor_id: ID del usuario que intenta realizar la acción
+            action: Descripción de la acción (para mensaje de error)
+        
+        Returns:
+            PrivateUser: Usuario SuperAdmin validado
+        
+        Raises:
+            ValidationError: Si el usuario no es SuperAdmin
+        """
+        from src.core.validators.api_validator import validate_positive_int
+        
+        actor_id = validate_positive_int(actor_id, "actor_id")
+        actor = PrivateUser.query.filter_by(id=actor_id, deleted=False).first()
+        if not actor or not actor.is_super_admin:
+            raise ValidationError(f"Solo un SuperAdmin puede {action}")
+        return actor
+    
     def create_user(self, data_user, data_new_user, commit=True):
         """
         Crea un usuario con roles iniciales.
@@ -53,9 +77,7 @@ class UserService:
         created_at = datetime.now()
         is_super_admin = bool(data_new_user.get('is_super_admin'))
         if is_super_admin:
-            actor = PrivateUser.query.filter_by(id=data_user, deleted=False).first()
-            if not actor or not actor.is_super_admin:
-                raise ValidationError("Solo un SuperAdmin puede crear otro SuperAdmin")
+            self._require_super_admin(data_user, "crear otro SuperAdmin")
 
         user = PrivateUser(
             mail=mail,
@@ -138,7 +160,6 @@ class UserService:
         cleaned = validate_update_user(changed_fields or {})
 
         if 'mail' in cleaned and cleaned['mail'] != user.mail:
-            # Verificar solo en PrivateUser porque el mail es único dentro de cada tipo
             existing_user = PrivateUser.query.filter_by(mail=cleaned['mail'], deleted=False).first()
             if existing_user and existing_user.id != user_id:
                 raise ValidationError("Ya existe un usuario privado con ese mail")
@@ -163,9 +184,7 @@ class UserService:
         if "is_super_admin" in cleaned:
             if not admin_user_id:
                 raise ValidationError("Se requiere un usuario administrador para esta acción")
-            actor = PrivateUser.query.get(admin_user_id)
-            if not actor or not actor.is_super_admin:
-                raise ValidationError("Solo un SuperAdmin puede modificar este atributo")
+            self._require_super_admin(admin_user_id, "modificar este atributo")
             user.is_super_admin = cleaned["is_super_admin"]
         
         if "password" in cleaned:
@@ -208,12 +227,10 @@ class UserService:
 
         admin_user = PrivateUser.query.get(admin_user_id)
 
-        # Verificar si es super admin
         if user.is_super_admin:
             if not admin_user or not admin_user.is_super_admin:
                 raise ValidationError("Solo usuarios SuperAdmin pueden eliminar a un SuperAdmin")
 
-        # Desactivar y eliminar lógicamente
         user.active = False
         user.deleted = True
         user.deleted_at = datetime.utcnow()
@@ -282,7 +299,6 @@ class UserService:
         sort_by = v['sort_by']
         sort_order = v['sort_order']
 
-        # Listar solo usuarios privados ya que solo ellos tienen roles, active, blocked
         query = PrivateUser.query.filter_by(deleted=False)
         
         if filters:
@@ -321,7 +337,6 @@ class UserService:
         users_with_roles = []
         for user in users:
             user_dict = user.to_dict()
-            # Solo usuarios privados tienen roles
             if isinstance(user, PrivateUser):
                 user_dict['roles'] = user.get_user_roles()
             else:
@@ -361,8 +376,8 @@ class UserService:
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
         
-        if (target_user and target_user.is_super_admin) and not (admin_user and admin_user.is_super_admin):
-            raise ValidationError("Solo los administradores pueden asignar roles a otros administradores")
+        if target_user and target_user.is_super_admin:
+            self._require_super_admin(admin_user_id, "asignar roles a otros administradores")
 
         existing_assignment = RolUserUser.query.filter_by(
             User_id=user_id, 
@@ -405,8 +420,8 @@ class UserService:
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
         
-        if (target_user and target_user.is_super_admin) and not (admin_user and admin_user.is_super_admin):
-            raise ValidationError("Solo los administradores pueden revocar roles de otros administradores")
+        if target_user and target_user.is_super_admin:
+            self._require_super_admin(admin_user_id, "revocar roles de otros administradores")
 
         role_assignment = RolUserUser.query.filter_by(
             User_id=user_id, 
@@ -483,8 +498,10 @@ class UserService:
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
-        if target_user and target_user.is_super_admin and user_id != admin_user_id:
-            raise ValidationError("No se pueden modificar los roles de un usuario administrador")
+        if target_user and target_user.is_super_admin:
+            if user_id != admin_user_id:
+                raise ValidationError("No se pueden modificar los roles de un usuario administrador")
+                self._require_super_admin(admin_user_id, "modificar los roles de un usuario administrador")
 
         try:
             RolUserUser.query.filter_by(User_id=user_id).delete()

@@ -12,7 +12,6 @@
         e.preventDefault();
         if (msg){ msg.textContent='Ingrese correo y contraseña'; msg.classList.remove('hidden'); msg.classList.add('text-red-500'); }
       }
-      // Validación formato email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (mail && !emailRegex.test(mail)){
         e.preventDefault();

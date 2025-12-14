@@ -1,66 +1,93 @@
 from flask import Blueprint, request, current_app, jsonify
 from src.core.services.review_service import review_service
-from src.core.models.historic_site import HistoricSite
+from src.core.services.historic_site_service import historic_site_service
 from src.web import exceptions as exc
 from src.web.auth.decorators import token_or_session_required, get_current_user_id
+from src.core.validators.api_validator import (
+    validate_api_pagination_params,
+    validate_positive_int,
+    format_validation_error_for_api
+)
 
 review_api = Blueprint('review_api', __name__)
 
 
-
-def _mask_email(email: str) -> str:
-    """Enmascara un email mostrando solo los primeros 3 caracteres y el dominio."""
-    if not email or '@' not in email:
-        return email
-    name, domain = email.split('@', 1)
-    if len(name) <= 3:
-        masked = name[0] + '•' * (len(name)-1)
-    else:
-        masked = name[:3] + '•' * (len(name)-3)
-    return f"{masked}@{domain}"
-
-
-@review_api.route('/public/sites/<int:site_id>/reviews', methods=['GET'])
-def list_public_site_reviews(site_id: int):
-    """Lista reseñas aprobadas de un sitio (API usada por el portal público)."""
-    page = request.args.get('page') or 1
-    per_page = request.args.get('per_page') or 10
-
+@review_api.route('/sites/<int:site_id>/reviews', methods=['GET'])
+@token_or_session_required
+def list_site_reviews(site_id: int):
+    """
+    Obtiene una lista paginada de reseñas para un sitio histórico específico.
+    Muestra reseñas aprobadas + la reseña pendiente del usuario (si existe).
+    
+    Información adicional no especificada en la API:
+    - author_name: Nombre del autor de la reseña (string, opcional)
+    - status: Estado de la reseña (string, opcional): 'pending', 'approved', o 'rejected'
+    - user_id: ID del usuario autor de la reseña (number, opcional)
+    """
     try:
-        site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
-        if not site:
-            return jsonify(
-                {
-                    "error": {
-                        "code": "not_found",
-                        "message": "Site not found",
-                    }
+        historic_site_service.get_historic_site(site_id)
+    except exc.NotFoundError:
+        return jsonify(
+            {
+                "error": {
+                    "code": "not_found",
+                    "message": "Site not found",
                 }
-            ), 404
+            }
+        ), 404
+    
+    try:
+        page, per_page = validate_api_pagination_params(
+            page=request.args.get('page'),
+            per_page=request.args.get('per_page'),
+            default_page=1,
+            default_per_page=10,
+            max_per_page=100
+        )
+    except exc.ValidationError as error:
+        error_details = format_validation_error_for_api(error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": error_details,
+                }
+            }
+        ), 400
+    
+    user_id = get_current_user_id()
+    
+    try:
         result = review_service.list_reviews(
             site_id=site_id,
             page=page,
             per_page=per_page,
             only_approved=True,
+            include_user_pending=user_id,
         )
         items = result.get('items', [])
         pagination = result.get('pagination', {})
-        for review in items:
-            if 'user_mail' in review and review['user_mail']:
-                review['user_mail'] = _mask_email(review['user_mail'])
-            if 'user' in review and review['user'] and 'mail' in review['user']:
-                review['user']['mail'] = _mask_email(review['user']['mail'])
+        
         data = []
         for r in items:
-            item = dict(r)
-            item['comment'] = r.get('content')
-            item['inserted_at'] = r.get('created_at')
-            item.setdefault('updated_at', None)
-            data.append(item)
+            user_info = r.get('user', {})
+            data.append({
+                "id": r.get('id'),
+                "site_id": r.get('site_id'),
+                "rating": r.get('rating'),
+                "comment": r.get('content'),
+                "inserted_at": r.get('created_at'),
+                "updated_at": r.get('updated_at') or r.get('created_at'),
+                "author_name": user_info.get('name') if user_info else None,
+                "status": r.get('status'),
+                "user_id": user_info.get('id') if user_info else None,
+            })
+        
         payload = {
             "data": data,
             "meta": {
-                "page": pagination.get("page", 1),
+                "page": pagination.get("page", page),
                 "per_page": pagination.get("per_page", per_page),
                 "total": pagination.get("total", 0),
             },
@@ -68,29 +95,8 @@ def list_public_site_reviews(site_id: int):
         response = jsonify(payload)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
-    except exc.ValidationError as error:
-        return jsonify(
-            {
-                "error": {
-                    "code": "invalid_data",
-                    "message": "Invalid input data",
-                    "details": {
-                        "_global": [str(error)],
-                    },
-                }
-            }
-        ), 400
-    except exc.NotFoundError as error:
-        return jsonify(
-            {
-                "error": {
-                    "code": "not_found",
-                    "message": str(error),
-                }
-            }
-        ), 404
     except Exception as error:
-        current_app.logger.exception("Error al listar reseñas públicas", exc_info=error)
+        current_app.logger.exception("Error al listar reseñas", exc_info=error)
         return jsonify(
             {
                 "error": {
@@ -123,19 +129,19 @@ def create_site_review(site_id: int):
             "rating": review.rating,
             "comment": review.content,
             "inserted_at": review.created_at.isoformat() if review.created_at else None,
+            "updated_at": review.updated_at.isoformat() if review.updated_at else (review.created_at.isoformat() if review.created_at else None),
         }
         response = jsonify(data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 201
     except exc.ValidationError as error:
+        error_details = format_validation_error_for_api(error)
         return jsonify(
             {
                 "error": {
                     "code": "invalid_data",
                     "message": "Invalid input data",
-                    "details": {
-                        "_global": [str(error)],
-                    },
+                    "details": error_details,
                 }
             }
         ), 400
@@ -173,19 +179,90 @@ def create_site_review(site_id: int):
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['GET'])
 @token_or_session_required
 def get_site_review(site_id: int, review_id: int):
+    """
+    Obtiene una reseña existente por su ID.
+    Los parámetros site_id y review_id son validados por Flask como enteros.
+    """
     user_id = get_current_user_id()
+    
+    if review_id <= 0:
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": {
+                        "review_id": ["Must be a positive integer"],
+                    },
+                }
+            }
+        ), 400
+    
     try:
         data = review_service.get_review(site_id=site_id, review_id=review_id, current_user_id=user_id)
-        response = jsonify(data)
+        
+        response_data = {
+            "id": data.get('id'),
+            "site_id": data.get('site_id'),
+            "rating": data.get('rating'),
+            "comment": data.get('content'),
+            "inserted_at": data.get('created_at'),
+            "updated_at": data.get('updated_at') or data.get('created_at'),
+        }
+        
+        response = jsonify(response_data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
     except exc.ForbiddenError as error:
-        return jsonify({'error': str(error)}), 403
+        return jsonify(
+            {
+                "error": {
+                    "code": "forbidden",
+                    "message": "You do not have permission to access this review",
+                }
+            }
+        ), 403
     except exc.NotFoundError as error:
-        return jsonify({'error': str(error)}), 404
+        error_msg = str(error).lower()
+        if 'sitio' in error_msg or 'site' in error_msg:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Site not found",
+                    }
+                }
+            ), 404
+        else:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Review not found",
+                    }
+                }
+            ), 404
+    except exc.ValidationError as error:
+        error_details = format_validation_error_for_api(error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": error_details,
+                }
+            }
+        ), 400
     except Exception as error:
         current_app.logger.exception("Error al obtener reseña", exc_info=error)
-        return jsonify({'error': 'Error interno al obtener reseña'}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
 
 
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['PUT'])
@@ -194,7 +271,6 @@ def update_site_review(site_id: int, review_id: int):
     """Actualiza una reseña existente."""
     payload = request.get_json(silent=True) or {}
     rating = payload.get('rating')
-    # La API pública trabaja solo con `comment` como nombre de campo
     content = payload.get('comment')
     user_id = get_current_user_id()
 
@@ -206,68 +282,180 @@ def update_site_review(site_id: int, review_id: int):
             rating=rating,
             content=content,
         )
-        response = jsonify(review.to_dict())
+        data = {
+            "id": review.id,
+            "site_id": review.site_id,
+            "rating": review.rating,
+            "comment": review.content,
+            "inserted_at": review.created_at.isoformat() if review.created_at else None,
+            "updated_at": review.updated_at.isoformat() if review.updated_at else (review.created_at.isoformat() if review.created_at else None),
+        }
+        response = jsonify(data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
     except exc.ValidationError as error:
-        return jsonify({'error': str(error)}), 400
+        error_details = format_validation_error_for_api(error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": error_details,
+                }
+            }
+        ), 400
     except exc.ForbiddenError as error:
-        return jsonify({'error': str(error)}), 403
+        return jsonify(
+            {
+                "error": {
+                    "code": "forbidden",
+                    "message": "You do not have permission to access this review",
+                }
+            }
+        ), 403
     except exc.NotFoundError as error:
-        return jsonify({'error': str(error)}), 404
+        error_msg = str(error).lower()
+        if 'sitio' in error_msg or 'site' in error_msg:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Site not found",
+                    }
+                }
+            ), 404
+        else:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Review not found",
+                    }
+                }
+            ), 404
     except exc.DatabaseError as error:
-        return jsonify({'error': str(error)}), 500
+        current_app.logger.exception("Database error al actualizar reseña", exc_info=error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
     except Exception as error:
         current_app.logger.exception("Error al actualizar reseña", exc_info=error)
-        return jsonify({'error': 'Error interno al actualizar reseña'}), 500
-
-
-@review_api.route('/sites/<int:site_id>/reviews/me', methods=['GET'])
-@token_or_session_required
-def get_my_review(site_id: int):
-    """Obtiene la reseña del usuario actual para un sitio."""
-    user_id = get_current_user_id()
-    try:
-        review = review_service.get_user_review(site_id=site_id, user_id=user_id)
-        response = jsonify({'review': review})
-        response.headers['Content-Type'] = 'application/json; charset=utf-8'
-        return response, 200
-    except exc.ValidationError as error:
-        return jsonify({'error': str(error)}), 400
-    except Exception as error:
-        current_app.logger.exception("Error al obtener reseña del usuario", exc_info=error)
-        return jsonify({'error': 'Error interno al obtener reseña'}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
 
 
 @review_api.route('/me/reviews', methods=['GET'])
 @token_or_session_required
 def list_my_reviews():
-    """Lista todas las reseñas del usuario autenticado."""
+    """
+    Lista todas las reseñas del usuario autenticado.
+    
+    Información adicional no especificada en la API:
+    - status: Estado de la reseña (string, opcional): 'pending', 'approved', o 'rejected'
+    - site_name: Nombre del sitio histórico (string, opcional)
+    """
     user_id = get_current_user_id()
-    if not user_id:
-        return jsonify({'error': 'Usuario no autenticado'}), 401
 
-    page = request.args.get('page') or 1
-    per_page = request.args.get('per_page') or 25
-    sort = request.args.get('sort', 'desc')
+    try:
+        from src.core.validators.api_validator import validate_api_pagination_params
+        page, per_page = validate_api_pagination_params(
+            page=request.args.get('page'),
+            per_page=request.args.get('per_page'),
+            default_page=1,
+            default_per_page=25,
+            max_per_page=100
+        )
+    except exc.ValidationError as error:
+        from src.core.validators.api_validator import format_validation_error_for_api
+        error_details = format_validation_error_for_api(error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": error_details,
+                }
+            }
+        ), 400
+    
+    sort = request.args.get('sort')
+    if sort and sort not in ['asc', 'desc']:
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": {
+                        "sort": ["Must be 'asc' or 'desc'"],
+                    },
+                }
+            }
+        ), 400
+    sort_order = sort if sort else 'desc'
 
     try:
         result = review_service.list_reviews(
             page=page,
             per_page=per_page,
             sort_by='created_at',
-            sort_order=sort,
+            sort_order=sort_order,
             user_id=user_id,
             only_approved=False,
         )
-        response = jsonify(result)
+        items = result.get('items', [])
+        transformed_items = []
+        for item in items:
+            transformed_item = {
+                'id': item.get('id'),
+                'site_id': item.get('site_id'),
+                'rating': item.get('rating'),
+                'comment': item.get('content'),
+                'inserted_at': item.get('created_at'),
+                'updated_at': item.get('updated_at') or item.get('created_at'),
+                'status': item.get('status'),
+                'site_name': item.get('site_name'),
+            }
+            transformed_items.append(transformed_item)
+        
+        response_data = {
+            'items': transformed_items,
+            'pagination': result.get('pagination', {})
+        }
+        response = jsonify(response_data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response, 200
     except exc.ValidationError as error:
-        return jsonify({'error': str(error)}), 400
+        error_details = format_validation_error_for_api(error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "invalid_data",
+                    "message": "Invalid input data",
+                    "details": error_details,
+                }
+            }
+        ), 400
     except Exception as error:
         current_app.logger.exception("Error al listar reseñas del usuario", exc_info=error)
-        return jsonify({'error': 'Error interno al listar reseñas'}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
 
 
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['DELETE'])
@@ -278,11 +466,51 @@ def delete_site_review(site_id: int, review_id: int):
         review_service.delete_review(site_id=site_id, review_id=review_id, current_user_id=user_id)
         return '', 204
     except exc.ForbiddenError as error:
-        return jsonify({'error': str(error)}), 403
+        return jsonify(
+            {
+                "error": {
+                    "code": "forbidden",
+                    "message": "You do not have permission to delete this review",
+                }
+            }
+        ), 403
     except exc.NotFoundError as error:
-        return jsonify({'error': str(error)}), 404
+        error_msg = str(error).lower()
+        if 'sitio' in error_msg or 'site' in error_msg:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Site not found",
+                    }
+                }
+            ), 404
+        else:
+            return jsonify(
+                {
+                    "error": {
+                        "code": "not_found",
+                        "message": "Review not found",
+                    }
+                }
+            ), 404
     except exc.DatabaseError as error:
-        return jsonify({'error': str(error)}), 500
+        current_app.logger.exception("Database error al eliminar reseña", exc_info=error)
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500
     except Exception as error:
         current_app.logger.exception("Error al eliminar reseña", exc_info=error)
-        return jsonify({'error': 'Error interno al eliminar reseña'}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "An unexpected error occurred",
+                }
+            }
+        ), 500

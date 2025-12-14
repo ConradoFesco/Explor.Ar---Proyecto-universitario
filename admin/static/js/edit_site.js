@@ -1,4 +1,3 @@
-// Variables globales
 let currentSiteId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -77,7 +76,6 @@ document.addEventListener('DOMContentLoaded', function(){
   ['nombre','descripcion_breve','estado','categoria'].forEach(id=>{ const el=document.getElementById(id); if (el){ el.addEventListener('input', function(){ this.classList.remove('field-error'); const err=document.getElementById(id+'-error'); if (err){ err.classList.add('hidden'); } }); }});
 });
 
-// Cancelar edición con confirmación y volver al listado
 window.cancelEdit = function(){
   const doGo = ()=>{ window.location.href = '/sitios'; };
   if (typeof Swal !== 'undefined'){

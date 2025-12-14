@@ -1,9 +1,11 @@
 """
 Rutas Web para gestión de tags (renderizado HTML/Jinja).
 """
-from flask import Blueprint, render_template, session, redirect, url_for, request, flash
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash, current_app
 from src.web.auth.decorators import web_permission_required
 from src.core.services.tag_service import tag_service
+from src.web import exceptions as exc
+from src.web.exceptions import ValidationError
 
 tags_web = Blueprint('tags_web', __name__)
 
@@ -12,11 +14,11 @@ tags_web = Blueprint('tags_web', __name__)
 @web_permission_required("tag_index")
 def lista_tags():
     """Listado de tags con filtros, orden y paginación (SSR)."""
-    page = request.args.get('page') or 1
-    per_page = request.args.get('per_page') or 25
-    search = request.args.get('search', '')
-    sort_by = request.args.get('sort_by', 'name')
-    sort_order = request.args.get('sort_order', 'asc')
+    page = request.args.get('page')
+    per_page = request.args.get('per_page')
+    search = request.args.get('search')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
 
     try:
         result = tag_service.get_all_tags_paginated(
@@ -27,14 +29,24 @@ def lista_tags():
             sort_order=sort_order,
             include_deleted=False,
         )
-    except Exception as e:
+    except exc.ValidationError as e:
         flash(f'Parámetros inválidos en el listado de tags: {str(e)}', 'error')
         result = tag_service.get_all_tags_paginated(
-            page=1,
-            per_page=25,
-            search='',
-            sort_by='name',
-            sort_order='asc',
+            page=None,
+            per_page=None,
+            search=None,
+            sort_by=None,
+            sort_order=None,
+            include_deleted=False,
+        )
+    except Exception as e:
+        flash(f'Error inesperado: {str(e)}', 'error')
+        result = tag_service.get_all_tags_paginated(
+            page=None,
+            per_page=None,
+            search=None,
+            sort_by=None,
+            sort_order=None,
             include_deleted=False,
         )
 
@@ -58,11 +70,11 @@ def lista_tags():
 @web_permission_required("tag_index")
 def lista_tags_fragment():
     """Fragmento HTML del listado de tags para paginación/filtrado dinámico."""
-    page = request.args.get('page') or 1
-    per_page = request.args.get('per_page') or 25
-    search = request.args.get('search', '')
-    sort_by = request.args.get('sort_by', 'name')
-    sort_order = request.args.get('sort_order', 'asc')
+    page = request.args.get('page')
+    per_page = request.args.get('per_page')
+    search = request.args.get('search')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
 
     try:
         result = tag_service.get_all_tags_paginated(
@@ -73,7 +85,18 @@ def lista_tags_fragment():
             sort_order=sort_order,
             include_deleted=False,
         )
+    except ValidationError as e:
+        current_app.logger.warning(f"Error de validación en fragmento de tags: {e}")
+        result = tag_service.get_all_tags_paginated(
+            page=None,
+            per_page=None,
+            search=None,
+            sort_by=None,
+            sort_order=None,
+            include_deleted=False,
+        )
     except Exception as e:
+        current_app.logger.error(f"Error inesperado en fragmento de tags: {e}")
         flash(f'Parámetros inválidos en el listado de tags: {str(e)}', 'error')
         result = tag_service.get_all_tags_paginated(
             page=1,

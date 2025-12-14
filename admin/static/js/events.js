@@ -1,4 +1,3 @@
-// Events modal module - handles site detail, tags edit and events history inside modal
 (function(){
   function openModal(){ const m=document.getElementById('detail-modal'); if(m) m.classList.remove('hidden'); }
   function setModal(title, html){
@@ -88,22 +87,18 @@
     const c = document.getElementById('modal-content');
     const search = c.querySelector('#events-search-input');
     if (search){ let t; search.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(()=>{ updateEventsList(siteId, 1); }, 300); }); }
-    // Toggle del panel lo maneja el onclick inline del macro (evita doble toggle)
     const applyBtn = c.querySelector('#events-apply-filters');
     if (applyBtn){ applyBtn.addEventListener('click', (e)=>{ e.preventDefault(); updateEventsList(siteId, 1); }); }
     const clearBtn = c.querySelector('#events-clear-filters');
     if (clearBtn){ clearBtn.addEventListener('click', (e)=>{ e.preventDefault(); ['events-filter-type','events-filter-date-from','events-filter-date-to','events-search-input'].forEach(id=>{ const el=c.querySelector('#'+id); if(el) el.value=''; }); updateEventsList(siteId, 1); }); }
-    // Los cambios en selects/fechas se aplican al presionar "Aplicar filtros"
     const backBtn = Array.from(c.querySelectorAll('button')).find(b=>b.textContent && b.textContent.includes('Volver al detalle'));
     if (backBtn){ backBtn.addEventListener('click', ()=>{ if (window._prevChangePage){ window.changePage = window._prevChangePage; window._prevChangePage = null; } }); }
   }
 
-  // Delegated listeners as fallback in case direct binding fails
   document.addEventListener('input', function(e){
     const el = e.target;
     if (el && el.id === 'events-search-input'){
       const btn = document.querySelector('#modal-content [onclick^="openSiteDetail"]');
-      // Infer siteId from back button context or stored data attribute
       const container = document.getElementById('modal-content');
       const idAttr = container ? container.getAttribute('data-site-id') : null;
       const siteId = idAttr ? parseInt(idAttr) : (window._currentEventsSiteId || null);

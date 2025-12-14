@@ -16,25 +16,18 @@ class User(db.Model):
         'polymorphic_on': 'type'
     }
 
-    # Campos compartidos
     id = db.Column(db.Integer, primary_key=True)
-    # mail NO es único globalmente, solo dentro de cada subtipo (PrivateUser o PublicUser)
     mail = db.Column(db.String, nullable=False)
     name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Campos de soft delete (aplican a ambos tipos por trazabilidad y requerimientos legales)
     deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_by_id = db.Column(db.Integer, nullable=True)
     
-    # Campo discriminador para polimorfismo
     type = db.Column(db.String(50), nullable=False)
     
-    # Índice único compuesto: el mail es único dentro de cada tipo (private/public)
-    # Permite que exista un PrivateUser y un PublicUser con el mismo mail
-    # pero no permite duplicados dentro del mismo tipo
     __table_args__ = (
         Index('idx_user_type_mail_unique', 'type', 'mail', unique=True),
     )
@@ -67,16 +60,13 @@ class PrivateUser(User):
         'polymorphic_identity': 'private'
     }
 
-    # Foreign key a la tabla base
     id = db.Column(db.Integer, db.ForeignKey('User.id'), primary_key=True)
     
-    # Campos privados de autenticación y gestión
     password = db.Column(db.String, nullable=True)
     active = db.Column(db.Boolean)
     blocked = db.Column(db.Boolean)
     is_super_admin = db.Column(db.Boolean, default=False)
 
-    # Relaciones específicas de usuarios privados
     events = db.relationship('Event', backref='user', lazy=True)
     user_roles = db.relationship('RolUserUser', backref='user', lazy=True)
 
@@ -141,15 +131,11 @@ class PublicUser(User):
         'polymorphic_identity': 'public'
     }
 
-    # Foreign key a la tabla base
     id = db.Column(db.Integer, db.ForeignKey('User.id'), primary_key=True)
     
-    # Campo específico de usuarios públicos
     avatar_url = db.Column(db.String, nullable=True)
 
-    # Relaciones específicas de usuarios públicos
     favorites = db.relationship('FavoriteSite', backref='user', lazy=True)
-    # reviews - la relación inversa ya está definida en HistoricSiteReview con user
     reviews = db.relationship('HistoricSiteReview', foreign_keys='HistoricSiteReview.user_id', lazy=True)
 
     def __repr__(self) -> str:

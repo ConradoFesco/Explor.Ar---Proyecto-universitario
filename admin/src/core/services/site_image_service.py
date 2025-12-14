@@ -185,25 +185,20 @@ class SiteImageService:
         if not url_publica:
             return ""
         
-        # En producción, convertir HTTP a HTTPS si está configurado
         use_https = current_app.config.get('MINIO_USE_HTTPS', False)
         if use_https and url_publica.startswith('http://'):
-            url_publica = url_publica.replace('http://', 'https://', 1)  # Solo reemplazar el primer http://
+            url_publica = url_publica.replace('http://', 'https://', 1)
         
-        # Corregir doble slash si existe (excepto después de http:// o https://)
-        # Primero normalizar protocolo
         protocol = ''
         if url_publica.startswith('https://'):
             protocol = 'https://'
-            url_publica = url_publica[8:]  # Quitar 'https://'
+            url_publica = url_publica[8:]
         elif url_publica.startswith('http://'):
             protocol = 'http://'
-            url_publica = url_publica[7:]  # Quitar 'http://'
+            url_publica = url_publica[7:]
         
-        # Eliminar dobles slashes en el path
         url_publica = url_publica.replace('//', '/')
         
-        # Reconstruir la URL
         url_publica = f"{protocol}{url_publica}"
         
         return url_publica
@@ -376,22 +371,17 @@ class SiteImageService:
         
         minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
         
-        # Normalizar la URL del servidor MinIO
         if not minio_server.startswith('http://') and not minio_server.startswith('https://'):
             minio_server = f"http://{minio_server}"
         
-        # En producción, forzar HTTPS si la URL es HTTP
-        # Esto se puede controlar con una variable de entorno MINIO_USE_HTTPS
         use_https = current_app.config.get('MINIO_USE_HTTPS', False)
         if use_https and minio_server.startswith('http://'):
             minio_server = minio_server.replace('http://', 'https://')
         
-        # Construir la URL pública, asegurándose de no tener doble slash
         minio_server = minio_server.rstrip('/')
-        bucket_name = bucket_name.strip('/')  # Quitar barras al inicio y final
-        unique_filename = unique_filename.lstrip('/')  # Quitar barra al inicio si existe
+        bucket_name = bucket_name.strip('/')
+        unique_filename = unique_filename.lstrip('/')
         url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
-        # Normalizar cualquier doble slash que pueda quedar
         url_publica = url_publica.replace('//', '/').replace('http:/', 'http://').replace('https:/', 'https://')
         
         return url_publica, unique_filename

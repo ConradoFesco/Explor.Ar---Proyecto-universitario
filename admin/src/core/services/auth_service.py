@@ -30,7 +30,6 @@ class AuthService:
         if not user or not user.check_password(password):
             raise exc.ValidationError("Credenciales inválidas")
         
-        # Verificar si el usuario está bloqueado
         if user.blocked:
             raise exc.ValidationError("Usted ha sido bloqueado")
         
@@ -45,14 +44,11 @@ class AuthService:
         Nota: Si existe tanto un PrivateUser como un PublicUser con el mismo mail,
         retornará el PrivateUser (prioridad a usuarios privados).
         """
-        # Buscar primero en usuarios privados
         user = PrivateUser.query.filter_by(mail=mail, deleted=False).first()
         if user:
             return user
-        # Si no se encuentra privado, buscar en públicos
         return PublicUser.query.filter_by(mail=mail, deleted=False).first()
 
-    # --- Método para "buscar o crear" al usuario en tu base de datos ---
     def find_or_create_google_user(self, user_info):
         """
         Busca un usuario público por su email. Si no existe, lo crea como PublicUser.
@@ -69,11 +65,9 @@ class AuthService:
         new_last_name = user_info.get('family_name') or ''
         new_avatar_url = user_info.get('picture')
         
-        # 1. Buscar si existe un usuario público con ese mail (el mail es único dentro de PublicUser)
         user = PublicUser.query.filter_by(mail=mail, deleted=False).first()
         
         if user:
-            # 2. Si existe (LOGIN), actualiza sus datos por si cambiaron
             if new_name and user.name != new_name:
                 user.name = new_name
             if new_last_name and user.last_name != new_last_name:
@@ -81,8 +75,6 @@ class AuthService:
             if new_avatar_url and user.avatar_url != new_avatar_url:
                 user.avatar_url = new_avatar_url
         else:
-            # 3. Si no existe, crear un nuevo usuario público
-            # No verificamos PrivateUser porque el mail puede repetirse entre tipos diferentes
             user = PublicUser(
                 mail=mail,
                 name=new_name,
@@ -91,12 +83,27 @@ class AuthService:
             )
             db.session.add(user)
         
-        # 4. Guarda los cambios (sea un update o un create)
         try:
             db.session.commit()
         except IntegrityError as e:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al crear el usuario: {e}")
+        return user
+    
+    def get_user_by_id(self, user_id):
+        """
+        Obtiene un usuario por ID (puede ser PrivateUser o PublicUser).
+        
+        Args:
+            user_id (int): ID del usuario
+            
+        Returns:
+            User: Objeto User (PrivateUser o PublicUser) o None si no existe o está eliminado
+        """
+        if not user_id:
+            return None
+        
+        user = User.query.filter_by(id=user_id, deleted=False).first()
         return user
 
 auth_service = AuthService()

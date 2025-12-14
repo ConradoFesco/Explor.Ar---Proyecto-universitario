@@ -11,12 +11,16 @@ sites_web = Blueprint('sites_web', __name__)
 
 
 def _resolve_site_list_params():
+    """
+    Resuelve y valida parámetros de listado de sitios.
+    No aplica valores por defecto antes de validar - el validador lo hará.
+    """
     raw_args = {
-        'page': request.args.get('page') or 1,
-        'per_page': request.args.get('per_page') or 25,
+        'page': request.args.get('page'),
+        'per_page': request.args.get('per_page'),
         'search_text': request.args.get('search'),
-        'sort_by': request.args.get('sort_by') or 'created_at',
-        'sort_order': request.args.get('sort_order') or 'desc',
+        'sort_by': request.args.get('sort_by'),
+        'sort_order': request.args.get('sort_order'),
         'city_id': request.args.get('city_id'),
         'province_id': request.args.get('province_id'),
         'tag_ids': request.args.get('tag_ids'),
@@ -30,14 +34,14 @@ def _resolve_site_list_params():
     except exc.ValidationError as error:
         flash('Parámetros inválidos en el listado: ' + str(error), 'error')
         return validate_site_list_params(
-            page=1,
-            per_page=25,
+            page=None,  
+            per_page=None, 
             search_text=None,
-            sort_by='created_at',
-            sort_order='desc',
+            sort_by=None,  
+            sort_order=None, 
             city_id=None,
             province_id=None,
-            tag_ids=[],
+            tag_ids=None,
             state_id=None,
             date_from=None,
             date_to=None,
@@ -132,8 +136,14 @@ def alta_sitios():
 @web_permission_required("site_update")
 def modificar_sitios():
     """Formulario SSR de edición de sitio (incluye opciones y datos del sitio)."""
-    edit_id = request.args.get('edit', type=int)
+    edit_id = request.args.get('edit')
     site = None
+    if edit_id:
+        try:
+            edit_id = int(edit_id)
+        except (ValueError, TypeError):
+            flash('ID de sitio inválido', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
     if edit_id:
         try:
             site = historic_site_service.get_historic_site(edit_id)
@@ -204,6 +214,7 @@ def editar_tags_fragment(site_id: int):
 @web_permission_required("site_new")
 def crear_sitio_web():
     """Procesa la creación de un sitio a partir de datos de formulario."""
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
     data_user = session.get('user_id')
     form = request.form
     data_site = {
@@ -229,12 +240,23 @@ def crear_sitio_web():
         
         created_site = historic_site_service.create_historic_site(data_site, data_user)
         
+        if is_ajax:
+            return jsonify({
+                'success': True,
+                'site_id': created_site.id,
+                'message': 'Sitio histórico creado correctamente. Ahora puede agregar imágenes.'
+            }), 200
+        
         flash('Sitio histórico creado correctamente. Ahora puede agregar imágenes.', 'success')
         return redirect(url_for('sites_web.modificar_sitios', edit=created_site.id))
     except exc.ValidationError as e:
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(e)}), 400
         flash('Error al crear sitio: ' + str(e), 'error')
         return redirect(url_for('sites_web.alta_sitios'))
     except Exception as e:
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(e)}), 500
         flash('Error al crear sitio: ' + str(e), 'error')
         return redirect(url_for('sites_web.alta_sitios'))
 
@@ -322,7 +344,13 @@ def subir_imagen_sitio(site_id: int):
         
         titulos = request.form.getlist('titulo_alt[]')
         descripciones = request.form.getlist('descripcion[]')
-        cover_index = request.form.get('cover_index', type=int)
+        cover_index = request.form.get('cover_index')
+        if cover_index is not None:
+            try:
+                cover_index = int(cover_index)
+            except (ValueError, TypeError):
+                flash('Índice de portada inválido', 'error')
+                return redirect(url_for('sites_web.lista_sitios'))
         
         files_data = []
         for idx, file in enumerate(files):

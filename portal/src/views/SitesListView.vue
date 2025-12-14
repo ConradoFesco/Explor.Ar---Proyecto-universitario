@@ -14,8 +14,10 @@ const router = useRouter()
 const store = useSitesStore()
 
 onMounted(async () => {
-  store.fromRouteQuery(route.query as Record<string, any>)
-  await store.loadFirstPage()
+  store.fromRouteQuery(route.query as Record<string, string | string[] | null | undefined>)
+  if (Object.keys(store.validationErrors).length === 0) {
+    await store.loadFirstPage()
+  }
   await nextTick()
   setupInfiniteScroll()
 })
@@ -27,15 +29,6 @@ watch(
   },
   { deep: true }
 )
-
-const debouncedMapSearch = useDebounceFn(() => {
-  if (store.lat != null && store.long != null) {
-    store.page = 1
-    store.loadFirstPage()
-  }
-}, 300)
-
-watch([() => store.lat, () => store.long, () => store.radius], debouncedMapSearch)
 
 const gridCols = computed(() => 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')
 const sentinel = ref<HTMLDivElement | null>(null)
@@ -62,8 +55,7 @@ onBeforeUnmount(() => {
 })
 
 function handleSortChange(field: string, dir: 'asc' | 'desc') {
-  store.sort.field = field as 'created_at' | 'name' | 'rating'
-  store.sort.dir = dir
+  store.sort = { field: field as 'created_at' | 'name' | 'rating', dir }
   store.loadFirstPage()
 }
 </script>
@@ -100,30 +92,44 @@ function handleSortChange(field: string, dir: 'asc' | 'desc') {
             <span class="text-gray-500 dark:text-gray-400 shrink-0">Ordenar:</span>
             <SortButton
               field="created_at"
-              :current-field="store.sort.field"
-              :current-dir="store.sort.dir"
+              :current-field="typeof store.sort === 'object' && store.sort ? store.sort.field : undefined"
+              :current-dir="typeof store.sort === 'object' && store.sort ? store.sort.dir : undefined"
               label="Fecha"
               @sort-change="handleSortChange"
             />
             <SortButton
               field="name"
-              :current-field="store.sort.field"
-              :current-dir="store.sort.dir"
+              :current-field="typeof store.sort === 'object' && store.sort ? store.sort.field : undefined"
+              :current-dir="typeof store.sort === 'object' && store.sort ? store.sort.dir : undefined"
               label="Nombre"
               @sort-change="handleSortChange"
             />
             <SortButton
               field="rating"
-              :current-field="store.sort.field"
-              :current-dir="store.sort.dir"
+              :current-field="typeof store.sort === 'object' && store.sort ? store.sort.field : undefined"
+              :current-dir="typeof store.sort === 'object' && store.sort ? store.sort.dir : undefined"
               label="Ranking"
               @sort-change="handleSortChange"
             />
           </div>
         </div>
 
-        <div v-if="store.error" class="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded">
-          {{ store.error }}
+        <div v-if="store.error" class="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded mb-3">
+          <p class="font-medium">Error al cargar sitios:</p>
+          <p>{{ store.error }}</p>
+        </div>
+        
+        <div v-if="Object.keys(store.validationErrors).length > 0" class="p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded mb-3">
+          <p class="font-medium mb-2">⚠️ Errores de validación en los filtros:</p>
+          <ul class="list-disc list-inside space-y-1 text-sm">
+            <li v-if="store.validationErrors.lat">{{ store.validationErrors.lat }}</li>
+            <li v-if="store.validationErrors.long">{{ store.validationErrors.long }}</li>
+            <li v-if="store.validationErrors.radius">{{ store.validationErrors.radius }}</li>
+            <li v-if="store.validationErrors.page">{{ store.validationErrors.page }}</li>
+            <li v-if="store.validationErrors.perPage">{{ store.validationErrors.perPage }}</li>
+            <li v-if="store.validationErrors.sort">{{ store.validationErrors.sort }}</li>
+          </ul>
+          <p class="text-xs mt-2">Por favor, corrige estos errores en los filtros.</p>
         </div>
 
         <div v-if="store.isLoading && !store.items.length" class="grid gap-3" :class="gridCols">

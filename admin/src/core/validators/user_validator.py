@@ -4,7 +4,7 @@ Validaciones de entrada para usuarios.
 from src.web.exceptions import ValidationError, NotFoundError
 from src.core.models.user import User
 from src.core.models.rol_user import RolUser
-from .utils import require_fields, is_valid_email, ensure_max_length, is_strong_password
+from .utils import require_fields, is_valid_email, ensure_max_length, is_strong_password, clean_string
 
 
 MAX_NAME = 120
@@ -16,9 +16,9 @@ def validate_create_user(data: dict) -> dict:
     if missing:
         raise ValidationError(f"Faltan campos obligatorios: {', '.join(missing)}")
 
-    mail = (data.get('mail') or '').strip()
-    name = (data.get('name') or '').strip()
-    last_name = (data.get('last_name') or '').strip()
+    mail = clean_string(data.get('mail'))
+    name = clean_string(data.get('name'))
+    last_name = clean_string(data.get('last_name'))
     password = data.get('password') or ''
 
     if not is_valid_email(mail):
@@ -45,19 +45,19 @@ def validate_create_user(data: dict) -> dict:
 def validate_update_user(data: dict) -> dict:
     cleaned = {}
     if 'mail' in data:
-        mail = (data.get('mail') or '').strip()
+        mail = clean_string(data.get('mail'))
         if not is_valid_email(mail):
             raise ValidationError('Email inválido')
         if not ensure_max_length(mail, MAX_MAIL):
             raise ValidationError('El email no debe superar 120 caracteres')
         cleaned['mail'] = mail
     if 'name' in data:
-        name = (data.get('name') or '').strip()
+        name = clean_string(data.get('name'))
         if not ensure_max_length(name, MAX_NAME):
             raise ValidationError('El nombre no debe superar 120 caracteres')
         cleaned['name'] = name
     if 'last_name' in data:
-        last_name = (data.get('last_name') or '').strip()
+        last_name = clean_string(data.get('last_name'))
         if not ensure_max_length(last_name, MAX_NAME):
             raise ValidationError('El apellido no debe superar 120 caracteres')
         cleaned['last_name'] = last_name
@@ -89,3 +89,25 @@ def validate_role_ids(role_ids: list[int]) -> list[int]:
     if missing:
         raise NotFoundError(f"Roles no encontrados: {missing}")
     return ids
+
+
+def validate_user_exists(user_id: int) -> User:
+    """
+    Valida que un usuario existe y no está eliminado.
+    
+    Args:
+        user_id: ID del usuario a validar
+    
+    Returns:
+        User: Usuario encontrado
+    
+    Raises:
+        ValidationError: Si el usuario no existe o está eliminado
+    """
+    from src.core.validators.api_validator import validate_positive_int
+    
+    user_id = validate_positive_int(user_id, "user_id")
+    user = User.query.filter_by(id=user_id, deleted=False).first()
+    if not user:
+        raise ValidationError("Usuario inválido")
+    return user
