@@ -37,8 +37,9 @@ def register_hooks(app):
             return None
         
         try:
-            maintenance_enabled = flag_service.is_maintenance_mode()
-            maintenance_message = flag_service.get_maintenance_message()
+            maintenance_flag = flag_service.get_flag_by_key("admin_maintenance_mode")
+            maintenance_enabled = maintenance_flag.enabled if maintenance_flag else False
+            maintenance_message = maintenance_flag.message if maintenance_flag else None
         except Exception:
             return None
 

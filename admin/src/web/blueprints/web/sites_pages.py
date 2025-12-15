@@ -121,11 +121,9 @@ def alta_sitios():
     try:
         options = historic_site_service.get_filter_options()
         tags = options.get('tags', [])
+        states = options.get('states', [])
     except Exception:
         tags = []
-    try:
-        states = state_service.get_all_states()
-    except Exception:
         states = []
     try:
         categories = category_service.get_all_categories()
@@ -140,17 +138,23 @@ def modificar_sitios():
     """Formulario SSR de edición de sitio (incluye opciones y datos del sitio)."""
     edit_id = request.args.get('edit')
     site = None
+    
     if edit_id:
         try:
             edit_id = int(edit_id)
         except (ValueError, TypeError):
             flash('ID de sitio inválido', 'error')
             return redirect(url_for('sites_web.lista_sitios'))
-    if edit_id:
+        
         try:
             site = historic_site_service.get_historic_site(edit_id)
-        except Exception:
-            site = None
+        except exc.NotFoundError:
+            flash('Sitio histórico no encontrado', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
+        except Exception as e:
+            flash(f'Error al cargar el sitio: {str(e)}', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
+    
     try:
         states = state_service.get_all_states()
     except Exception:
@@ -166,8 +170,13 @@ def modificar_sitios():
 @web_permission_required("site_show")
 def site_detail_fragment(site_id: int):
     """Fragmento HTML con detalle de sitio para uso en modales o vistas parciales."""
-    site = historic_site_service.get_historic_site(site_id)
-    return render_template("features/sites/_detail.html.jinja", site=site)
+    try:
+        site = historic_site_service.get_historic_site(site_id)
+        return render_template("features/sites/_detail.html.jinja", site=site)
+    except exc.NotFoundError:
+        return '<div class="text-red-600 p-4">Sitio histórico no encontrado</div>', 404
+    except Exception as e:
+        return f'<div class="text-red-600 p-4">Error al cargar el sitio: {str(e)}</div>', 500
 
 
 @sites_web.route("/sitios/<int:site_id>/eliminar", methods=["POST"])
