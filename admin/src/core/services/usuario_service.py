@@ -91,16 +91,11 @@ class UserService:
             is_super_admin=is_super_admin,
         )
 
-        if role_ids and len(role_ids) > 0:
-            for role_id in role_ids:
-                role = RolUser.query.get(role_id)
-                if not role:
-                    raise ValidationError(f"Rol con ID {role_id} no encontrado")
-                user.user_roles.append(RolUserUser(Rol_User_id=role_id))
-        else:
-            default_role = RolUser.query.filter_by(name='usuario').first()
-            if default_role:
-                user.user_roles.append(RolUserUser(Rol_User_id=default_role.id))
+        for role_id in role_ids:
+            role = RolUser.query.get(role_id)
+            if not role:
+                raise ValidationError(f"Rol con ID {role_id} no encontrado")
+            user.user_roles.append(RolUserUser(Rol_User_id=role_id))
         
         try:
             db.session.add(user)

@@ -269,21 +269,9 @@ class ReviewService:
     def reject_review(self, *, review_id: int, reason: str) -> None:
         """Marca una reseña como rechazada y guarda el motivo.
 
-        Valida longitud del motivo (<=200). Lanza errores claros en caso de
-        entrada inválida, recurso no encontrado o fallo en BD.
+        Lanza errores claros en caso de recurso no encontrado o fallo en BD.
         """
-        try:
-            review_id = int(review_id)
-            if review_id <= 0:
-                raise exc.ValidationError("review_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("review_id debe ser un entero válido")
-        
-        if not reason or not reason.strip():
-            raise exc.ValidationError('Motivo de rechazo requerido')
-        reason = reason.strip()
-        if len(reason) > 200:
-            raise exc.ValidationError('Motivo de rechazo demasiado largo (max 200)')
+        review_id = validate_positive_int(review_id, "review_id")
 
         review = HistoricSiteReview.query.get(review_id)
         if not review:
