@@ -5,6 +5,7 @@ from src.core.services.category_service import category_service
 from src.core.services.historic_site_service import historic_site_service
 from src.core.services.site_image_service import site_image_service
 from src.core.validators.listing_validator import validate_site_list_params
+from src.core.validators.image_validator import validate_titulo_alt, validate_image_orders
 from src.web import exceptions as exc
 
 sites_web = Blueprint('sites_web', __name__)
@@ -365,8 +366,10 @@ def subir_imagen_sitio(site_id: int):
                 else:
                     descripcion = None
                 
-                if not titulo_alt:
-                    return jsonify({'success': False, 'error': f'El título/alt es obligatorio para la imagen {idx + 1}'}), 400
+                try:
+                    titulo_alt = validate_titulo_alt(titulo_alt, f"título/alt de la imagen {idx + 1}")
+                except exc.ValidationError as e:
+                    return jsonify({'success': False, 'error': str(e)}), 400
                 
                 is_cover = (cover_index is not None and idx == cover_index)
                 
@@ -398,11 +401,13 @@ def subir_imagen_sitio(site_id: int):
         return jsonify({'success': False, 'error': 'No se proporcionó ningún archivo'}), 400
     
     file = request.files['imagen']
-    titulo_alt = request.form.get('titulo_alt', '').strip()
+    titulo_alt_raw = request.form.get('titulo_alt', '')
     descripcion = request.form.get('descripcion', '').strip() or None
     
-    if not titulo_alt:
-        return jsonify({'success': False, 'error': 'El título/alt es obligatorio'}), 400
+    try:
+        titulo_alt = validate_titulo_alt(titulo_alt_raw)
+    except exc.ValidationError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
     
     try:
         image = site_image_service.upload_image(
@@ -472,10 +477,12 @@ def reordenar_imagenes_sitio(site_id: int):
                     nuevo_orden = int(request.form.get(key))
                     image_orders.append({'id': image_id, 'orden': nuevo_orden})
         
-        if not image_orders:
+        try:
+            validate_image_orders(image_orders)
+        except exc.ValidationError as e:
             if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'error': 'No se proporcionaron órdenes'}), 400
-            flash('No se proporcionaron órdenes', 'error')
+                return jsonify({'success': False, 'error': str(e)}), 400
+            flash(str(e), 'error')
             return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
         
         site_image_service.reorder_images(site_id, image_orders, user_id=data_user)

@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from io import BytesIO
+from src.core.validators.image_validator import validate_titulo_alt
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -125,15 +126,7 @@ class SiteImageService:
         if current_count >= MAX_IMAGES_PER_SITE:
             raise exc.ValidationError(f"Se ha alcanzado el límite máximo de {MAX_IMAGES_PER_SITE} imágenes por sitio.")
         
-        if not titulo_alt:
-            raise exc.ValidationError("El título/alt es obligatorio")
-        
-        titulo_alt = str(titulo_alt).strip()
-        if not titulo_alt:
-            raise exc.ValidationError("El título/alt es obligatorio")
-        
-        if len(titulo_alt) > 255:
-            raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
+        titulo_alt = validate_titulo_alt(titulo_alt)
         
         is_valid, error_msg = self._validate_file(file)
         if not is_valid:
@@ -407,16 +400,10 @@ class SiteImageService:
                 file = file_data.get('file')
                 
                 titulo_alt_raw = file_data.get('titulo_alt', '')
-                titulo_alt = str(titulo_alt_raw).strip() if titulo_alt_raw is not None else ''
+                titulo_alt = validate_titulo_alt(titulo_alt_raw, "título/alt")
                 
                 descripcion_raw = file_data.get('descripcion', '')
                 descripcion = str(descripcion_raw).strip() or None if descripcion_raw is not None else None
-                
-                if not titulo_alt:
-                    raise exc.ValidationError("El título/alt es obligatorio para todas las imágenes")
-                
-                if len(titulo_alt) > 255:
-                    raise exc.ValidationError(f"El título/alt '{titulo_alt}' excede 255 caracteres")
                 
                 is_valid, error_msg = self._validate_file(file)
                 if not is_valid:
@@ -481,12 +468,7 @@ class SiteImageService:
         
         try:
             if titulo_alt is not None:
-                titulo_alt_str = str(titulo_alt).strip() if titulo_alt else ''
-                if not titulo_alt_str:
-                    raise exc.ValidationError("El título/alt no puede estar vacío")
-                if len(titulo_alt_str) > 255:
-                    raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
-                image.titulo_alt = titulo_alt_str
+                image.titulo_alt = validate_titulo_alt(titulo_alt)
             
             if descripcion is not None:
                 if descripcion:

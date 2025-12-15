@@ -133,6 +133,12 @@ def format_validation_error_for_api(error: ValidationError) -> dict:
     if 'site_id' in error_msg:
         details['site_id'] = [str(error)]
     
+    if 'sort' in error_msg:
+        if 'asc' in error_msg or 'desc' in error_msg:
+            details['sort'] = ["Must be 'asc' or 'desc'"]
+        else:
+            details['sort'] = [str(error)]
+    
     if not details:
         details['_global'] = [str(error)]
     

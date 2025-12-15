@@ -11,6 +11,7 @@ from src.core.validators.reviews_validator import (
 )
 from src.core.validators.listing_validator import _validate_sort
 from src.core.validators.api_validator import validate_positive_int
+from src.core.validators.user_validator import validate_user_exists
 from src.core.services.flag_service import flag_service
 
 
@@ -183,9 +184,7 @@ class ReviewService:
         if not site:
             raise exc.NotFoundError("Sitio histórico no encontrado")
 
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise exc.ValidationError("Usuario no válido")
+        validate_user_exists(user_id)
 
         if self._has_existing_review(site_id, user_id):
             raise exc.ValidationError("Ya existe una reseña para este sitio. Use la opción de editar.")
@@ -316,7 +315,7 @@ class ReviewService:
         
         site_id = validate_positive_int(site_id, "site_id")
         review_id = validate_positive_int(review_id, "review_id")
-        user_id = self._validate_positive_int(user_id, "user_id")
+        user_id = validate_positive_int(user_id, "user_id")
 
         site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
         if not site:
@@ -352,26 +351,9 @@ class ReviewService:
         if not flag_service.is_reviews_enabled():
             raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
         
-        try:
-            site_id = int(site_id)
-            if site_id <= 0:
-                raise exc.ValidationError("site_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("site_id debe ser un entero válido")
-        
-        try:
-            review_id = int(review_id)
-            if review_id <= 0:
-                raise exc.ValidationError("review_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("review_id debe ser un entero válido")
-        
-        try:
-            current_user_id = int(current_user_id)
-            if current_user_id <= 0:
-                raise exc.ValidationError("user_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("user_id debe ser un entero válido")
+        site_id = validate_positive_int(site_id, "site_id")
+        review_id = validate_positive_int(review_id, "review_id")
+        current_user_id = validate_positive_int(current_user_id, "user_id")
 
         site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
         if not site:

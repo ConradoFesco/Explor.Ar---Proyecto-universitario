@@ -7,6 +7,7 @@ from .listing_validator import (
 )
 from .api_validator import validate_positive_int
 from .utils import clean_optional_string, clean_string
+from typing import Optional
 
 def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_order=None,
                                 status=None, site_id=None, user=None,
@@ -138,3 +139,22 @@ def validate_rejection_reason(reason):
         raise ValidationError('El motivo de rechazo no puede superar los 200 caracteres')
     
     return reason_cleaned
+
+
+def validate_review_sort(sort: Optional[str]) -> str:
+    """
+    Valida el parámetro de ordenamiento para listado de reseñas.
+    
+    Args:
+        sort: Valor del parámetro sort ('asc' o 'desc')
+    
+    Returns:
+        str: Valor validado (default: 'desc')
+    
+    Raises:
+        ValidationError: Si el valor es inválido
+    """
+    if sort and sort not in ['asc', 'desc']:
+        raise ValidationError("sort debe ser 'asc' o 'desc'")
+    
+    return sort if sort else 'desc'
