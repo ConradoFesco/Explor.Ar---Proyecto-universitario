@@ -3,6 +3,7 @@ from flask import jsonify, session, redirect, url_for, flash, request, g, curren
 from src.core.services.auth_service import auth_service
 import jwt
 
+
 def permission_required(permission_name):
     """
     Decorador para validar si el usuario tiene un permiso específico.

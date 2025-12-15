@@ -20,7 +20,7 @@ __all__ = [
     'User',
     'PrivateUser',
     'PublicUser',
-    'CategorySite', 
+    'CategorySite',
     'Province',
     'City',
     'StateSite',

@@ -2,6 +2,7 @@ from src.web.extensions import db
 from datetime import datetime
 from typing import Dict, Any
 
+
 class SiteImage(db.Model):
     __tablename__ = 'Site_Image'
     
@@ -32,5 +33,3 @@ class SiteImage(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-
-

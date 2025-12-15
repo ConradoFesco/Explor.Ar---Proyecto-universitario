@@ -11,6 +11,7 @@ from src.core.validators.reviews_validator import (
 )
 from src.core.validators.listing_validator import _validate_sort
 from src.core.validators.api_validator import validate_positive_int
+from src.core.validators.user_validator import validate_user_exists
 from src.core.services.flag_service import flag_service
 
 
@@ -28,12 +29,12 @@ class ReviewService:
         return existing_review is not None
 
     def list_reviews(self, *, page=None, per_page=None, sort_by=None, sort_order=None,
-                    status=None, site_id=None,
-                    user=None, rating_from=None, rating_to=None,
-                    date_from=None, date_to=None,
-                    user_id: int | None = None,
-                    only_approved: bool = False,
-                    include_user_pending: int | None = None) -> dict:
+                     status=None, site_id=None,
+                     user=None, rating_from=None, rating_to=None,
+                     date_from=None, date_to=None,
+                     user_id: int | None = None,
+                     only_approved: bool = False,
+                     include_user_pending: int | None = None) -> dict:
         """
         Lista reseñas con filtros, orden y paginación.
 
@@ -71,7 +72,7 @@ class ReviewService:
                 query = query.filter(
                     or_(
                         HistoricSiteReview.status == 'approved',
-                        (HistoricSiteReview.status == 'pending') & 
+                        (HistoricSiteReview.status == 'pending') &
                         (HistoricSiteReview.user_id == include_user_pending)
                     )
                 )
@@ -155,7 +156,7 @@ class ReviewService:
                 }
             )
 
-        pages = (total + per_page - 1) // per_page 
+        pages = (total + per_page - 1) // per_page
         pagination = {
             'page': page,
             'pages': pages,
@@ -183,9 +184,7 @@ class ReviewService:
         if not site:
             raise exc.NotFoundError("Sitio histórico no encontrado")
 
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise exc.ValidationError("Usuario no válido")
+        validate_user_exists(user_id)
 
         if self._has_existing_review(site_id, user_id):
             raise exc.ValidationError("Ya existe una reseña para este sitio. Use la opción de editar.")
@@ -269,21 +268,9 @@ class ReviewService:
     def reject_review(self, *, review_id: int, reason: str) -> None:
         """Marca una reseña como rechazada y guarda el motivo.
 
-        Valida longitud del motivo (<=200). Lanza errores claros en caso de
-        entrada inválida, recurso no encontrado o fallo en BD.
+        Lanza errores claros en caso de recurso no encontrado o fallo en BD.
         """
-        try:
-            review_id = int(review_id)
-            if review_id <= 0:
-                raise exc.ValidationError("review_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("review_id debe ser un entero válido")
-        
-        if not reason or not reason.strip():
-            raise exc.ValidationError('Motivo de rechazo requerido')
-        reason = reason.strip()
-        if len(reason) > 200:
-            raise exc.ValidationError('Motivo de rechazo demasiado largo (max 200)')
+        review_id = validate_positive_int(review_id, "review_id")
 
         review = HistoricSiteReview.query.get(review_id)
         if not review:
@@ -328,7 +315,7 @@ class ReviewService:
         
         site_id = validate_positive_int(site_id, "site_id")
         review_id = validate_positive_int(review_id, "review_id")
-        user_id = self._validate_positive_int(user_id, "user_id")
+        user_id = validate_positive_int(user_id, "user_id")
 
         site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
         if not site:
@@ -354,36 +341,18 @@ class ReviewService:
             db.session.refresh(review)
         except Exception as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al actualizar la reseña: {error}")
-        
+            raise exc.DatabaseError(f"Error al actualizar la reseña: {e}")
+
         return review
-    
 
     def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
         """Elimina una reseña. Solo el autor puede eliminarla."""
         if not flag_service.is_reviews_enabled():
             raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
         
-        try:
-            site_id = int(site_id)
-            if site_id <= 0:
-                raise exc.ValidationError("site_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("site_id debe ser un entero válido")
-        
-        try:
-            review_id = int(review_id)
-            if review_id <= 0:
-                raise exc.ValidationError("review_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("review_id debe ser un entero válido")
-        
-        try:
-            current_user_id = int(current_user_id)
-            if current_user_id <= 0:
-                raise exc.ValidationError("user_id debe ser un entero positivo")
-        except (ValueError, TypeError):
-            raise exc.ValidationError("user_id debe ser un entero válido")
+        site_id = validate_positive_int(site_id, "site_id")
+        review_id = validate_positive_int(review_id, "review_id")
+        current_user_id = validate_positive_int(current_user_id, "user_id")
 
         site = HistoricSite.query.filter_by(id=site_id, deleted=False).first()
         if not site:
@@ -416,6 +385,6 @@ class ReviewService:
         except Exception as e:
             db.session.rollback()
             raise exc.DatabaseError(f'Error al eliminar la reseña: {e}')
-    
+
 
 review_service = ReviewService()

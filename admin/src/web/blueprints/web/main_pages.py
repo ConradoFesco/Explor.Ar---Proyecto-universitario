@@ -47,4 +47,3 @@ def login_post():
         flash(str(e), 'error')
         return redirect(url_for('main.index'))
 
-

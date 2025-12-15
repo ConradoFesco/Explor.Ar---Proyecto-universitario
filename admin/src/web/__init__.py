@@ -36,8 +36,8 @@ def create_app(env="development", static_folder="../../static"):
     
     if cors_origins_env:
         cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
-        CORS(app, 
-             resources={ r"/api/*": {
+        CORS(app,
+             resources={r"/api/*": {
                  "origins": cors_origins,
                  "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                  "allow_headers": ["Content-Type", "Authorization", "Accept"],
@@ -49,14 +49,14 @@ def create_app(env="development", static_folder="../../static"):
             "http://localhost:5173",
             "http://127.0.0.1:5173",
         ]
-        CORS(app, 
-             resources={ r"/api/*": {
+        CORS(app,
+             resources={r"/api/*": {
                  "origins": dev_origins,
                  "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                  "allow_headers": ["Content-Type", "Authorization", "Accept"],
                  "supports_credentials": True
              }},
-            supports_credentials=True)
+             supports_credentials=True)
     register_blueprints(app)
     
     register_hooks(app)
@@ -91,7 +91,7 @@ def configure_app(app, env):
     app.config['MINIO_SECURE'] = os.getenv("MINIO_SECURE", "False").lower() == "true"
     app.config['MINIO_USE_HTTPS'] = os.getenv("MINIO_USE_HTTPS", "True").lower() == "true"
 
-   
+
 def initialize_extensions(app):
     """
     Inicializa todas las extensiones de Flask.

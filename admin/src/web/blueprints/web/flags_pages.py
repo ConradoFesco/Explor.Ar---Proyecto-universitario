@@ -22,7 +22,7 @@ def set_flag(flag_id: int):
     """Establece explícitamente el estado del flag (on/off)."""
     user_id = session.get('user_id')
     raw = (request.form.get('enabled') or '').strip().lower()
-    enabled = True if raw in ('1','true','on','yes') else False
+    enabled = True if raw in ('1', 'true', 'on', 'yes') else False
     message = (request.form.get('message') or '').strip() or None
     try:
         flag = flag_service.set_flag_state(flag_id, enabled, user_id, message=message)

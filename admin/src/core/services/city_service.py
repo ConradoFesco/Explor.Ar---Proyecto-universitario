@@ -4,6 +4,8 @@ Servicio para ciudades: búsqueda o creación asociada a una provincia.
 from src.core.models.city import City
 from src.web.extensions import db
 from src.web import exceptions as exc
+from src.core.validators.location_validator import validate_city_name
+
 
 class CityService:
     """Encapsula lógica para encontrar/crear ciudades vinculadas a provincias."""
@@ -18,18 +20,15 @@ class CityService:
         Returns:
             City: Instancia existente o nueva (no commit).
         """
-        if not name or not name.strip():
-            raise exc.ValidationError("El nombre de la ciudad no puede estar vacío")
+        validated_name = validate_city_name(name, province_obj)
             
-        if not province_obj:
-            raise exc.ValidationError("La provincia es requerida para crear la ciudad")
-            
-        city = City.query.filter_by(name=name.strip(), id_province=province_obj.id).first()
+        city = City.query.filter_by(name=validated_name, id_province=province_obj.id).first()
         
         if not city:
-            city = City(name=name.strip(), id_province=province_obj.id)
+            city = City(name=validated_name, id_province=province_obj.id)
             db.session.add(city)
             
         return city
+
 
 city_service = CityService()

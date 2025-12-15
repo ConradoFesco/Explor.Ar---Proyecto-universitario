@@ -33,8 +33,7 @@ def register_filters(app):
             try:
                 date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
                 return date_obj.strftime("%d/%m/%Y")
-            except:
+            except Exception:
                 return date_value
 
         return 'Sin fecha'
-

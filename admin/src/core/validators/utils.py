@@ -87,6 +87,7 @@ def is_valid_email(email: str | None) -> bool:
 
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{6,}$")
 
+
 def is_strong_password(password: str | None) -> bool:
     """Valida que la contraseña sea fuerte (al menos 6 caracteres, letras y números)."""
     if not password or not isinstance(password, str):

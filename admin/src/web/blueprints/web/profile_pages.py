@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, session, redirect, url_for, reques
 from src.web.auth.decorators import web_permission_required
 from src.core.services.usuario_service import user_service
 
+
 profile_web = Blueprint("profile_web", __name__)
 
 

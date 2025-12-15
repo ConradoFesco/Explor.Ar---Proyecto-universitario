@@ -40,4 +40,3 @@ def historial_eventos_fragment(site_id: int):
         site_id=site_id
     )
 
-

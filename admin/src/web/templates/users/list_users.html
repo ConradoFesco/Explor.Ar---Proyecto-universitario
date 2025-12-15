@@ -59,7 +59,7 @@
     pageUrl: "{{ url_for('users_web.list_users_page') }}",
     fragmentUrl: "{{ url_for('users_web.list_users_fragment') }}",
   };
-  window.CURRENT_USER_ID = {{ current_user.id | tojson if current_user else 'null' }};
+  window.CURRENT_USER_ID = {{ current_user_id | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/users.js') }}"></script>
 {% endblock %}

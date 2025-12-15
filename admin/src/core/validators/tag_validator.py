@@ -30,6 +30,7 @@ def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
     if non_existent_tags:
         raise ValidationError(f"Los siguientes tags no existen: {non_existent_tags}")
 
+
 def validate_tag(name: str, tag_id: int | None = None) -> dict:
     """
     Valida nombre de tag y unicidad (para create/update).

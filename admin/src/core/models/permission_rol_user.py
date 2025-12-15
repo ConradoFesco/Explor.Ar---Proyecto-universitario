@@ -1,6 +1,7 @@
 from src.web.extensions import db
 from typing import Dict, Any
 
+
 class PermissionRolUser(db.Model):
     __tablename__ = 'Permission_Rol_User'
     

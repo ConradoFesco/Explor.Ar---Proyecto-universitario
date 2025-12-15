@@ -62,6 +62,10 @@ class FavoriteService:
                 "total": int
             }
         }
+        Información adicional no especificada en la API:
+        - rating: Calificación promedio del sitio (number, opcional)
+        - cover_image_url: URL de la imagen de portada (string, opcional)
+        - is_favorite: Siempre true para este endpoint (boolean)
         """
         validate_user_exists(user_id)
 
@@ -138,5 +142,6 @@ class FavoriteService:
                 "total": pagination.total,
             },
         }
+
 
 favorite_service = FavoriteService()

@@ -3,7 +3,7 @@ Rutas Web para gestión de usuarios (renderizado HTML/Jinja).
 Requieren permisos equivalentes a los endpoints API.
 """
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
-from src.web.auth.decorators import web_permission_required
+from src.web.auth.decorators import web_permission_required, get_current_user
 from src.core.services.usuario_service import user_service
 from src.web.exceptions import ValidationError, NotFoundError
 
@@ -50,6 +50,11 @@ def list_users_page():
         role_options = [{'value': r.get('name'), 'label': r.get('name').capitalize()} for r in roles_all]
     except Exception:
         role_options = []
+    
+    current_user = get_current_user()
+    current_user_id = current_user.id if current_user else None
+    current_user_is_super_admin = getattr(current_user, 'is_super_admin', False) if current_user else False
+    
     return render_template(
         'users/list_users.html',
         users=result.get('users', []),
@@ -63,7 +68,9 @@ def list_users_page():
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
         },
-        role_options=role_options
+        role_options=role_options,
+        current_user_id=current_user_id,
+        current_user_is_super_admin=current_user_is_super_admin
     )
 
 
@@ -108,6 +115,11 @@ def list_users_fragment():
             sort_by='created_at',
             sort_order='desc',
         )
+    
+    current_user = get_current_user()
+    current_user_id = current_user.id if current_user else None
+    current_user_is_super_admin = getattr(current_user, 'is_super_admin', False) if current_user else False
+    
     return render_template(
         'features/users/_list_fragment.html.jinja',
         users=result.get('users', []),
@@ -120,7 +132,9 @@ def list_users_fragment():
             'has_next': result.get('has_next', False),
             'prev_num': result.get('prev_num'),
             'next_num': result.get('next_num'),
-        }
+        },
+        current_user_id=current_user_id,
+        current_user_is_super_admin=current_user_is_super_admin
     )
 
 
@@ -170,7 +184,7 @@ def create_user_web():
         role_ids = []
     active = bool(form.get('active'))
     blocked = bool(form.get('blocked'))
-    data_new_user = { 'name': name, 'last_name': last_name, 'mail': mail, 'password': password, 'roles': role_ids, 'active': active, 'blocked': blocked }
+    data_new_user = {'name': name, 'last_name': last_name, 'mail': mail, 'password': password, 'roles': role_ids, 'active': active, 'blocked': blocked}
     try:
         user_service.create_user(data_user=admin_id, data_new_user=data_new_user)
         flash('Usuario creado correctamente', 'success')
@@ -213,7 +227,7 @@ def update_user_page(user_id: int):
         role_ids = [int(r) for r in roles_raw if r.strip()]
     except Exception:
         role_ids = []
-    changed_fields = { 'name': name, 'last_name': last_name, 'mail': mail, 'active': active, 'blocked': blocked }
+    changed_fields = {'name': name, 'last_name': last_name, 'mail': mail, 'active': active, 'blocked': blocked}
     try:
         user_service.update_user(user_id, changed_fields, admin_user_id=admin_id)
         user_service.update_user_roles(user_id, role_ids, admin_user_id=admin_id)

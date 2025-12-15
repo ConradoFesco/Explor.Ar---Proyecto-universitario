@@ -6,6 +6,7 @@ from src.web.extensions import db
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 
+
 class StateService:
     """Operaciones básicas para listar y crear estados de sitio."""
     def get_all_states(self):
@@ -14,7 +15,6 @@ class StateService:
         if not states:
             raise NotFoundError("No se encontraron estados")
         return [state.to_dict() for state in states]
-    
 
     def create_state(self, data_state):
         """Crea un nuevo estado de conservación."""

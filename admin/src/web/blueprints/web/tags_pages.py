@@ -130,7 +130,7 @@ def crear_tag_web():
     payload_json = request.get_json(silent=True) or {}
     name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
     try:
-        tag_service.create_tag({ 'name': name })
+        tag_service.create_tag({'name': name})
         flash('Tag creado correctamente', 'success')
     except Exception as e:
         flash(str(e), 'error')
@@ -144,7 +144,7 @@ def editar_tag_web(tag_id: int):
     payload_json = request.get_json(silent=True) or {}
     name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
     try:
-        tag_service.update_tag(tag_id, { 'name': name })
+        tag_service.update_tag(tag_id, {'name': name})
         flash('Tag actualizado', 'success')
     except Exception as e:
         flash(str(e), 'error')

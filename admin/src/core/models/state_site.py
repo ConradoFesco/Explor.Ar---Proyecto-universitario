@@ -1,6 +1,7 @@
 from src.web.extensions import db
 from typing import Dict, Any
 
+
 class StateSite(db.Model):
     __tablename__ = 'State_Site'
     

@@ -12,7 +12,6 @@ from src.web.auth.decorators import get_current_user, token_or_session_required
 login_bp = Blueprint("login_bp", __name__)
 
 def _build_jwt_for_user(user):
-
     """
     Genera un JWT para el usuario autenticado.
     
@@ -315,9 +314,9 @@ def google_exchange():
             "expires_in": expires_in
         }))
         _set_jwt_cookie(response, jwt_token, expires_in)
-        
+
         return response
-        
+
     except exc.AuthenticationError as e:
         return _error_response(
             code="google_auth_failed",

@@ -28,7 +28,7 @@ import math
 
 class HistoricSiteService:
     """Casos de uso de sitios históricos (crear, obtener, listar, actualizar, tags, exportar)."""
-    
+
     @staticmethod
     def _build_pagination_dict(pagination):
         """Construye un diccionario de paginación estándar."""
@@ -42,7 +42,7 @@ class HistoricSiteService:
             'next_num': pagination.next_num,
             'prev_num': pagination.prev_num
         }
-    
+
     def create_historic_site(self, data_site, data_user):
         """
         Crea un sitio histórico y registra evento de creación.
@@ -84,18 +84,19 @@ class HistoricSiteService:
             db.session.flush()
             
             historic_site = HistoricSite(
-                name=name, 
-                brief_description=brief_description, 
-                complete_description=complete_description, 
-                id_ciudad=city.id, 
-                latitude=latitude, 
-                longitude=longitude, 
-                id_estado=id_estado, 
-                year_inauguration=year_inauguration, 
-                id_category=id_category, 
-                visible=visible, 
-                deleted=deleted, 
-                created_at=created_at)
+                name=name,
+                brief_description=brief_description,
+                complete_description=complete_description,
+                id_ciudad=city.id,
+                latitude=latitude,
+                longitude=longitude,
+                id_estado=id_estado,
+                year_inauguration=year_inauguration,
+                id_category=id_category,
+                visible=visible,
+                deleted=deleted,
+                created_at=created_at
+            )
             
             db.session.add(historic_site)
             db.session.flush()

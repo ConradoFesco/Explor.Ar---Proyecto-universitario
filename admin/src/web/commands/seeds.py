@@ -77,8 +77,8 @@ def create_permissions():
         
         "profile_show",
         "profile_update_password",
-        "review_index" ,
-        "review_update" 
+        "review_index",
+        "review_update",
         "review_destroy"
     ]
     
@@ -127,7 +127,7 @@ def assign_permissions_to_roles(roles):
             "tag_new", "tag_show", "tag_index", "tag_update", "tag_destroy",
             "event_new", "event_show", "event_index", "event_update", "event_destroy",
             "state_new", "state_show", "state_index", "state_update", "state_destroy",
-            "profile_show", "profile_update_password", "review_index","review_update","review_destroy"
+            "profile_show", "profile_update_password", "review_index", "review_update", "review_destroy"
         ],
         "editor": [
             "site_new", "site_show", "site_index", "site_map_index", "site_update", "site_destroy",
@@ -136,11 +136,11 @@ def assign_permissions_to_roles(roles):
             "tag_new", "tag_show", "tag_index", "tag_update", "tag_destroy",
             "event_new", "event_show", "event_index", "event_update", "event_destroy",
             "state_new", "state_show", "state_index", "state_update", "state_destroy",
-            "profile_show", "profile_update_password", "review_index","review_update","review_destroy"
+            "profile_show", "profile_update_password", "review_index", "review_update", "review_destroy"
         ],
         "moderador": [
             "site_show", "site_index", "site_map_index",
-            "profile_show", "profile_update_password", "review_index","review_update","review_destroy"
+            "profile_show", "profile_update_password", "review_index", "review_update", "review_destroy"
         ],
         "usuario": [
             "site_show", "site_index", "site_map_index",
@@ -274,8 +274,10 @@ def create_super_admin():
     admin_user.set_password("grupo06")
     
     db.session.add(admin_user)
-    db.session.flush()  
+    db.session.flush()
     return True
+
+
 def create_dummy_users(existing_roles):
     """Crear 3 usuarios dummy y asignarles un rol distinto cada uno."""
     
@@ -853,15 +855,14 @@ def create_dummy_sites_if_needed(id_category, id_estado):
     print(f"   [OK] Sitios dummy creados: {len(dummy_sites)}")
     return dummy_sites
 
+
 def create_test_reviews(users):
     """
     Crea reseñas de prueba. Asegura usuarios y sitios (crea dummy si hace falta).
     Usa strings para status ('pending','approved','rejected','deleted').
     """
-  
     print("[REVIEWS] Creando resenas de prueba...")
 
-   
     if not users:
         print("   [ERROR] No hay usuarios y no se pudieron crear.")
         return 0
@@ -926,7 +927,7 @@ def main(app=None):
             
             print("\n[2/9] Creando roles...")
             roles, roles_creados = create_roles()
-            db.session.commit() 
+            db.session.commit()
             print(f"   [OK] Roles procesados: {roles_creados} nuevos")
             
             print("\n[3/9] Asignando permisos a roles...")
@@ -1005,4 +1006,3 @@ def main(app=None):
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
-

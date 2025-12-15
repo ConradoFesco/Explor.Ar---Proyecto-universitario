@@ -131,7 +131,7 @@ def get_public_historic_site(site_id):
     try:
         user_id = get_current_user_id()
         site_data = historic_site_service.get_historic_site(site_id, user_id=user_id)
-        
+        # TO-DO: no convertir latitude y longitude a float
         try:
             lat_val = float(site_data.get('latitude')) if site_data.get('latitude') is not None else None
             long_val = float(site_data.get('longitude')) if site_data.get('longitude') is not None else None

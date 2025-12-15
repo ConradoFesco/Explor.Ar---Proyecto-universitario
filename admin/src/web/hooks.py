@@ -99,4 +99,3 @@ def register_hooks(app):
             'user_initials': '',
             'is_super_admin': False
         }
-

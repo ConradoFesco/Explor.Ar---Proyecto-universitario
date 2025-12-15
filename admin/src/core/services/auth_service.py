@@ -9,6 +9,7 @@ from src.web.extensions import db
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
+
 class AuthService:
     """Servicio de autenticación: login y utilidades relacionadas."""
     def login(self, mail, password):
@@ -105,5 +106,6 @@ class AuthService:
         
         user = User.query.filter_by(id=user_id, deleted=False).first()
         return user
+
 
 auth_service = AuthService()
