@@ -79,8 +79,8 @@ poetry run flask reset-db --yes
 - Crea todas las tablas desde cero
 - Ejecuta los seeds que crean:
   - 39 permisos del sistema
-  - 4 roles (admin, editor, moderador, usuario)
-  - 89 relaciones permiso-rol
+  - 3 roles (admin, editor, moderador)
+  - Relaciones permiso-rol
   - 3 categorías de sitios
   - 3 estados de conservación
   - 3 flags del sistema

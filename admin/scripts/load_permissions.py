@@ -88,9 +88,7 @@ def create_roles():
     roles = {
         "admin": "Administrador del sistema - acceso completo",
         "editor": "Editor - puede crear, editar y eliminar contenido",
-        "moderator": "Moderador - puede revisar y moderar reseñas",
-        
-        "usuario": "Usuario autenticado - solo puede ver contenido"
+        "moderator": "Moderador - puede revisar y moderar reseñas"
     }
     
     created_roles = {}
@@ -138,13 +136,6 @@ def assign_permissions_to_roles(roles):
             # permisos limitados pero incluye moderación
             "site_show", "site_index", "site_map_index",
             "profile_show", "profile_update_password", "review_index","review_update","review_destroy"
-        ],
-        "usuario": [
-            # Permisos básicos para usuarios autenticados
-            "site_show", "site_index", "site_map_index",
-            "category_show", "category_index", "tag_show", "tag_index",
-            "state_show", "state_index", "event_show", "event_index",
-            "profile_show", "profile_update_password"
         ]
 
     }
