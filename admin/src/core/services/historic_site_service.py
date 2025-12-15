@@ -179,6 +179,8 @@ class HistoricSiteService:
                               visible=None): 
         """
         Lista sitios con paginación, filtros y orden.
+        
+        Nota: Los parámetros deben venir ya validados desde el controlador.
 
         Args: ver parámetros.
 
@@ -186,17 +188,12 @@ class HistoricSiteService:
             dict: {'sites': [...], 'pagination': {...}}
         """
         from sqlalchemy import and_, or_, desc, asc, func
+        from datetime import datetime
         
-        from src.core.validators.listing_validator import validate_site_list_params
-        params = validate_site_list_params(
-            page=page, per_page=per_page, search_text=search_text, sort_by=sort_by, sort_order=sort_order,
-            city_id=city_id, province_id=province_id, tag_ids=tag_ids, state_id=state_id,
-            date_from=date_from, date_to=date_to, visible=visible,
-        )
-        page = params['page']; per_page = params['per_page']; search_text = params['search_text']
-        sort_by = params['sort_by']; sort_order = params['sort_order']; city_id = params['city_id']
-        province_id = params['province_id']; tag_ids = params['tag_ids']; state_id = params['state_id']
-        date_from = params['date_from']; date_to = params['date_to']; visible = params['visible']
+        if date_from and isinstance(date_from, str):
+            date_from = datetime.strptime(date_from, '%Y-%m-%d')
+        if date_to and isinstance(date_to, str):
+            date_to = datetime.strptime(date_to, '%Y-%m-%d')
 
         query = HistoricSite.query
         
