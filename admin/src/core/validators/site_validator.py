@@ -13,7 +13,10 @@ MAX_BRIEF = 2000
 
 
 def validate_create_site(data: dict) -> dict:
-    required = ['name', 'brief_description', 'name_city', 'name_province', 'latitude', 'longitude', 'id_category', 'visible']
+    required = [
+        'name', 'brief_description', 'name_city', 'name_province',
+        'latitude', 'longitude', 'id_category', 'visible'
+    ]
     missing = require_fields(data, required)
     if missing:
         raise ValidationError(f"Faltan campos obligatorios del sitio histórico: {', '.join(missing)}")
@@ -44,7 +47,7 @@ def validate_create_site(data: dict) -> dict:
         id_estado = _validate_optional_int(id_estado, 'id_estado', must_be_positive=True)
         if id_estado is not None and not StateSite.query.get(id_estado):
             raise NotFoundError('Estado de conservación no encontrado')
-    
+
     id_category = _validate_optional_int(id_category, 'id_category', must_be_positive=True)
     if id_category is None:
         raise ValidationError('id_category es requerido')

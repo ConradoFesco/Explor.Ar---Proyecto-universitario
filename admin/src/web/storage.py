@@ -1,6 +1,7 @@
 from minio import Minio
 
-class Storage: 
+
+class Storage:
     def __init__(self, app=None):
         self._client = None
 
@@ -19,5 +20,6 @@ class Storage:
         )
         app.storage = self._client
         return app
+
 
 storage = Storage()

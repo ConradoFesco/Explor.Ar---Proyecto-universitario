@@ -1,6 +1,7 @@
 from src.web.extensions import db
 from typing import Dict, Any
 
+
 class CategorySite(db.Model):
     __tablename__ = 'Category_Site'
     

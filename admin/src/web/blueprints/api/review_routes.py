@@ -129,7 +129,10 @@ def create_site_review(site_id: int):
             "rating": review.rating,
             "comment": review.content,
             "inserted_at": review.created_at.isoformat() if review.created_at else None,
-            "updated_at": review.updated_at.isoformat() if review.updated_at else (review.created_at.isoformat() if review.created_at else None),
+            "updated_at": (
+                review.updated_at.isoformat() if review.updated_at else
+                (review.created_at.isoformat() if review.created_at else None)
+            ),
         }
         response = jsonify(data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
@@ -185,7 +188,7 @@ def get_site_review(site_id: int, review_id: int):
     """
     user_id = get_current_user_id()
     
-    #TO-DO: validar review_id en validators para que sea positivo
+    # TO-DO: validar review_id en validators para que sea positivo
     if review_id <= 0:
         return jsonify(
             {
@@ -289,7 +292,10 @@ def update_site_review(site_id: int, review_id: int):
             "rating": review.rating,
             "comment": review.content,
             "inserted_at": review.created_at.isoformat() if review.created_at else None,
-            "updated_at": review.updated_at.isoformat() if review.updated_at else (review.created_at.isoformat() if review.created_at else None),
+            "updated_at": (
+                review.updated_at.isoformat() if review.updated_at else
+                (review.created_at.isoformat() if review.created_at else None)
+            ),
         }
         response = jsonify(data)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'

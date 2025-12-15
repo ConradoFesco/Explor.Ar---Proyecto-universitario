@@ -29,12 +29,12 @@ class ReviewService:
         return existing_review is not None
 
     def list_reviews(self, *, page=None, per_page=None, sort_by=None, sort_order=None,
-                    status=None, site_id=None,
-                    user=None, rating_from=None, rating_to=None,
-                    date_from=None, date_to=None,
-                    user_id: int | None = None,
-                    only_approved: bool = False,
-                    include_user_pending: int | None = None) -> dict:
+                     status=None, site_id=None,
+                     user=None, rating_from=None, rating_to=None,
+                     date_from=None, date_to=None,
+                     user_id: int | None = None,
+                     only_approved: bool = False,
+                     include_user_pending: int | None = None) -> dict:
         """
         Lista reseñas con filtros, orden y paginación.
 
@@ -72,7 +72,7 @@ class ReviewService:
                 query = query.filter(
                     or_(
                         HistoricSiteReview.status == 'approved',
-                        (HistoricSiteReview.status == 'pending') & 
+                        (HistoricSiteReview.status == 'pending') &
                         (HistoricSiteReview.user_id == include_user_pending)
                     )
                 )
@@ -156,7 +156,7 @@ class ReviewService:
                 }
             )
 
-        pages = (total + per_page - 1) // per_page 
+        pages = (total + per_page - 1) // per_page
         pagination = {
             'page': page,
             'pages': pages,
@@ -341,10 +341,9 @@ class ReviewService:
             db.session.refresh(review)
         except Exception as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al actualizar la reseña: {error}")
-        
+            raise exc.DatabaseError(f"Error al actualizar la reseña: {e}")
+
         return review
-    
 
     def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
         """Elimina una reseña. Solo el autor puede eliminarla."""
@@ -386,6 +385,6 @@ class ReviewService:
         except Exception as e:
             db.session.rollback()
             raise exc.DatabaseError(f'Error al eliminar la reseña: {e}')
-    
+
 
 review_service = ReviewService()

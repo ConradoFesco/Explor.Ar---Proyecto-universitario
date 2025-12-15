@@ -15,10 +15,9 @@ class HistoricSiteReview(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
     rejection_reason = db.Column(db.String(200), nullable=True)
-    
 
     user = db.relationship('User', foreign_keys=[user_id], lazy='joined', overlaps='reviews')
-  
+
     def __repr__(self) -> str:
         return f'<HistoricSiteReview site={self.site_id} user={self.user_id} rating={self.rating}>'
 

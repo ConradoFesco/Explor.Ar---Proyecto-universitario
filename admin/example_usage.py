@@ -23,6 +23,7 @@ from src.core.models.rol_user_user import RolUserUser
 from src.core.models.tag_historic_site import TagHistoricSite
 from src.core.models.flag import Flag
 
+
 def setup_database():
     """Configurar la base de datos y crear tablas"""
     app = create_app()
@@ -31,6 +32,7 @@ def setup_database():
         db.create_all()
         print("✅ Base de datos configurada correctamente")
         return app
+
 
 def create_sample_data(app):
     """Crear datos de ejemplo de forma segura (verificando si ya existen)"""
@@ -80,9 +82,8 @@ def create_sample_data(app):
         if created_states:
             db.session.commit()
         print(f"✅ Creados {len(created_states)} nuevos estados de sitios.")
-        
-        print("✅ Datos de ejemplo creados/verificados correctamente.")
 
+        print("✅ Datos de ejemplo creados/verificados correctamente.")
 
         flags_to_create = [
             {"key": 1, "name": "admin_maintenance_mode", "description": "Deshabilita temporalmente el sitio de administración", "enabled": False, "message": "El sitio está en mantenimiento", "last_modified_by": "System Admin", "last_modified_at": datetime.now()},
@@ -112,7 +113,6 @@ def create_sample_data(app):
         if created_flags > 0:
             db.session.commit()
         print(f"✅ Total de flags creados: {created_flags}")
-   
 
 
 def query_examples(app):
@@ -135,6 +135,7 @@ def query_examples(app):
         print(f"👥 Usuarios activos: {len(active_users)}")
         for user in active_users:
             print(f"  - {user.name} {user.last_name} ({user.mail})")
+
 
 def main():
     """Función principal"""

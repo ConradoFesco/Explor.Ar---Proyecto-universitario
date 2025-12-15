@@ -7,8 +7,8 @@ from src.web.exceptions import ValidationError
 from .listing_validator import _validate_pagination
 
 
-def validate_api_pagination_params(page: Optional[object] = None, per_page: Optional[object] = None, 
-                                   default_page: int = 1, default_per_page: int = 20, 
+def validate_api_pagination_params(page: Optional[object] = None, per_page: Optional[object] = None,
+                                   default_page: int = 1, default_per_page: int = 20,
                                    max_per_page: int = 100) -> tuple[int, int]:
     """
     Valida parámetros de paginación para APIs.
@@ -28,9 +28,9 @@ def validate_api_pagination_params(page: Optional[object] = None, per_page: Opti
     """
     try:
         page_val, per_page_val = _validate_pagination(
-            page, per_page, 
-            default_page=default_page, 
-            default_per_page=default_per_page, 
+            page, per_page,
+            default_page=default_page,
+            default_per_page=default_per_page,
             max_per_page=max_per_page
         )
         return page_val, per_page_val

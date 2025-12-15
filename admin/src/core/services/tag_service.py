@@ -11,9 +11,10 @@ from src.core.models.historic_site import HistoricSite
 from src.core.validators.tag_validator import validate_tag
 from src.core.validators.listing_validator import validate_tag_list_params
 
+
 class TagService:
     """Operaciones sobre tags, con validaciones de unicidad y relaciones."""
-    def create_tag(self, data): 
+    def create_tag(self, data):
         """Crea un tag nuevo o recupera uno eliminado (reactiva) si coincide el nombre."""
         name = data.get('name')
         validated = validate_tag(name)
@@ -42,7 +43,7 @@ class TagService:
                 db.session.rollback()
                 raise DatabaseError(f"Error al crear el tag: {str(e)}")
 
-    def get_all_tags(self, include_deleted=False): 
+    def get_all_tags(self, include_deleted=False):
         """Lista todos los tags (opcionalmente incluye eliminados)."""
         query = Tag.query
         if not include_deleted:
@@ -50,7 +51,7 @@ class TagService:
         tags = query.all()
         return [tag.to_dict() for tag in tags]
 
-    def get_tag_by_id(self, tag_id): 
+    def get_tag_by_id(self, tag_id):
         """Obtiene un tag por ID (no eliminado)."""
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
@@ -64,7 +65,7 @@ class TagService:
             raise NotFoundError("Tag no encontrado.")
         return tag.to_dict()
 
-    def update_tag(self, tag_id, data): 
+    def update_tag(self, tag_id, data):
         """Actualiza nombre/slug de un tag, validando unicidad."""
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
@@ -84,7 +85,7 @@ class TagService:
             db.session.rollback()
             raise DatabaseError(f"Error al actualizar el tag: {str(e)}")
 
-    def delete_tag(self, tag_id): 
+    def delete_tag(self, tag_id):
         """Elimina lógicamente un tag si no está asociado a sitios."""
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
@@ -173,5 +174,6 @@ class TagService:
                 'next_num': pagination.next_num,
             },
         }
+
 
 tag_service = TagService()

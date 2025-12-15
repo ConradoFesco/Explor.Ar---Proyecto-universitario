@@ -1,9 +1,9 @@
 from src.web.exceptions import ValidationError
 from .listing_validator import (
-    _validate_pagination, 
-    _validate_sort, 
-    _validate_optional_int, 
-    _validate_optional_date, 
+    _validate_pagination,
+    _validate_sort,
+    _validate_optional_int,
+    _validate_optional_date,
 )
 from .api_validator import validate_positive_int
 from .utils import clean_optional_string, clean_string

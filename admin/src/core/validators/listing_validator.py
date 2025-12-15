@@ -8,7 +8,7 @@ from .utils import clean_optional_string
 from .tag_validator import validate_tag_ids_exist
 
 
-def _validate_pagination(page: Optional[object], per_page: Optional[object], *, 
+def _validate_pagination(page: Optional[object], per_page: Optional[object], *,
                         default_page: int = 1, default_per_page: int = 20, max_per_page: int = 25) -> tuple[int, int]:
     """
     Valida parámetros de paginación.
@@ -370,8 +370,10 @@ def validate_user_list_params(*, page: Optional[int] = None, per_page: Optional[
     }
 
 
-def validate_event_list_params(*, page: Optional[object], per_page: Optional[object], user_id: Optional[object], user_email: Optional[str],
-                               type_action: Optional[str], date_from: Optional[str], date_to: Optional[str]) -> dict:
+def validate_event_list_params(*, page: Optional[object], per_page: Optional[object],
+                               user_id: Optional[object], user_email: Optional[str],
+                               type_action: Optional[str], date_from: Optional[str],
+                               date_to: Optional[str]) -> dict:
     """Valida filtros de eventos y devuelve tipos correctos para el servicio (datetime)."""
     page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=10, max_per_page=50)
     user_id = _validate_optional_int(user_id, 'user_id')

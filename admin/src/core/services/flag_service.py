@@ -7,13 +7,13 @@ from src.core.models.user import User
 from src.web.extensions import db
 from src.core.validators.utils import ensure_max_length
 
+
 class FlagService:
     """Opera sobre flags del sistema, incluyendo modo mantenimiento del admin."""
     
     def get_all_flags(self):
         """Devuelve todos los flags del sistema ordenados por id."""
         return Flag.query.order_by(Flag.id).all()
-
 
     def set_flag_state(self, flag_id: int, enabled: bool, data_user: int, message: str | None = None):
         """Establece explícitamente el estado del flag (idempotente) y opcionalmente el mensaje.
@@ -108,5 +108,6 @@ class FlagService:
         """Devuelve True si las reseñas están habilitadas."""
         flag = Flag.query.filter_by(key="reviews_enabled").first()
         return flag.enabled if flag else True  # Por defecto True si no existe el flag
+
 
 flag_service = FlagService()

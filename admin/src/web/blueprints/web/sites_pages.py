@@ -75,8 +75,9 @@ def lista_sitios():
     sites = result.get('sites', [])
     pagination = result.get('pagination', {})
     filters = historic_site_service.get_filter_options()
+
     def map_opts(items):
-        return [{ 'value': str(it.get('id')), 'label': it.get('name') } for it in (items or [])]
+        return [{'value': str(it.get('id')), 'label': it.get('name')} for it in (items or [])]
     filters_options = {
         'cities': map_opts(filters.get('cities')),
         'provinces': map_opts(filters.get('provinces')),

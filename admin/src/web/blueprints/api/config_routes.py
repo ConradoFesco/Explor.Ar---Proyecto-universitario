@@ -30,4 +30,3 @@ def get_system_status():
             "message": None,
             "reviews_enabled": True
         }), 200
-

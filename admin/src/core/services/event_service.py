@@ -7,6 +7,7 @@ from src.web import exceptions as exc
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
+
 class EventService:
     """Crear, listar (con filtros) y eliminar lógicamente eventos."""
     def create_event(self, data, commit=True):
@@ -49,7 +50,8 @@ class EventService:
             raise exc.DatabaseError(f"Error al crear el evento: {e}")
     
     def get_all_events(self, id, include_deleted=False, page=1, per_page=25,
-                       user_id=None, user_email=None, type_action=None, date_from: datetime | None = None, date_to: datetime | None = None):
+                       user_id=None, user_email=None, type_action=None,
+                       date_from: datetime | None = None, date_to: datetime | None = None):
         """
         Lista eventos de un sitio con filtros y paginación.
 
@@ -145,5 +147,6 @@ class EventService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al eliminar el evento: {e}")
         return event
+
 
 event_service = EventService()

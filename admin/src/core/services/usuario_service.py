@@ -22,7 +22,7 @@ from src.core.validators.profile_validator import validate_new_password
 
 class UserService:
     """Casos de uso relacionados a usuarios privados (crear, listar, actualizar, roles, bloqueo)."""
-    
+
     @staticmethod
     def _require_super_admin(actor_id: int, action: str = "realizar esta acción") -> PrivateUser:
         """
@@ -105,7 +105,6 @@ class UserService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al crear el usuario: {e}")
-
 
     def get_user(self, user_id):
         """
@@ -454,7 +453,7 @@ class UserService:
                 'name': role.name,
                 'assigned_at': getattr(role_rel, 'created_at', None)
             })
-        
+
         return roles
 
     def get_user_permissions(self, user_id):
@@ -574,5 +573,6 @@ class UserService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al desbloquear el usuario: {e}")
+
 
 user_service = UserService()

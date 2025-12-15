@@ -54,13 +54,23 @@ def _handle_review_action(action_name: str, action_func, success_message: str):
 def list_reviews_page():
     """Listado SSR de reseñas con filtros."""
     items = []
-    pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0, 'has_next': False, 'has_prev': False}
+    pagination = {
+        'page': 1,
+        'pages': 1,
+        'per_page': 25,
+        'total': 0,
+        'has_next': False,
+        'has_prev': False
+    }
     show_rejection_reason_column = False
     site_options = []
 
     try:
         sites = historic_site_service.get_sites_for_filter()
-        site_options = [{'value': str(s.get('id')), 'label': s.get('name')} for s in sites if s.get('id')]
+        site_options = [
+            {'value': str(s.get('id')), 'label': s.get('name')}
+            for s in sites if s.get('id')
+        ]
     except Exception as e:
         current_app.logger.exception("Error al cargar sitios para filtro", exc_info=e)
 
@@ -93,9 +103,16 @@ def list_reviews_page():
 def list_reviews_fragment():
     """Fragmento HTML para refrescar el listado de reseñas."""
     items = []
-    pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0, 'has_next': False, 'has_prev': False}
+    pagination = {
+        'page': 1,
+        'pages': 1,
+        'per_page': 25,
+        'total': 0,
+        'has_next': False,
+        'has_prev': False
+    }
     show_rejection_reason_column = False
-    
+
     try:
         params = _get_review_list_params()
         result = review_service.list_reviews(**params)
@@ -162,7 +179,7 @@ def rechazar_review(review_id):
     except exc.ValidationError as e:
         flash(str(e), 'error')
         return redirect(url_for('reviews_web.list_reviews_page'))
-    
+
     return _handle_review_action(
         'rechazar',
         lambda: review_service.reject_review(review_id=review_id, reason=reason),

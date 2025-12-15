@@ -6,6 +6,7 @@ from src.web.extensions import db
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 
+
 class CategoryService:
     """Operaciones básicas para listar y crear categorías."""
     def get_all_categories(self):
@@ -14,7 +15,6 @@ class CategoryService:
         if not categories:
             raise NotFoundError("No se encontraron categorías")
         return [category.to_dict() for category in categories]
-    
 
     def create_category(self, data_category):
         """Crea una nueva categoría de sitio histórico."""

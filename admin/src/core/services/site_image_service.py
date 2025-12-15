@@ -116,8 +116,8 @@ class SiteImageService:
         filename = f"site_image_{unique_number}.{extension}"
         return filename
     
-    def upload_image(self, site_id: int, file, titulo_alt: str, descripcion: Optional[str] = None, 
-                    user_id: int = None) -> SiteImage:
+    def upload_image(self, site_id: int, file, titulo_alt: str, descripcion: Optional[str] = None,
+                     user_id: int = None) -> SiteImage:
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
@@ -379,8 +379,8 @@ class SiteImageService:
         
         return url_publica, unique_filename
     
-    def upload_multiple_images(self, site_id: int, files_data: List[Dict[str, Any]], 
-                              user_id: int = None) -> List[SiteImage]:
+    def upload_multiple_images(self, site_id: int, files_data: List[Dict[str, Any]],
+                               user_id: int = None) -> List[SiteImage]:
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
@@ -460,8 +460,8 @@ class SiteImageService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al crear imágenes: {e}")
     
-    def update_image_metadata(self, image_id: int, titulo_alt: Optional[str] = None, 
-                              descripcion: Optional[str] = None, user_id: int = None) -> SiteImage:
+    def update_image_metadata(self, image_id: int, titulo_alt: Optional[str] = None,
+                               descripcion: Optional[str] = None, user_id: int = None) -> SiteImage:
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")

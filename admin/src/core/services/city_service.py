@@ -6,6 +6,7 @@ from src.web.extensions import db
 from src.web import exceptions as exc
 from src.core.validators.location_validator import validate_city_name
 
+
 class CityService:
     """Encapsula lógica para encontrar/crear ciudades vinculadas a provincias."""
     def find_or_create(self, name, province_obj):
@@ -28,5 +29,6 @@ class CityService:
             db.session.add(city)
             
         return city
+
 
 city_service = CityService()
