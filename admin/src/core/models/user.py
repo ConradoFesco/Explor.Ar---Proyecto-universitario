@@ -1,8 +1,9 @@
 from src.web.extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set, Optional
 from sqlalchemy import Index
+from sqlalchemy.orm import joinedload
 
 
 class User(db.Model):
@@ -98,6 +99,7 @@ class PrivateUser(User):
     def has_permission(self, permission_name: str) -> bool:
         """
         Verifica si el usuario tiene un permiso específico de forma eficiente.
+        Usa cache en memoria para evitar consultas repetidas.
         
         Args:
             permission_name (str): Nombre del permiso a verificar
@@ -108,13 +110,43 @@ class PrivateUser(User):
         if self.is_super_admin:
             return True
         
-        for rol_rel in self.user_roles:
-            rol = rol_rel.rol_user
-            for perm_rel in rol.permission_rol_users:
-                if perm_rel.permission.name == permission_name:
-                    return True
+        if not hasattr(self, '_cached_permissions') or self._cached_permissions is None:
+            self._load_permissions_cache()
         
-        return False
+        return permission_name in self._cached_permissions
+    
+    def _load_permissions_cache(self) -> None:
+        """
+        Carga todos los permisos del usuario en un set para búsqueda eficiente.
+        Usa una consulta SQL optimizada con JOINs para evitar N+1 queries.
+        """
+        from src.core.models.permission import Permission
+        from src.core.models.permission_rol_user import PermissionRolUser
+        from src.core.models.rol_user import RolUser
+        from src.core.models.rol_user_user import RolUserUser
+        
+        permission_names = (
+            db.session.query(Permission.name)
+            .join(PermissionRolUser, Permission.id == PermissionRolUser.Permission_id)
+            .join(RolUser, PermissionRolUser.Rol_User_id == RolUser.id)
+            .join(RolUserUser, RolUser.id == RolUserUser.Rol_User_id)
+            .filter(RolUserUser.User_id == self.id)
+            .filter(Permission.deleted == False)
+            .distinct()
+            .all()
+        )
+        
+        permission_set = {name for name, in permission_names}
+        
+        self._cached_permissions = frozenset(permission_set)
+    
+    def invalidate_permissions_cache(self) -> None:
+        """
+        Invalida el cache de permisos, forzando una recarga en la próxima verificación.
+        Debe llamarse cuando se modifican los roles o permisos del usuario.
+        """
+        if hasattr(self, '_cached_permissions'):
+            self._cached_permissions = None
 
     def get_user_roles(self) -> List[str]:
         """Retorna los nombres de los roles del usuario."""

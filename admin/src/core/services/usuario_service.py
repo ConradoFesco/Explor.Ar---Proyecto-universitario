@@ -513,6 +513,10 @@ class UserService:
             
             if commit:
                 db.session.commit()
+            
+            if target_user and hasattr(target_user, 'invalidate_permissions_cache'):
+                target_user.invalidate_permissions_cache()
+            
             return {"message": "Roles actualizados correctamente"}
         except IntegrityError as e:
             db.session.rollback()
