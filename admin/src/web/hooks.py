@@ -94,7 +94,7 @@ def register_hooks(app):
                     user_service.hydrate_user_permissions(current_user)
                 
                 return {
-                    'current_user': current_user,  # Pasar el objeto, no el diccionario
+                    'current_user': current_user,
                     'user_roles': role_names,
                     'user_permissions': perms,
                     'user_initials': initials,

@@ -176,16 +176,11 @@ def initialize_database_if_needed(app):
     Esta función borra la base de datos, la recrea y ejecuta los seeds
     en cada despliegue.
     
-    Puede deshabilitarse con variable de entorno AUTO_INIT_DB=false
+    Siempre se ejecuta al iniciar la aplicación.
     
     Args:
         app: Instancia de la aplicación Flask
     """
-    auto_init = os.getenv("AUTO_INIT_DB", "true").lower() == "true"
-    
-    if not auto_init:
-        return
-    
     with app.app_context():
         try:
             app.logger.info("🔧 Inicializando base de datos en cada deploy...")
