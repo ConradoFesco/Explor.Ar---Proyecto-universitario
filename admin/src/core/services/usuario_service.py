@@ -12,6 +12,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from werkzeug.security import generate_password_hash, check_password_hash
+from typing import Set
 from src.core.validators.user_validator import (
     validate_create_user,
     validate_update_user,
@@ -45,6 +46,46 @@ class UserService:
         if not actor or not actor.is_super_admin:
             raise ValidationError(f"Solo un SuperAdmin puede {action}")
         return actor
+    
+    @staticmethod
+    def fetch_user_permissions(user_id: int) -> Set[str]:
+        """
+        Obtiene todos los permisos de un usuario mediante una consulta SQL optimizada.
+        Usa JOINs para evitar N+1 queries.
+        
+        Args:
+            user_id (int): ID del usuario
+            
+        Returns:
+            Set[str]: Conjunto de nombres de permisos del usuario
+        """
+        from src.core.models.permission_rol_user import PermissionRolUser
+        from src.core.models.rol_user_user import RolUserUser
+        
+        permission_names = (
+            db.session.query(Permission.name)
+            .join(PermissionRolUser, Permission.id == PermissionRolUser.Permission_id)
+            .join(RolUser, PermissionRolUser.Rol_User_id == RolUser.id)
+            .join(RolUserUser, RolUser.id == RolUserUser.Rol_User_id)
+            .filter(RolUserUser.User_id == user_id)
+            .filter(Permission.deleted == False)
+            .distinct()
+            .all()
+        )
+        
+        return {name for name, in permission_names}
+    
+    @staticmethod
+    def hydrate_user_permissions(user: PrivateUser) -> None:
+        """
+        Busca los permisos del usuario y se los inyecta in-place.
+        Encapsula la lógica de hidratación para mantener el código más declarativo.
+        
+        Args:
+            user (PrivateUser): Usuario a hidratar con permisos
+        """
+        permissions = UserService.fetch_user_permissions(user.id)
+        user.set_permissions(permissions)
     
     def create_user(self, data_user, data_new_user, commit=True):
         """
@@ -109,6 +150,7 @@ class UserService:
     def get_user(self, user_id):
         """
         Obtiene un usuario privado no eliminado con roles actuales.
+        Hidrata los permisos del usuario antes de retornarlo.
 
         Args:
             user_id (int): ID del usuario.
@@ -122,6 +164,9 @@ class UserService:
         user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+        
+        # Hidratar permisos del usuario
+        self.hydrate_user_permissions(user)
         
         user_dict = user.to_dict()
         user_dict['current_roles'] = self.get_user_roles(user_id)
@@ -390,6 +435,11 @@ class UserService:
             db.session.add(role_assignment)
             if commit:
                 db.session.commit()
+            
+            # Invalidar cache y recargar permisos del usuario
+            target_user.invalidate_permissions_cache()
+            self.hydrate_user_permissions(target_user)
+            
             return {"message": f"Rol '{role.name}' asignado correctamente al usuario"}
         except IntegrityError as e:
             db.session.rollback()
@@ -429,6 +479,11 @@ class UserService:
             db.session.delete(role_assignment)
             if commit:
                 db.session.commit()
+            
+            # Invalidar cache y recargar permisos del usuario
+            target_user.invalidate_permissions_cache()
+            self.hydrate_user_permissions(target_user)
+            
             return {"message": f"Rol '{role.name}' revocado correctamente del usuario"}
         except IntegrityError as e:
             db.session.rollback()
@@ -514,8 +569,9 @@ class UserService:
             if commit:
                 db.session.commit()
             
-            if target_user and hasattr(target_user, 'invalidate_permissions_cache'):
-                target_user.invalidate_permissions_cache()
+            # Invalidar cache y recargar permisos del usuario
+            target_user.invalidate_permissions_cache()
+            self.hydrate_user_permissions(target_user)
             
             return {"message": "Roles actualizados correctamente"}
         except IntegrityError as e:

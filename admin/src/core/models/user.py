@@ -96,49 +96,35 @@ class PrivateUser(User):
             return False
         return check_password_hash(self.password, password_plain)
 
+    def set_permissions(self, permissions: Set[str]) -> None:
+        """
+        Establece los permisos del usuario desde el servicio (hidratación).
+        El modelo no debe buscar sus propios permisos, estos son inyectados por la capa de servicio.
+        
+        Args:
+            permissions (Set[str]): Conjunto de nombres de permisos asignados al usuario.
+        """
+        self._cached_permissions = frozenset(permissions) if permissions else frozenset()
+    
     def has_permission(self, permission_name: str) -> bool:
         """
-        Verifica si el usuario tiene un permiso específico de forma eficiente.
-        Usa cache en memoria para evitar consultas repetidas.
+        Verifica si el usuario tiene un permiso específico.
+        Requiere que el usuario haya sido hidratado previamente con set_permissions().
         
         Args:
             permission_name (str): Nombre del permiso a verificar
             
         Returns:
-            bool: True si tiene el permiso, False en caso contrario
+            bool: True si tiene el permiso, False en caso contrario o si no está hidratado.
         """
         if self.is_super_admin:
             return True
         
+        # Si no está hidratado, retornar False (no intentar cargar de BD)
         if not hasattr(self, '_cached_permissions') or self._cached_permissions is None:
-            self._load_permissions_cache()
+            return False
         
         return permission_name in self._cached_permissions
-    
-    def _load_permissions_cache(self) -> None:
-        """
-        Carga todos los permisos del usuario en un set para búsqueda eficiente.
-        Usa una consulta SQL optimizada con JOINs para evitar N+1 queries.
-        """
-        from src.core.models.permission import Permission
-        from src.core.models.permission_rol_user import PermissionRolUser
-        from src.core.models.rol_user import RolUser
-        from src.core.models.rol_user_user import RolUserUser
-        
-        permission_names = (
-            db.session.query(Permission.name)
-            .join(PermissionRolUser, Permission.id == PermissionRolUser.Permission_id)
-            .join(RolUser, PermissionRolUser.Rol_User_id == RolUser.id)
-            .join(RolUserUser, RolUser.id == RolUserUser.Rol_User_id)
-            .filter(RolUserUser.User_id == self.id)
-            .filter(Permission.deleted == False)
-            .distinct()
-            .all()
-        )
-        
-        permission_set = {name for name, in permission_names}
-        
-        self._cached_permissions = frozenset(permission_set)
     
     def invalidate_permissions_cache(self) -> None:
         """
