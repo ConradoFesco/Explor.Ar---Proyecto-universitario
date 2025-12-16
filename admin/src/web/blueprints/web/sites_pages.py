@@ -77,6 +77,15 @@ def lista_sitios():
     filters = historic_site_service.get_filter_options()
 
     def map_opts(items):
+        """
+        Convierte una lista de items con 'id' y 'name' en formato para selectores HTML.
+        
+        Args:
+            items: Lista de diccionarios con 'id' y 'name'
+            
+        Returns:
+            list[dict]: Lista de diccionarios con 'value' (id como string) y 'label' (name)
+        """
         return [{'value': str(it.get('id')), 'label': it.get('name')} for it in (items or [])]
     filters_options = {
         'cities': map_opts(filters.get('cities')),
@@ -514,6 +523,16 @@ def reordenar_imagenes_sitio(site_id: int):
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/actualizar", methods=["POST"])
 @web_permission_required("site_update")
 def actualizar_metadatos_imagen(site_id: int, image_id: int):
+    """
+    Actualiza los metadatos (título/alt y descripción) de una imagen de un sitio.
+    
+    Args:
+        site_id: ID del sitio histórico
+        image_id: ID de la imagen a actualizar
+        
+    Returns:
+        redirect: Redirección a la página de edición del sitio con mensaje flash
+    """
     data_user = session.get('user_id')
     
     try:

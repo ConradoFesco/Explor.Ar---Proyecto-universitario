@@ -12,13 +12,31 @@ class FlagService:
     """Opera sobre flags del sistema, incluyendo modo mantenimiento del admin."""
     
     def get_all_flags(self):
-        """Devuelve todos los flags del sistema ordenados por id."""
+        """
+        Devuelve todos los flags del sistema ordenados por id.
+        
+        Returns:
+            list[Flag]: Lista de todos los flags del sistema
+        """
         return Flag.query.order_by(Flag.id).all()
 
     def set_flag_state(self, flag_id: int, enabled: bool, data_user: int, message: str | None = None):
-        """Establece explícitamente el estado del flag (idempotente) y opcionalmente el mensaje.
-
+        """
+        Establece explícitamente el estado del flag (idempotente) y opcionalmente el mensaje.
         Valida longitud máxima del mensaje (<= 255).
+        
+        Args:
+            flag_id: ID del flag a modificar
+            enabled: Estado deseado (True/False)
+            data_user: ID del usuario que realiza el cambio
+            message: Mensaje opcional (máximo 255 caracteres)
+            
+        Returns:
+            Flag: Flag actualizado
+            
+        Raises:
+            ValueError: Si el mensaje excede 255 caracteres
+            NotFoundError: Si el flag o usuario no existen
         """
         flag = Flag.query.get_or_404(flag_id)
         user = User.query.get(data_user)
@@ -36,7 +54,21 @@ class FlagService:
         return flag
 
     def update_flag_message(self, flag_id: int, message: str, data_user: int):
-        """Actualiza solamente el mensaje del flag con validación de longitud."""
+        """
+        Actualiza solamente el mensaje del flag con validación de longitud.
+        
+        Args:
+            flag_id: ID del flag a modificar
+            message: Nuevo mensaje (máximo 255 caracteres)
+            data_user: ID del usuario que realiza el cambio
+            
+        Returns:
+            Flag: Flag actualizado
+            
+        Raises:
+            ValueError: Si el mensaje excede 255 caracteres
+            NotFoundError: Si el flag o usuario no existen
+        """
         if not ensure_max_length(message, 255):
             raise ValueError("El mensaje no puede superar los 255 caracteres")
         flag = Flag.query.get_or_404(flag_id)
@@ -46,17 +78,35 @@ class FlagService:
         return flag
 
     def is_maintenance_mode(self):
-        """Devuelve True si el modo mantenimiento está activado."""
+        """
+        Verifica si el modo mantenimiento del admin está activado.
+        
+        Returns:
+            bool: True si el modo mantenimiento está activado, False en caso contrario
+        """
         flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
         return flag.enabled if flag else False
 
     def get_maintenance_message(self):
-        """Devuelve el mensaje del modo mantenimiento, si existe."""
+        """
+        Obtiene el mensaje del modo mantenimiento del admin, si existe.
+        
+        Returns:
+            str | None: Mensaje de mantenimiento o None si no existe
+        """
         flag = Flag.query.filter_by(key="admin_maintenance_mode").first()
         return flag.message if flag else None
 
     def get_flag_by_key(self, key: str):
-        """Obtiene un flag por su key."""
+        """
+        Obtiene un flag por su key.
+        
+        Args:
+            key: Key del flag a buscar
+            
+        Returns:
+            Flag | None: Flag encontrado o None si no existe
+        """
         return Flag.query.filter_by(key=key).first()
 
     def set_flag_state_by_key(self, key: str, enabled: bool, data_user: int, message: str | None = None):
@@ -95,17 +145,33 @@ class FlagService:
         return flag
 
     def is_portal_maintenance_mode(self):
-        """Devuelve True si el modo mantenimiento del portal público está activado."""
+        """
+        Verifica si el modo mantenimiento del portal público está activado.
+        
+        Returns:
+            bool: True si el modo mantenimiento está activado, False en caso contrario
+        """
         flag = Flag.query.filter_by(key="portal_maintenance_mode").first()
         return flag.enabled if flag else False
 
     def get_portal_maintenance_message(self):
-        """Devuelve el mensaje del modo mantenimiento del portal público, si existe."""
+        """
+        Obtiene el mensaje del modo mantenimiento del portal público, si existe.
+        
+        Returns:
+            str | None: Mensaje de mantenimiento o None si no existe
+        """
         flag = Flag.query.filter_by(key="portal_maintenance_mode").first()
         return flag.message if flag else None
 
     def is_reviews_enabled(self):
-        """Devuelve True si las reseñas están habilitadas."""
+        """
+        Verifica si las reseñas están habilitadas.
+        
+        Returns:
+            bool: True si las reseñas están habilitadas, False en caso contrario.
+                Por defecto True si el flag no existe
+        """
         flag = Flag.query.filter_by(key="reviews_enabled").first()
         return flag.enabled if flag else True  # Por defecto True si no existe el flag
 

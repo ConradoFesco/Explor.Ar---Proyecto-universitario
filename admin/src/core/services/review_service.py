@@ -17,7 +17,16 @@ from src.core.services.flag_service import flag_service
 
 class ReviewService:
     def _has_existing_review(self, site_id: int, user_id: int) -> bool:
-        """Devuelve True si el usuario ya tiene una reseña pendiente/aprobada para el sitio."""
+        """
+        Verifica si el usuario ya tiene una reseña pendiente o aprobada para el sitio.
+        
+        Args:
+            site_id: ID del sitio histórico
+            user_id: ID del usuario
+            
+        Returns:
+            bool: True si existe una reseña pendiente o aprobada, False en caso contrario
+        """
         from sqlalchemy import and_
         existing_review = HistoricSiteReview.query.filter(
             and_(
@@ -37,13 +46,31 @@ class ReviewService:
                      include_user_pending: int | None = None) -> dict:
         """
         Lista reseñas con filtros, orden y paginación.
-
         Valida todos los parámetros mediante `validate_review_list_params` y
         devuelve un diccionario con `items` y `pagination`.
         
         Args:
+            page: Número de página (opcional)
+            per_page: Elementos por página (opcional)
+            sort_by: Campo por el cual ordenar (opcional)
+            sort_order: Dirección del orden (opcional)
+            status: Estado de la reseña (opcional: 'pending', 'approved', 'rejected')
+            site_id: ID del sitio (opcional)
+            user: Email del usuario (opcional)
+            rating_from: Calificación mínima (opcional)
+            rating_to: Calificación máxima (opcional)
+            date_from: Fecha desde (opcional)
+            date_to: Fecha hasta (opcional)
+            user_id: ID del usuario para filtrar (opcional)
+            only_approved: Si True, solo muestra reseñas aprobadas
             include_user_pending: Si se proporciona un user_id, incluye la reseña pendiente
-                de ese usuario incluso cuando only_approved=True.
+                de ese usuario incluso cuando only_approved=True
+                
+        Returns:
+            dict: Diccionario con 'items' (lista de reseñas) y 'pagination' (info de paginación)
+            
+        Raises:
+            ValidationError: Si los parámetros son inválidos
         """
         params = validate_review_list_params(
             page=page,
@@ -174,6 +201,24 @@ class ReviewService:
         }
 
     def create_review(self, *, site_id: int, user_id: int, rating, content):
+        """
+        Crea una nueva reseña para un sitio histórico.
+        
+        Args:
+            site_id: ID del sitio histórico
+            user_id: ID del usuario que crea la reseña
+            rating: Calificación (1-5)
+            content: Contenido de la reseña
+            
+        Returns:
+            HistoricSiteReview: Reseña creada
+            
+        Raises:
+            ValidationError: Si las reseñas están deshabilitadas, ya existe una reseña,
+                o los datos son inválidos
+            NotFoundError: Si el sitio histórico o usuario no existen
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         if not flag_service.is_reviews_enabled():
             raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
         
@@ -213,6 +258,22 @@ class ReviewService:
         return review
 
     def get_review(self, *, site_id: int, review_id: int, current_user_id: int | None = None, skip_ownership_validation: bool = False):
+        """
+        Obtiene una reseña específica por su ID y sitio.
+        
+        Args:
+            site_id: ID del sitio histórico
+            review_id: ID de la reseña
+            current_user_id: ID del usuario actual (opcional, para validar propiedad)
+            skip_ownership_validation: Si True, omite la validación de propiedad
+            
+        Returns:
+            dict: Diccionario con los datos de la reseña y relaciones
+            
+        Raises:
+            NotFoundError: Si el sitio o la reseña no existen
+            ForbiddenError: Si el usuario no tiene acceso a la reseña
+        """
         site_id = validate_positive_int(site_id, "site_id")
         review_id = validate_positive_int(review_id, "review_id")
         
@@ -230,7 +291,15 @@ class ReviewService:
         return self._build_review_dict(review)
     
     def _build_review_dict(self, review):
-        """Construye un diccionario con los datos de una reseña y sus relaciones."""
+        """
+        Construye un diccionario con los datos de una reseña y sus relaciones.
+        
+        Args:
+            review: Objeto HistoricSiteReview
+            
+        Returns:
+            dict: Diccionario con los datos de la reseña, usuario y sitio
+        """
         user = review.user
         data = review.to_dict()
         if 'rejection_reason' not in data:
@@ -244,10 +313,16 @@ class ReviewService:
         return data
 
     def approve_review(self, *, review_id: int) -> None:
-        """Marca una reseña como aprobada.
-
-        Lanza NotFoundError si no existe, ValidationError si ya está aprobada,
-        y DatabaseError si falla el commit.
+        """
+        Marca una reseña como aprobada.
+        
+        Args:
+            review_id: ID de la reseña a aprobar
+            
+        Raises:
+            NotFoundError: Si la reseña no existe
+            ValidationError: Si la reseña ya está aprobada
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
         review_id = validate_positive_int(review_id, "review_id")
         
@@ -266,9 +341,17 @@ class ReviewService:
             raise exc.DatabaseError(f'Error al aprobar la reseña: {e}')
 
     def reject_review(self, *, review_id: int, reason: str) -> None:
-        """Marca una reseña como rechazada y guarda el motivo.
-
-        Lanza errores claros en caso de recurso no encontrado o fallo en BD.
+        """
+        Marca una reseña como rechazada y guarda el motivo.
+        
+        Args:
+            review_id: ID de la reseña a rechazar
+            reason: Motivo del rechazo
+            
+        Raises:
+            NotFoundError: Si la reseña no existe
+            ValidationError: Si la reseña ya está rechazada
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
         review_id = validate_positive_int(review_id, "review_id")
 
@@ -290,7 +373,16 @@ class ReviewService:
             raise exc.DatabaseError(f'Error al rechazar la reseña: {e}')
 
     def get_user_review(self, *, site_id: int, user_id: int):
-        """Obtiene la reseña del usuario para un sitio específico."""
+        """
+        Obtiene la reseña del usuario para un sitio específico (pendiente o aprobada).
+        
+        Args:
+            site_id: ID del sitio histórico
+            user_id: ID del usuario
+            
+        Returns:
+            dict | None: Diccionario con los datos de la reseña o None si no existe
+        """
         site_id = validate_positive_int(site_id, "site_id")
         user_id = validate_positive_int(user_id, "user_id")
         
@@ -309,7 +401,26 @@ class ReviewService:
         return self._build_review_dict(review)
 
     def update_review(self, *, site_id: int, review_id: int, user_id: int, rating, content):
-        """Actualiza una reseña existente. Solo el autor puede actualizarla."""
+        """
+        Actualiza una reseña existente. Solo el autor puede actualizarla.
+        Si la reseña estaba aprobada, vuelve a estado pendiente.
+        
+        Args:
+            site_id: ID del sitio histórico
+            review_id: ID de la reseña a actualizar
+            user_id: ID del usuario autor de la reseña
+            rating: Nueva calificación (1-5)
+            content: Nuevo contenido de la reseña
+            
+        Returns:
+            HistoricSiteReview: Reseña actualizada
+            
+        Raises:
+            ValidationError: Si las reseñas están deshabilitadas o los datos son inválidos
+            NotFoundError: Si el sitio o la reseña no existen
+            ForbiddenError: Si el usuario no es el autor de la reseña
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         if not flag_service.is_reviews_enabled():
             raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
         
@@ -346,7 +457,23 @@ class ReviewService:
         return review
 
     def delete_review(self, *, site_id: int, review_id: int, current_user_id: int):
-        """Elimina una reseña. Solo el autor puede eliminarla."""
+        """
+        Elimina una reseña. Solo el autor puede eliminarla.
+        
+        Args:
+            site_id: ID del sitio histórico
+            review_id: ID de la reseña a eliminar
+            current_user_id: ID del usuario que intenta eliminar la reseña
+            
+        Returns:
+            dict: Mensaje de éxito
+            
+        Raises:
+            ValidationError: Si las reseñas están deshabilitadas
+            NotFoundError: Si el sitio o la reseña no existen
+            ForbiddenError: Si el usuario no es el autor de la reseña
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         if not flag_service.is_reviews_enabled():
             raise exc.ValidationError("Las reseñas están temporalmente deshabilitadas")
         

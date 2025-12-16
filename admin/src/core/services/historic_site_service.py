@@ -31,7 +31,15 @@ class HistoricSiteService:
 
     @staticmethod
     def _build_pagination_dict(pagination):
-        """Construye un diccionario de paginación estándar."""
+        """
+        Construye un diccionario de paginación estándar.
+        
+        Args:
+            pagination: Objeto de paginación de SQLAlchemy
+            
+        Returns:
+            dict: Diccionario con información de paginación (page, pages, per_page, total, etc.)
+        """
         return {
             'page': pagination.page,
             'pages': pagination.pages,
@@ -42,6 +50,60 @@ class HistoricSiteService:
             'next_num': pagination.next_num,
             'prev_num': pagination.prev_num
         }
+
+    def site_name_exists(self, name: str) -> bool:
+        """
+        Verifica si existe un sitio histórico con el nombre dado (no eliminado).
+        
+        Args:
+            name: Nombre del sitio a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        site = HistoricSite.query.filter_by(name=name, deleted=False).first()
+        return site is not None
+
+    def site_exists(self, site_id: int, must_be_visible: bool = False) -> bool:
+        """
+        Verifica si existe un sitio histórico con el ID dado (no eliminado).
+        
+        Args:
+            site_id: ID del sitio a verificar
+            must_be_visible: Si True, también verifica que el sitio sea visible
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        query = HistoricSite.query.filter_by(id=site_id, deleted=False)
+        if must_be_visible:
+            query = query.filter_by(visible=True)
+        site = query.first()
+        return site is not None
+
+    def get_site_object(self, site_id: int, must_be_visible: bool = False) -> HistoricSite:
+        """
+        Obtiene el objeto HistoricSite directamente (no eliminado).
+        
+        Args:
+            site_id: ID del sitio
+            must_be_visible: Si True, también verifica que el sitio sea visible
+            
+        Returns:
+            HistoricSite: Objeto sitio encontrado
+            
+        Raises:
+            NotFoundError: Si el sitio no existe, está eliminado o no es visible (si se requiere)
+        """
+        query = HistoricSite.query.filter_by(id=site_id, deleted=False)
+        if must_be_visible:
+            query = query.filter_by(visible=True)
+        site = query.first()
+        if not site:
+            if must_be_visible:
+                raise exc.NotFoundError("Sitio histórico no encontrado o no visible")
+            raise exc.NotFoundError("Sitio histórico no encontrado")
+        return site
 
     def create_historic_site(self, data_site, data_user):
         """
@@ -179,13 +241,25 @@ class HistoricSiteService:
                               visible=None): 
         """
         Lista sitios con paginación, filtros y orden.
-        
         Nota: Los parámetros deben venir ya validados desde el controlador.
-
-        Args: ver parámetros.
-
+        
+        Args:
+            include_deleted: Si True, incluye sitios eliminados lógicamente
+            page: Número de página (opcional)
+            per_page: Elementos por página (opcional)
+            search_text: Texto de búsqueda por nombre o descripción (opcional)
+            sort_by: Campo por el cual ordenar ('name', 'city', 'created_at') (opcional)
+            sort_order: Dirección del orden ('asc' o 'desc') (opcional)
+            city_id: ID de la ciudad para filtrar (opcional)
+            province_id: ID de la provincia para filtrar (opcional)
+            tag_ids: Lista de IDs de tags para filtrar (opcional)
+            state_id: ID del estado de conservación para filtrar (opcional)
+            date_from: Fecha desde para filtrar (opcional)
+            date_to: Fecha hasta para filtrar (opcional)
+            visible: Si el sitio debe ser visible (opcional)
+            
         Returns:
-            dict: {'sites': [...], 'pagination': {...}}
+            dict: Diccionario con 'sites' (lista de sitios) y 'pagination' (info de paginación)
         """
         from sqlalchemy import and_, or_, desc, asc, func
         from datetime import datetime
@@ -558,12 +632,29 @@ class HistoricSiteService:
         """
         Devuelve sitios visibles para el portal público respetando filtros estandarizados
         y formateados según la especificación del cliente.
-
-        La respuesta tiene la forma:
-        {
-            "data": [ { sitio... } ],
-            "meta": { "page": ..., "per_page": ..., "total": ... }
-        }
+        
+        Args:
+            name: Nombre del sitio para búsqueda (opcional)
+            description: Descripción para búsqueda (opcional)
+            city: Nombre de la ciudad para filtrar (opcional)
+            province: Nombre de la provincia para filtrar (opcional)
+            tags: Lista de slugs de tags para filtrar (opcional)
+            order_by: Orden de resultados ('latest', 'oldest', 'rating-5-1', 'rating-1-5', 'name-asc', 'name-desc') (opcional)
+            latitude: Latitud para búsqueda por radio (opcional)
+            longitude: Longitud para búsqueda por radio (opcional)
+            radius_km: Radio de búsqueda en kilómetros (opcional)
+            page: Número de página (opcional)
+            per_page: Elementos por página (opcional)
+            user_id: ID del usuario para marcar favoritos (opcional)
+            favorites_only: Si True, solo muestra sitios favoritos del usuario (opcional)
+            
+        Returns:
+            dict: Diccionario con 'data' (lista de sitios) y 'meta' (info de paginación)
+                Formato según especificación del cliente con información adicional:
+                - rating: Calificación promedio (opcional)
+                - cover_image_url: URL de imagen de portada (opcional)
+                - is_favorite: Si es favorito del usuario (opcional)
+                - distance: Distancia en km si se usó búsqueda por radio (opcional)
         """
         from sqlalchemy import asc, desc, func, or_, cast, Float
 
@@ -735,7 +826,15 @@ class HistoricSiteService:
         }
 
     def _get_site_tags(self, site_id: int) -> list[dict]:
-        """Obtiene los tags activos asociados a un sitio histórico."""
+        """
+        Obtiene los tags activos asociados a un sitio histórico.
+        
+        Args:
+            site_id: ID del sitio histórico
+            
+        Returns:
+            list[dict]: Lista de diccionarios con 'id', 'name' y 'slug' de cada tag
+        """
         tags_q = Tag.query.join(TagHistoricSite).\
             filter(
                 TagHistoricSite.Historic_Site_id == site_id,
@@ -745,6 +844,15 @@ class HistoricSiteService:
 
     @staticmethod
     def _safe_float(value):
+        """
+        Convierte un valor a float de forma segura, retornando None si falla.
+        
+        Args:
+            value: Valor a convertir (puede ser str, int, float, etc.)
+            
+        Returns:
+            float | None: Valor convertido a float o None si no es posible
+        """
         try:
             return float(value)
         except (TypeError, ValueError):
@@ -752,7 +860,18 @@ class HistoricSiteService:
 
     @staticmethod
     def _distance_between(lat1, lon1, lat2, lon2):
-        """Calcula distancia Haversine aproximada en KM."""
+        """
+        Calcula distancia Haversine aproximada entre dos puntos geográficos en kilómetros.
+        
+        Args:
+            lat1: Latitud del primer punto
+            lon1: Longitud del primer punto
+            lat2: Latitud del segundo punto
+            lon2: Longitud del segundo punto
+            
+        Returns:
+            float | None: Distancia en kilómetros o None si las coordenadas son inválidas
+        """
         from math import radians, sin, cos, sqrt, atan2
 
         if lat2 is None or lon2 is None:
@@ -820,9 +939,21 @@ class HistoricSiteService:
                            visible=None):
         """
         Exporta sitios históricos a CSV respetando filtros.
-
+        
+        Args:
+            search_text: Texto de búsqueda por nombre o descripción (opcional)
+            sort_by: Campo por el cual ordenar ('name', 'city', 'created_at') (opcional)
+            sort_order: Dirección del orden ('asc' o 'desc') (opcional)
+            city_id: ID de la ciudad para filtrar (opcional)
+            province_id: ID de la provincia para filtrar (opcional)
+            tag_ids: Lista de IDs de tags para filtrar (opcional)
+            state_id: ID del estado de conservación para filtrar (opcional)
+            date_from: Fecha desde para filtrar (opcional)
+            date_to: Fecha hasta para filtrar (opcional)
+            visible: Si el sitio debe ser visible (opcional)
+            
         Returns:
-            tuple[str, str]: (contenido_csv, nombre_archivo)
+            tuple[str, str]: Tupla con (contenido_csv, nombre_archivo)
         """
         from sqlalchemy import and_, or_, desc, asc, func
         from src.core.validators.listing_validator import validate_site_list_params

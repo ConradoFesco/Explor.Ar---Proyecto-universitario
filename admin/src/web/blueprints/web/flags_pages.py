@@ -11,7 +11,12 @@ flags_web = Blueprint('flags_web', __name__)
 @flags_web.route("/flags", methods=["GET"])
 @web_permission_required("flag_index")
 def list_flags_page():
-    """Listado de flags del sistema para administradores."""
+    """
+    Listado de flags del sistema para administradores.
+    
+    Returns:
+        render_template: Página con el listado de todos los flags del sistema
+    """
     flags = flag_service.get_all_flags()
     return render_template("flags/list_flags.html", flags=flags)
 
@@ -19,7 +24,15 @@ def list_flags_page():
 @flags_web.route("/flags/<int:flag_id>/set", methods=["POST"])
 @web_permission_required("flag_update")
 def set_flag(flag_id: int):
-    """Establece explícitamente el estado del flag (on/off)."""
+    """
+    Establece explícitamente el estado del flag (on/off) y opcionalmente su mensaje.
+    
+    Args:
+        flag_id: ID del flag a modificar
+        
+    Returns:
+        redirect: Redirección al listado de flags con mensaje flash de éxito o error
+    """
     user_id = session.get('user_id')
     raw = (request.form.get('enabled') or '').strip().lower()
     enabled = True if raw in ('1', 'true', 'on', 'yes') else False
@@ -38,7 +51,15 @@ def set_flag(flag_id: int):
 @flags_web.route("/flags/<int:flag_id>/message", methods=["POST"])
 @web_permission_required("flag_update")
 def set_flag_message(flag_id: int):
-    """Actualiza solo el mensaje del flag (vía Web)."""
+    """
+    Actualiza solo el mensaje del flag (vía Web).
+    
+    Args:
+        flag_id: ID del flag a modificar
+        
+    Returns:
+        redirect: Redirección al listado de flags con mensaje flash de éxito o error
+    """
     user_id = session.get('user_id')
     message = (request.form.get('message') or '').strip()
     try:
@@ -52,7 +73,12 @@ def set_flag_message(flag_id: int):
 @flags_web.route("/flags/public-maintenance", methods=["POST"])
 @web_system_admin_required
 def toggle_public_maintenance():
-    """Establece el estado del modo mantenimiento del portal público (vía Web)."""
+    """
+    Establece el estado del modo mantenimiento del portal público (vía Web).
+    
+    Returns:
+        redirect: Redirección al listado de flags con mensaje flash de éxito o error
+    """
     user_id = session.get('user_id')
     raw = (request.form.get('enabled') or '').strip().lower()
     enabled = True if raw in ('1', 'true', 'on', 'yes') else False

@@ -13,6 +13,16 @@ site_api = Blueprint('site_api', __name__)
 
 
 def _json_response(payload, status_code=200):
+    """
+    Helper para crear respuestas JSON con headers y status code apropiados.
+    
+    Args:
+        payload: Diccionario o estructura serializable a JSON
+        status_code: Código HTTP de estado (default: 200)
+        
+    Returns:
+        Response: Objeto Response de Flask con JSON y headers configurados
+    """
     response = jsonify(payload)
     response.status_code = status_code
     response.headers['Content-Type'] = 'application/json; charset=utf-8'
@@ -92,7 +102,13 @@ def list_public_historic_sites():
 
 @site_api.route('/sites/filter-options', methods=['GET'])
 def get_public_filter_options():
-    """Endpoint público para obtener opciones de filtros (ciudades, provincias, tags)."""
+    """
+    Endpoint público para obtener opciones de filtros (ciudades, provincias, tags, estados).
+    
+    Returns:
+        jsonify: Respuesta JSON con opciones de filtros (status 200)
+        o error con código apropiado (500)
+    """
     try:
         result = historic_site_service.get_filter_options()
         return _json_response(result, 200)
@@ -131,7 +147,7 @@ def get_public_historic_site(site_id):
     try:
         user_id = get_current_user_id()
         site_data = historic_site_service.get_historic_site(site_id, user_id=user_id)
-        # TO-DO: no convertir latitude y longitude a float
+        
         try:
             lat_val = float(site_data.get('latitude')) if site_data.get('latitude') is not None else None
             long_val = float(site_data.get('longitude')) if site_data.get('longitude') is not None else None
@@ -187,6 +203,16 @@ def get_public_historic_site(site_id):
 @site_api.route('/sites/<int:site_id>/favorite', methods=['PUT'])
 @token_or_session_required
 def mark_favorite(site_id: int):
+    """
+    Marca un sitio histórico como favorito para el usuario autenticado.
+    
+    Args:
+        site_id: ID del sitio histórico a marcar como favorito
+        
+    Returns:
+        str: Respuesta vacía con status 204 (No Content) si se marcó correctamente
+        o error con código apropiado (400, 404, 500)
+    """
     user_id = get_current_user_id()
     try:
         favorite_service.mark_favorite(site_id=site_id, user_id=user_id)
@@ -238,6 +264,16 @@ def mark_favorite(site_id: int):
 @site_api.route('/sites/<int:site_id>/favorite', methods=['DELETE'])
 @token_or_session_required
 def unmark_favorite(site_id: int):
+    """
+    Desmarca un sitio histórico como favorito para el usuario autenticado.
+    
+    Args:
+        site_id: ID del sitio histórico a desmarcar como favorito
+        
+    Returns:
+        str: Respuesta vacía con status 204 (No Content) si se desmarcó correctamente
+        o error con código apropiado (400, 404, 500)
+    """
     user_id = get_current_user_id()
     try:
         favorite_service.unmark_favorite(site_id=site_id, user_id=user_id)

@@ -128,7 +128,18 @@ def _validate_optional_int(value: Optional[int | str | object], field_name: str,
 
 
 def _validate_optional_bool_str(value: Optional[str]) -> Optional[bool]:
-    """Valida un string opcional como booleano."""
+    """
+    Valida un string opcional como booleano.
+    
+    Args:
+        value: String a convertir a booleano
+        
+    Returns:
+        Optional[bool]: True, False o None según el valor
+        
+    Raises:
+        ValidationError: Si el valor no puede convertirse a booleano
+    """
     if value is None:
         return None
     cleaned = clean_optional_string(value)
@@ -144,6 +155,19 @@ def _validate_optional_bool_str(value: Optional[str]) -> Optional[bool]:
 
 
 def _validate_optional_float(value: Optional[object], field_name: str) -> Optional[float]:
+    """
+    Valida un valor numérico opcional (float).
+    
+    Args:
+        value: Valor a validar (puede ser float, str o None)
+        field_name: Nombre del campo para mensajes de error
+        
+    Returns:
+        Optional[float]: Float validado o None
+        
+    Raises:
+        ValidationError: Si el valor no puede convertirse a float
+    """
     if value is None or value == '':
         return None
     try:
@@ -153,7 +177,15 @@ def _validate_optional_float(value: Optional[object], field_name: str) -> Option
 
 
 def _split_csv_values(raw_values: Optional[object]) -> list[str]:
-    """Divide valores separados por comas y los normaliza."""
+    """
+    Divide valores separados por comas y los normaliza.
+    
+    Args:
+        raw_values: String con valores separados por comas o lista
+        
+    Returns:
+        list[str]: Lista de strings normalizados y limpiados
+    """
     if not raw_values:
         return []
     cleaned = clean_string(raw_values)
@@ -169,9 +201,15 @@ def _split_csv_values(raw_values: Optional[object]) -> list[str]:
 def _validate_tag_ids(tag_ids: Optional[object]) -> list[int]:
     """
     Valida y normaliza una lista de IDs de tags.
-    - Si no se envía ningún valor (None / '' / []), retorna lista vacía.
-    - Si se envía algo y no puede convertirse completamente a enteros válidos,
-      lanza ValidationError en lugar de ignorar silenciosamente.
+    
+    Args:
+        tag_ids: Lista de IDs, string separado por comas, o None
+        
+    Returns:
+        list[int]: Lista de IDs validados como enteros
+        
+    Raises:
+        ValidationError: Si el formato es inválido o no puede convertirse a enteros
     """
     if tag_ids is None or tag_ids == '' or tag_ids == []:
         return []
@@ -201,6 +239,19 @@ def _validate_tag_ids(tag_ids: Optional[object]) -> list[int]:
 
 
 def _validate_optional_date(date_str: Optional[str], field: str) -> Optional[str]:
+    """
+    Valida una fecha opcional en formato YYYY-MM-DD.
+    
+    Args:
+        date_str: String con la fecha en formato YYYY-MM-DD
+        field: Nombre del campo para mensajes de error
+        
+    Returns:
+        Optional[str]: Fecha validada o None
+        
+    Raises:
+        ValidationError: Si la fecha no tiene el formato correcto
+    """
     if not date_str:
         return None
     try:
@@ -211,12 +262,33 @@ def _validate_optional_date(date_str: Optional[str], field: str) -> Optional[str
 
 
 def _parse_date_yyyy_mm_dd(date_str: Optional[str]) -> Optional[datetime]:
+    """
+    Parsea una fecha en formato YYYY-MM-DD a objeto datetime.
+    
+    Args:
+        date_str: String con la fecha en formato YYYY-MM-DD
+        
+    Returns:
+        Optional[datetime]: Objeto datetime o None si date_str está vacío
+        
+    Raises:
+        ValueError: Si la fecha no tiene el formato correcto
+    """
     if not date_str:
         return None
     return datetime.strptime(date_str, '%Y-%m-%d')
 
 
 def _end_of_day(dt: datetime) -> datetime:
+    """
+    Ajusta un datetime al final del día (23:59:59.999999).
+    
+    Args:
+        dt: Objeto datetime a ajustar
+        
+    Returns:
+        datetime: Objeto datetime ajustado al final del día
+    """
     from datetime import timedelta
     return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
@@ -229,6 +301,29 @@ def validate_site_list_params(*, page: Optional[int] = None, per_page: Optional[
                               state_id: Optional[int] = None, date_from: Optional[str] = None, 
                               date_to: Optional[str] = None,
                               visible: Optional[bool | str] = None) -> dict:
+    """
+    Valida y limpia los parámetros para el listado de sitios históricos.
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        search_text: Texto de búsqueda (opcional)
+        sort_by: Campo por el cual ordenar (opcional)
+        sort_order: Dirección del orden (opcional)
+        city_id: ID de la ciudad (opcional)
+        province_id: ID de la provincia (opcional)
+        tag_ids: Lista de IDs de tags (opcional)
+        state_id: ID del estado de conservación (opcional)
+        date_from: Fecha desde (opcional)
+        date_to: Fecha hasta (opcional)
+        visible: Si el sitio debe ser visible (opcional)
+        
+    Returns:
+        dict: Diccionario con los parámetros validados y filtros aplicados
+        
+    Raises:
+        ValidationError: Si los parámetros son inválidos
+    """
     page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=25)
     sort_by, sort_order = _validate_sort(
         sort_by, sort_order, 
@@ -268,6 +363,30 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
                                       latitude: Optional[object], longitude: Optional[object],
                                       radius: Optional[object], page: Optional[int],
                                       per_page: Optional[int], favorites_only: Optional[bool] = None) -> dict:
+    """
+    Valida y limpia los parámetros para la búsqueda pública de sitios históricos.
+    
+    Args:
+        name: Nombre del sitio (opcional)
+        description: Descripción a buscar (opcional)
+        city: Nombre de la ciudad (opcional)
+        province: Nombre de la provincia (opcional)
+        tags: Tags separados por comas (opcional)
+        order_by: Orden de resultados (opcional)
+        latitude: Latitud para búsqueda por radio (opcional)
+        longitude: Longitud para búsqueda por radio (opcional)
+        radius: Radio de búsqueda en metros (opcional)
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        favorites_only: Si solo mostrar favoritos (opcional)
+        
+    Returns:
+        dict: Diccionario con los parámetros validados y filtros aplicados
+        
+    Raises:
+        ValidationError: Si los parámetros son inválidos (lat/long no juntos,
+            radius sin coordenadas, radius <= 0, order_by inválido)
+    """
     page_val, per_page_val = _validate_pagination(page, per_page, default_page=1, default_per_page=20, max_per_page=100)
 
     allowed_order = ['latest', 'oldest', 'rating-5-1', 'rating-1-5', 'name-asc', 'name-desc']
@@ -320,6 +439,22 @@ def validate_public_site_search_params(*, name: Optional[str], description: Opti
 def validate_tag_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None, 
                              search: Optional[str] = None, sort_by: Optional[str] = None, 
                              sort_order: Optional[str] = None) -> dict:
+    """
+    Valida y limpia los parámetros para el listado de tags.
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        search: Texto de búsqueda (opcional)
+        sort_by: Campo por el cual ordenar (opcional)
+        sort_order: Dirección del orden (opcional)
+        
+    Returns:
+        dict: Diccionario con los parámetros validados
+        
+    Raises:
+        ValidationError: Si los parámetros son inválidos
+    """
     page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=50)
     sort_by, sort_order = _validate_sort(
         sort_by, sort_order,
@@ -339,6 +474,22 @@ def validate_tag_list_params(*, page: Optional[int] = None, per_page: Optional[i
 def validate_user_list_params(*, page: Optional[int] = None, per_page: Optional[int] = None,
                              filters: Optional[dict] = None, sort_by: Optional[str] = None, 
                              sort_order: Optional[str] = None) -> dict:
+    """
+    Valida y limpia los parámetros para el listado de usuarios.
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        filters: Diccionario con filtros (email, activo, blocked, rol) (opcional)
+        sort_by: Campo por el cual ordenar (opcional)
+        sort_order: Dirección del orden (opcional)
+        
+    Returns:
+        dict: Diccionario con los parámetros validados y filtros aplicados
+        
+    Raises:
+        ValidationError: Si los parámetros son inválidos
+    """
     page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=25)
     sort_by, sort_order = _validate_sort(
         sort_by, sort_order,
@@ -374,7 +525,24 @@ def validate_event_list_params(*, page: Optional[object], per_page: Optional[obj
                                user_id: Optional[object], user_email: Optional[str],
                                type_action: Optional[str], date_from: Optional[str],
                                date_to: Optional[str]) -> dict:
-    """Valida filtros de eventos y devuelve tipos correctos para el servicio (datetime)."""
+    """
+    Valida filtros de eventos y devuelve tipos correctos para el servicio (datetime).
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        user_id: ID del usuario (opcional)
+        user_email: Email del usuario (opcional)
+        type_action: Tipo de acción (opcional)
+        date_from: Fecha desde en formato YYYY-MM-DD (opcional)
+        date_to: Fecha hasta en formato YYYY-MM-DD (opcional)
+        
+    Returns:
+        dict: Diccionario con los parámetros validados, fechas convertidas a datetime
+        
+    Raises:
+        ValidationError: Si los parámetros son inválidos
+    """
     page, per_page = _validate_pagination(page, per_page, default_page=1, default_per_page=10, max_per_page=50)
     user_id = _validate_optional_int(user_id, 'user_id')
     date_from_str = _validate_optional_date(date_from, 'date_from')

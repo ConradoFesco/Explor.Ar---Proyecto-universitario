@@ -16,6 +16,25 @@ def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_ord
     """
     Valida y limpia todos los parámetros para el listado de reseñas.
     Centraliza la lógica que antes estaba dispersa en el controlador.
+    
+    Args:
+        page: Número de página (opcional)
+        per_page: Elementos por página (opcional)
+        sort_by: Campo por el cual ordenar (opcional)
+        sort_order: Dirección del orden (opcional)
+        status: Estado de la reseña (opcional)
+        site_id: ID del sitio (opcional)
+        user: Email del usuario (opcional)
+        rating_from: Calificación mínima (opcional)
+        rating_to: Calificación máxima (opcional)
+        date_from: Fecha desde (opcional)
+        date_to: Fecha hasta (opcional)
+        
+    Returns:
+        dict: Diccionario con los parámetros validados y filtros aplicados
+        
+    Raises:
+        ValidationError: Si los parámetros son inválidos
     """
     page_val, per_page_val = _validate_pagination(page, per_page, default_page=1, default_per_page=25, max_per_page=100)
 
@@ -65,7 +84,17 @@ def validate_review_list_params(page=None, per_page=None, sort_by=None, sort_ord
 def validate_review_create_payload(*, rating, content):
     """
     Valida el payload para crear una reseña.
-    Usa _validate_optional_int para validar el rating.
+    
+    Args:
+        rating: Calificación de la reseña (1-5)
+        content: Contenido de la reseña
+        
+    Returns:
+        dict: Diccionario con 'rating' y 'content' validados
+        
+    Raises:
+        ValidationError: Si el rating está fuera del rango, el contenido está vacío,
+            es muy corto o excede la longitud máxima
     """
     rating_val = _validate_optional_int(rating, 'rating', must_be_positive=True)
     
