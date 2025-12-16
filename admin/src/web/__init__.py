@@ -70,6 +70,9 @@ def create_app(env="development", static_folder="../../static"):
     with app.app_context():
         from src.core import models
     
+    # Inicializar la base de datos automáticamente
+    initialize_database_if_needed(app)
+    
     return app
 
 
