@@ -4,6 +4,7 @@ Hooks de la aplicación Flask.
 from flask import request, session, render_template
 from src.core.services.usuario_service import user_service
 from src.core.services.flag_service import flag_service
+from src.web.auth.decorators import get_current_user
 
 
 def register_hooks(app):
@@ -74,9 +75,11 @@ def register_hooks(app):
         Returns:
             dict: Diccionario con información del usuario actual
         """
-        user_id = session.get("user_id")
-        if user_id:
+        current_user = get_current_user()
+        
+        if current_user:
             try:
+                user_id = current_user.id
                 user_dict = user_service.get_user(user_id)
                 roles = user_dict.get('current_roles', [])
                 role_names = [r.get('name', '') for r in roles]
@@ -85,8 +88,13 @@ def register_hooks(app):
                 last_name = user_dict.get('last_name') or ''
                 initials = (f"{name[:1]}{last_name[:1]}".upper()) if name and last_name else "U"
                 is_super_admin = bool(user_dict.get('is_super_admin'))
+                
+                from src.core.models.user import PrivateUser
+                if isinstance(current_user, PrivateUser):
+                    user_service.hydrate_user_permissions(current_user)
+                
                 return {
-                    'current_user': user_dict,
+                    'current_user': current_user,  # Pasar el objeto, no el diccionario
                     'user_roles': role_names,
                     'user_permissions': perms,
                     'user_initials': initials,
@@ -94,6 +102,7 @@ def register_hooks(app):
                 }
             except Exception:
                 pass
+        
         return {
             'current_user': None,
             'user_roles': [],
