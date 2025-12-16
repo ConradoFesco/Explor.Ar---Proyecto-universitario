@@ -1,18 +1,34 @@
 """
 Validaciones de entrada para Sitios Históricos.
 """
-from src.web.exceptions import ValidationError, NotFoundError
 from src.core.models.historic_site import HistoricSite
-from src.core.models.state_site import StateSite
-from src.core.models.category_site import CategorySite
-from .utils import require_fields, is_float_like, ensure_max_length, clean_string
+from src.core.services.category_service import category_service
+from src.core.services.historic_site_service import historic_site_service
+from src.core.services.state_service import state_service
+from src.core.validators.api_validator import validate_positive_int
+from src.web.exceptions import ValidationError, NotFoundError
+
 from .listing_validator import _validate_optional_int
+from .utils import clean_string, ensure_max_length, is_float_like, require_fields
 
 MAX_NAME = 255
 MAX_BRIEF = 2000
 
 
 def validate_create_site(data: dict) -> dict:
+    """
+    Valida y limpia los datos para crear un sitio histórico.
+    
+    Args:
+        data: Diccionario con los datos del sitio histórico
+        
+    Returns:
+        dict: Diccionario con los datos validados y limpiados
+        
+    Raises:
+        ValidationError: Si faltan campos obligatorios o los datos son inválidos
+        NotFoundError: Si el estado de conservación o categoría no existen
+    """
     required = [
         'name', 'brief_description', 'name_city', 'name_province',
         'latitude', 'longitude', 'id_category', 'visible'
@@ -40,18 +56,18 @@ def validate_create_site(data: dict) -> dict:
     if not is_float_like(lat) or not is_float_like(lng):
         raise ValidationError('Latitud/Longitud inválidas')
 
-    if HistoricSite.query.filter_by(name=name, deleted=False).first():
+    if historic_site_service.site_name_exists(name):
         raise ValidationError('Ya existe un sitio histórico con este nombre')
 
     if id_estado is not None:
         id_estado = _validate_optional_int(id_estado, 'id_estado', must_be_positive=True)
-        if id_estado is not None and not StateSite.query.get(id_estado):
+        if id_estado is not None and not state_service.state_exists(id_estado):
             raise NotFoundError('Estado de conservación no encontrado')
 
     id_category = _validate_optional_int(id_category, 'id_category', must_be_positive=True)
     if id_category is None:
         raise ValidationError('id_category es requerido')
-    if not CategorySite.query.get(id_category):
+    if not category_service.category_exists(id_category):
         raise NotFoundError('Categoría no encontrada')
 
     if year_inauguration not in (None, ''):
@@ -75,6 +91,19 @@ def validate_create_site(data: dict) -> dict:
 
 
 def validate_update_site(data: dict) -> dict:
+    """
+    Valida y limpia los datos para actualizar un sitio histórico.
+    
+    Args:
+        data: Diccionario con los campos a actualizar
+        
+    Returns:
+        dict: Diccionario con los campos validados y limpiados
+        
+    Raises:
+        ValidationError: Si los datos son inválidos
+        NotFoundError: Si el estado de conservación o categoría no existen
+    """
     cleaned = {}
     if 'name' in data:
         name = clean_string(data.get('name'))
@@ -100,18 +129,19 @@ def validate_update_site(data: dict) -> dict:
         if not is_float_like(data.get('longitude')):
             raise ValidationError('Longitud inválida')
         cleaned['longitude'] = str(data.get('longitude'))
+
     if 'id_estado' in data and data.get('id_estado') is not None:
         val = _validate_optional_int(data.get('id_estado'), 'id_estado', must_be_positive=True)
         if val is None:
             raise ValidationError('id_estado debe ser un entero positivo')
-        if not StateSite.query.get(val):
+        if not state_service.state_exists(val):
             raise NotFoundError('Estado de conservación no encontrado')
         cleaned['id_estado'] = val
     if 'id_category' in data and data.get('id_category') is not None:
         val = _validate_optional_int(data.get('id_category'), 'id_category', must_be_positive=True)
         if val is None:
             raise ValidationError('id_category debe ser un entero positivo')
-        if not CategorySite.query.get(val):
+        if not category_service.category_exists(val):
             raise NotFoundError('Categoría no encontrada')
         cleaned['id_category'] = val
     if 'year_inauguration' in data and data.get('year_inauguration') not in (None, ''):
@@ -140,15 +170,5 @@ def validate_site_exists(site_id: int, must_be_visible: bool = False) -> Histori
     Raises:
         NotFoundError: Si el sitio no existe, está eliminado o no es visible (si se requiere)
     """
-    from src.core.validators.api_validator import validate_positive_int
-    
     site_id = validate_positive_int(site_id, "site_id")
-    query = HistoricSite.query.filter_by(id=site_id, deleted=False)
-    if must_be_visible:
-        query = query.filter_by(visible=True)
-    site = query.first()
-    if not site:
-        if must_be_visible:
-            raise NotFoundError("Sitio histórico no encontrado o no visible")
-        raise NotFoundError("Sitio histórico no encontrado")
-    return site
+    return historic_site_service.get_site_object(site_id, must_be_visible=must_be_visible)

@@ -9,6 +9,12 @@ profile_web = Blueprint("profile_web", __name__)
 @profile_web.route("/profile", methods=["GET"])
 @web_permission_required("profile_show")
 def view_profile():
+    """
+    Muestra el perfil del usuario autenticado.
+    
+    Returns:
+        render_template: Página de perfil del usuario o redirección a login si hay error
+    """
     try:
         user = user_service.get_user(session["user_id"])
     except Exception:
@@ -19,6 +25,12 @@ def view_profile():
 @profile_web.route("/profile/update_password", methods=["POST"])
 @web_permission_required("profile_update_password")
 def update_password():
+    """
+    Actualiza la contraseña del usuario autenticado.
+    
+    Returns:
+        redirect: Redirección al perfil con mensaje flash de éxito o error
+    """
     new_password = (request.form.get('new_password') or '').strip()
     if not new_password or len(new_password) < 6:
         flash('La contraseña debe tener al menos 6 caracteres', 'error')

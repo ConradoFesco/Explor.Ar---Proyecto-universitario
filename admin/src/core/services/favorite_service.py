@@ -15,6 +15,21 @@ class FavoriteService:
     """Servicios para favoritos de sitios históricos."""
 
     def mark_favorite(self, *, site_id: int, user_id: int):
+        """
+        Marca un sitio histórico como favorito para un usuario.
+        
+        Args:
+            site_id: ID del sitio histórico a marcar como favorito
+            user_id: ID del usuario
+            
+        Returns:
+            FavoriteSite: Objeto favorito creado o existente
+            
+        Raises:
+            ValidationError: Si el usuario o sitio no existen
+            NotFoundError: Si el sitio no es visible
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         validate_user_exists(user_id)
         validate_site_exists(site_id, must_be_visible=True)
 
@@ -33,6 +48,21 @@ class FavoriteService:
         return favorite
 
     def unmark_favorite(self, *, site_id: int, user_id: int):
+        """
+        Desmarca un sitio histórico como favorito para un usuario.
+        
+        Args:
+            site_id: ID del sitio histórico a desmarcar como favorito
+            user_id: ID del usuario
+            
+        Returns:
+            bool: True si se eliminó el favorito, False si no existía
+            
+        Raises:
+            ValidationError: Si el usuario o sitio no existen
+            NotFoundError: Si el sitio no es visible
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         validate_user_exists(user_id)
         validate_site_exists(site_id, must_be_visible=True)
 
@@ -52,20 +82,21 @@ class FavoriteService:
     def list_favorites(self, *, user_id: int, page: Optional[int] = None, per_page: Optional[int] = None):
         """
         Lista los sitios favoritos del usuario autenticado.
-
-        Retorna en el formato de la API pública:
-        {
-            "data": [...],
-            "meta": {
-                "page": int,
-                "per_page": int,
-                "total": int
-            }
-        }
-        Información adicional no especificada en la API:
-        - rating: Calificación promedio del sitio (number, opcional)
-        - cover_image_url: URL de la imagen de portada (string, opcional)
-        - is_favorite: Siempre true para este endpoint (boolean)
+        
+        Args:
+            user_id: ID del usuario
+            page: Número de página (opcional, por defecto 1)
+            per_page: Elementos por página (opcional, por defecto 20, máximo 100)
+            
+        Returns:
+            dict: Diccionario con 'data' (lista de sitios favoritos) y 'meta' (info de paginación)
+                Formato de la API pública con información adicional:
+                - rating: Calificación promedio del sitio (opcional)
+                - cover_image_url: URL de la imagen de portada (opcional)
+                - is_favorite: Siempre true para este endpoint
+                
+        Raises:
+            ValidationError: Si el usuario no existe o los parámetros son inválidos
         """
         validate_user_exists(user_id)
 

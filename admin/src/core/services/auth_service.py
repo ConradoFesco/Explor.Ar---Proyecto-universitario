@@ -42,8 +42,15 @@ class AuthService:
         Busca primero en usuarios privados, luego en públicos.
         Puede retornar cualquier tipo de usuario (público o privado).
         
-        Nota: Si existe tanto un PrivateUser como un PublicUser con el mismo mail,
-        retornará el PrivateUser (prioridad a usuarios privados).
+        Args:
+            mail: Email del usuario a buscar
+            
+        Returns:
+            User | None: Usuario encontrado (PrivateUser o PublicUser) o None si no existe
+            
+        Note:
+            Si existe tanto un PrivateUser como un PublicUser con el mismo mail,
+            retornará el PrivateUser (prioridad a usuarios privados).
         """
         user = PrivateUser.query.filter_by(mail=mail, deleted=False).first()
         if user:
@@ -55,8 +62,20 @@ class AuthService:
         Busca un usuario público por su email. Si no existe, lo crea como PublicUser.
         Los usuarios de Google OAuth son siempre públicos.
         
-        Nota: Puede existir un PrivateUser con el mismo mail, ya que el mail es único
-        solo dentro de cada tipo de usuario (PrivateUser o PublicUser), no globalmente.
+        Args:
+            user_info: Diccionario con información del usuario de Google
+                (debe contener 'email', opcionalmente 'given_name', 'family_name', 'picture')
+                
+        Returns:
+            PublicUser: Usuario público encontrado o creado
+            
+        Raises:
+            ValidationError: Si no se puede obtener el email de Google
+            DatabaseError: Si hay un error al persistir en la base de datos
+            
+        Note:
+            Puede existir un PrivateUser con el mismo mail, ya que el mail es único
+            solo dentro de cada tipo de usuario (PrivateUser o PublicUser), no globalmente.
         """
         mail = user_info.get('email')
         if not mail:

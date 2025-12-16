@@ -2,11 +2,14 @@
 Validaciones de entrada para tags.
 """
 from slugify import slugify
+
+from src.core.services.tag_service import tag_service
 from src.web.exceptions import ValidationError, NotFoundError
-from src.core.models.tag import Tag
-from .utils import ensure_max_length, clean_string
+
+from .utils import clean_string, ensure_max_length
 
 MAX_TAG_NAME = 50
+
 
 def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
     """
@@ -23,8 +26,7 @@ def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
     
     non_existent_tags = []
     for tag_id in tag_ids_list:
-        tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
-        if not tag:
+        if not tag_service.tag_exists(tag_id):
             non_existent_tags.append(tag_id)
     
     if non_existent_tags:
@@ -34,9 +36,16 @@ def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
 def validate_tag(name: str, tag_id: int | None = None) -> dict:
     """
     Valida nombre de tag y unicidad (para create/update).
+    
     Args:
-        name: Nombre del tag (input crudo).
-        tag_id: ID del tag a excluir en la verificación de unicidad (solo update).
+        name: Nombre del tag (input crudo)
+        tag_id: ID del tag a excluir en la verificación de unicidad (solo update)
+        
+    Returns:
+        dict: Diccionario con 'name' y 'slug' validados
+        
+    Raises:
+        ValidationError: Si el nombre es inválido, muy largo o ya existe
     """
     name = clean_string(name)
     if not name:
@@ -46,11 +55,8 @@ def validate_tag(name: str, tag_id: int | None = None) -> dict:
 
     slug = slugify(name)
 
-    base_filter = (Tag.deleted == False)
-    if tag_id is not None:
-        base_filter = base_filter & (Tag.id != tag_id)
-    if Tag.query.filter(base_filter & (Tag.name == name)).first():
+    if tag_service.tag_name_exists(name, exclude_tag_id=tag_id):
         raise ValidationError('El nombre del tag ya existe.')
-    if Tag.query.filter(base_filter & (Tag.slug == slug)).first():
+    if tag_service.tag_slug_exists(slug, exclude_tag_id=tag_id):
         raise ValidationError('El slug ya existe. El nombre podría ser muy similar a otro.')
     return {'name': name, 'slug': slug}

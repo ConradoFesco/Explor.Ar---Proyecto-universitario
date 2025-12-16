@@ -8,6 +8,7 @@ from src.core.validators.api_validator import (
     validate_positive_int,
     format_validation_error_for_api
 )
+from src.core.validators.reviews_validator import validate_review_detail_params
 
 review_api = Blueprint('review_api', __name__)
 
@@ -110,7 +111,16 @@ def list_site_reviews(site_id: int):
 @review_api.route('/sites/<int:site_id>/reviews', methods=['POST'])
 @token_or_session_required
 def create_site_review(site_id: int):
-    """Crea una nueva reseña para un sitio histórico específico."""
+    """
+    Crea una nueva reseña para un sitio histórico específico.
+    
+    Args:
+        site_id: ID del sitio histórico
+        
+    Returns:
+        jsonify: Respuesta JSON con los datos de la reseña creada (status 201)
+        o error con código apropiado (400, 404, 500)
+    """
     payload = request.get_json(silent=True) or {}
     rating = payload.get('rating')
     content = payload.get('comment')
@@ -188,22 +198,24 @@ def get_site_review(site_id: int, review_id: int):
     """
     user_id = get_current_user_id()
     
-    # TO-DO: validar review_id en validators para que sea positivo
-    if review_id <= 0:
+    try:
+        params = validate_review_detail_params(site_id=site_id, review_id=review_id)
+        validated_site_id = params['site_id']
+        validated_review_id = params['review_id']
+    except exc.ValidationError as error:
+        error_details = format_validation_error_for_api(error)
         return jsonify(
             {
                 "error": {
                     "code": "invalid_data",
                     "message": "Invalid input data",
-                    "details": {
-                        "review_id": ["Must be a positive integer"],
-                    },
+                    "details": error_details,
                 }
             }
         ), 400
     
     try:
-        data = review_service.get_review(site_id=site_id, review_id=review_id, current_user_id=user_id)
+        data = review_service.get_review(site_id=validated_site_id, review_id=validated_review_id, current_user_id=user_id)
         
         response_data = {
             "id": data.get('id'),
@@ -272,7 +284,18 @@ def get_site_review(site_id: int, review_id: int):
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['PUT'])
 @token_or_session_required
 def update_site_review(site_id: int, review_id: int):
-    """Actualiza una reseña existente."""
+    """
+    Actualiza una reseña existente.
+    Solo el autor de la reseña puede actualizarla.
+    
+    Args:
+        site_id: ID del sitio histórico
+        review_id: ID de la reseña a actualizar
+        
+    Returns:
+        jsonify: Respuesta JSON con los datos de la reseña actualizada (status 200)
+        o error con código apropiado (400, 403, 404, 500)
+    """
     payload = request.get_json(silent=True) or {}
     rating = payload.get('rating')
     content = payload.get('comment')
@@ -468,6 +491,18 @@ def list_my_reviews():
 @review_api.route('/sites/<int:site_id>/reviews/<int:review_id>', methods=['DELETE'])
 @token_or_session_required
 def delete_site_review(site_id: int, review_id: int):
+    """
+    Elimina una reseña existente.
+    Solo el autor de la reseña puede eliminarla.
+    
+    Args:
+        site_id: ID del sitio histórico
+        review_id: ID de la reseña a eliminar
+        
+    Returns:
+        str: Respuesta vacía con status 204 (No Content) si se eliminó correctamente
+        o error con código apropiado (403, 404, 500)
+    """
     user_id = get_current_user_id()
     try:
         review_service.delete_review(site_id=site_id, review_id=review_id, current_user_id=user_id)

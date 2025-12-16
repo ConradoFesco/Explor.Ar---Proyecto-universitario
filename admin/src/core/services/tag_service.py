@@ -15,7 +15,19 @@ from src.core.validators.listing_validator import validate_tag_list_params
 class TagService:
     """Operaciones sobre tags, con validaciones de unicidad y relaciones."""
     def create_tag(self, data):
-        """Crea un tag nuevo o recupera uno eliminado (reactiva) si coincide el nombre."""
+        """
+        Crea un tag nuevo o recupera uno eliminado (reactiva) si coincide el nombre.
+        
+        Args:
+            data: Diccionario con los datos del tag (debe contener 'name')
+            
+        Returns:
+            dict: Tag creado o reactivado como diccionario
+            
+        Raises:
+            ValidationError: Si el nombre es inválido o ya existe
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         name = data.get('name')
         validated = validate_tag(name)
         name = validated['name']
@@ -44,7 +56,15 @@ class TagService:
                 raise DatabaseError(f"Error al crear el tag: {str(e)}")
 
     def get_all_tags(self, include_deleted=False):
-        """Lista todos los tags (opcionalmente incluye eliminados)."""
+        """
+        Lista todos los tags (opcionalmente incluye eliminados).
+        
+        Args:
+            include_deleted: Si True, incluye tags eliminados lógicamente
+            
+        Returns:
+            list[dict]: Lista de tags como diccionarios
+        """
         query = Tag.query
         if not include_deleted:
             query = query.filter_by(deleted=False)
@@ -52,21 +72,57 @@ class TagService:
         return [tag.to_dict() for tag in tags]
 
     def get_tag_by_id(self, tag_id):
-        """Obtiene un tag por ID (no eliminado)."""
+        """
+        Obtiene un tag por ID (no eliminado).
+        
+        Args:
+            tag_id: ID del tag a obtener
+            
+        Returns:
+            dict: Tag como diccionario
+            
+        Raises:
+            NotFoundError: Si el tag no existe o está eliminado
+        """
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
         return tag.to_dict()
 
     def get_tag_by_slug(self, tag_slug):
-        """Obtiene un tag por slug (no eliminado)."""
+        """
+        Obtiene un tag por slug (no eliminado).
+        
+        Args:
+            tag_slug: Slug del tag a obtener
+            
+        Returns:
+            dict: Tag como diccionario
+            
+        Raises:
+            NotFoundError: Si el tag no existe o está eliminado
+        """
         tag = Tag.query.filter_by(slug=tag_slug, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
         return tag.to_dict()
 
     def update_tag(self, tag_id, data):
-        """Actualiza nombre/slug de un tag, validando unicidad."""
+        """
+        Actualiza nombre/slug de un tag, validando unicidad.
+        
+        Args:
+            tag_id: ID del tag a actualizar
+            data: Diccionario con los datos a actualizar (puede contener 'name')
+            
+        Returns:
+            dict: Tag actualizado como diccionario
+            
+        Raises:
+            NotFoundError: Si el tag no existe o está eliminado
+            ValidationError: Si el nuevo nombre es inválido o ya existe
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
@@ -86,7 +142,20 @@ class TagService:
             raise DatabaseError(f"Error al actualizar el tag: {str(e)}")
 
     def delete_tag(self, tag_id):
-        """Elimina lógicamente un tag si no está asociado a sitios."""
+        """
+        Elimina lógicamente un tag si no está asociado a sitios.
+        
+        Args:
+            tag_id: ID del tag a eliminar
+            
+        Returns:
+            bool: True si se eliminó correctamente
+            
+        Raises:
+            NotFoundError: Si el tag no existe o está eliminado
+            ValidationError: Si el tag está asociado a sitios históricos
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
         if not tag:
             raise NotFoundError("Tag no encontrado.")
@@ -104,7 +173,18 @@ class TagService:
             raise DatabaseError(f"Error al eliminar el tag: {str(e)}")
 
     def get_tags_by_site_id(self, site_id):
-        """Obtiene tags asociados a un sitio histórico por su ID."""
+        """
+        Obtiene tags asociados a un sitio histórico por su ID.
+        
+        Args:
+            site_id: ID del sitio histórico
+            
+        Returns:
+            list[dict]: Lista de tags asociados al sitio como diccionarios
+            
+        Raises:
+            NotFoundError: Si el sitio histórico no existe
+        """
         site = HistoricSite.query.get(site_id)
         if not site:
             raise NotFoundError("Sitio histórico no encontrado.")
@@ -119,9 +199,20 @@ class TagService:
     def get_all_tags_paginated(self, page=1, per_page=25, search='', sort_by='name', sort_order='asc', include_deleted=False):
         """
         Lista tags con paginación, búsqueda por prefijo y ordenamiento.
-
+        
+        Args:
+            page: Número de página (por defecto 1)
+            per_page: Elementos por página (por defecto 25)
+            search: Texto de búsqueda por prefijo del nombre (opcional)
+            sort_by: Campo por el cual ordenar ('name' o 'created_at', por defecto 'name')
+            sort_order: Dirección del orden ('asc' o 'desc', por defecto 'asc')
+            include_deleted: Si True, incluye tags eliminados lógicamente
+            
         Returns:
-            dict: {'tags': [...], 'pagination': {...}}
+            dict: Diccionario con 'tags' (lista de tags) y 'pagination' (info de paginación)
+            
+        Raises:
+            DatabaseError: Si hay un error al consultar la base de datos
         """
         v = validate_tag_list_params(page=page, per_page=per_page, search=search, sort_by=sort_by, sort_order=sort_order)
         page = v['page']
@@ -174,6 +265,53 @@ class TagService:
                 'next_num': pagination.next_num,
             },
         }
+
+    def tag_exists(self, tag_id: int) -> bool:
+        """
+        Verifica si existe un tag con el ID dado (no eliminado).
+        
+        Args:
+            tag_id: ID del tag a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        tag = Tag.query.filter_by(id=tag_id, deleted=False).first()
+        return tag is not None
+
+    def tag_name_exists(self, name: str, exclude_tag_id: int | None = None) -> bool:
+        """
+        Verifica si existe un tag con el nombre dado (no eliminado).
+        
+        Args:
+            name: Nombre del tag a verificar
+            exclude_tag_id: ID del tag a excluir de la búsqueda (útil para updates)
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        query = Tag.query.filter_by(deleted=False, name=name)
+        if exclude_tag_id is not None:
+            query = query.filter(Tag.id != exclude_tag_id)
+        tag = query.first()
+        return tag is not None
+
+    def tag_slug_exists(self, slug: str, exclude_tag_id: int | None = None) -> bool:
+        """
+        Verifica si existe un tag con el slug dado (no eliminado).
+        
+        Args:
+            slug: Slug del tag a verificar
+            exclude_tag_id: ID del tag a excluir de la búsqueda (útil para updates)
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        query = Tag.query.filter_by(deleted=False, slug=slug)
+        if exclude_tag_id is not None:
+            query = query.filter(Tag.id != exclude_tag_id)
+        tag = query.first()
+        return tag is not None
 
 
 tag_service = TagService()

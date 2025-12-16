@@ -275,9 +275,19 @@ class UserService:
     def list_users(self, filters=None, page=1, per_page=25, sort_by='created_at', sort_order='desc'):
         """
         Lista usuarios con filtros, orden y paginación.
-
+        
+        Args:
+            filters: Diccionario con filtros (email, activo, blocked, rol) (opcional)
+            page: Número de página (por defecto 1)
+            per_page: Elementos por página (por defecto 25)
+            sort_by: Campo por el cual ordenar ('created_at' o 'name', por defecto 'created_at')
+            sort_order: Dirección del orden ('asc' o 'desc', por defecto 'desc')
+            
         Returns:
-            dict: {'users': [...], 'pagination': {...}}
+            dict: Diccionario con 'users' (lista de usuarios con roles) y 'pagination' (info de paginación)
+            
+        Raises:
+            DatabaseError: Si hay un error al consultar la base de datos
         """
         filters = filters or {}
         v = validate_user_list_params(
@@ -354,9 +364,20 @@ class UserService:
     def assign_role_to_user(self, user_id, role_id, admin_user_id, commit=True):
         """
         Asigna un rol a un usuario.
-
+        
+        Args:
+            user_id: ID del usuario al que se le asignará el rol
+            role_id: ID del rol a asignar
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito con el nombre del rol asignado
+            
         Raises:
-            NotFoundError/ValidationError/DatabaseError.
+            NotFoundError: Si el usuario, rol o administrador no existen
+            ValidationError: Si el usuario ya tiene el rol asignado o es SuperAdmin y el admin no lo es
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
         admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
@@ -398,9 +419,20 @@ class UserService:
     def revoke_role_from_user(self, user_id, role_id, admin_user_id, commit=True):
         """
         Revoca un rol de un usuario.
-
+        
+        Args:
+            user_id: ID del usuario del que se revocará el rol
+            role_id: ID del rol a revocar
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito con el nombre del rol revocado
+            
         Raises:
-            NotFoundError/ValidationError/DatabaseError.
+            NotFoundError: Si el usuario, rol o administrador no existen
+            ValidationError: Si el usuario no tiene el rol asignado o es SuperAdmin y el admin no lo es
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
         admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
@@ -437,9 +469,15 @@ class UserService:
     def get_user_roles(self, user_id):
         """
         Devuelve roles asignados a un usuario.
-
+        
+        Args:
+            user_id: ID del usuario
+            
         Returns:
-            list[dict]: [{'id', 'name', 'assigned_at'}]
+            list[dict]: Lista de diccionarios con 'id', 'name' y 'assigned_at' de cada rol
+            
+        Raises:
+            NotFoundError: Si el usuario no existe
         """
         user = PrivateUser.query.get(user_id)
         if not user:
@@ -457,7 +495,19 @@ class UserService:
         return roles
 
     def get_user_permissions(self, user_id):
-        """Devuelve la lista de nombres de permisos asignados al usuario (vía sus roles)."""
+        """
+        Devuelve la lista de nombres de permisos asignados al usuario (vía sus roles).
+        Si el usuario es SuperAdmin, devuelve todos los permisos del sistema.
+        
+        Args:
+            user_id: ID del usuario
+            
+        Returns:
+            list[str]: Lista de nombres de permisos únicos
+            
+        Raises:
+            NotFoundError: Si el usuario no existe
+        """
         user = PrivateUser.query.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
@@ -473,7 +523,12 @@ class UserService:
         return list(permissions)
 
     def get_available_roles(self):
-        """Lista roles disponibles"""
+        """
+        Lista todos los roles disponibles (no eliminados).
+        
+        Returns:
+            list[dict]: Lista de roles como diccionarios
+        """
         roles = RolUser.query.filter_by(deleted=False).all()
         return [role.to_dict() for role in roles]
 
@@ -525,6 +580,19 @@ class UserService:
     def block_user(self, user_id, admin_user_id, commit=True):
         """
         Bloquea un usuario privado no administrador.
+        
+        Args:
+            user_id: ID del usuario a bloquear
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito
+            
+        Raises:
+            NotFoundError: Si el usuario o administrador no existen
+            ValidationError: Si el usuario ya está bloqueado o es SuperAdmin
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
         admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
@@ -553,6 +621,19 @@ class UserService:
     def unblock_user(self, user_id, admin_user_id, commit=True):
         """
         Desbloquea un usuario privado bloqueado que no sea administrador.
+        
+        Args:
+            user_id: ID del usuario a desbloquear
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito
+            
+        Raises:
+            NotFoundError: Si el usuario o administrador no existen
+            ValidationError: Si el usuario ya está desbloqueado o es SuperAdmin
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
         admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
@@ -577,6 +658,63 @@ class UserService:
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al desbloquear el usuario: {e}")
+
+    def user_exists_by_email(self, email: str) -> bool:
+        """
+        Verifica si existe un usuario privado con el email dado (no eliminado).
+        
+        Args:
+            email: Email a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        user = PrivateUser.query.filter_by(mail=email, deleted=False).first()
+        return user is not None
+
+    def role_exists(self, role_id: int) -> bool:
+        """
+        Verifica si existe un rol con el ID dado (no eliminado).
+        
+        Args:
+            role_id: ID del rol a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        role = RolUser.query.filter_by(id=role_id, deleted=False).first()
+        return role is not None
+
+    def user_exists(self, user_id: int) -> bool:
+        """
+        Verifica si existe un usuario privado con el ID dado (no eliminado).
+        
+        Args:
+            user_id: ID del usuario a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
+        return user is not None
+
+    def get_user_object(self, user_id: int) -> PrivateUser:
+        """
+        Obtiene el objeto User directamente (no eliminado).
+        
+        Args:
+            user_id: ID del usuario
+            
+        Returns:
+            PrivateUser: Objeto usuario encontrado
+            
+        Raises:
+            NotFoundError: Si el usuario no existe o está eliminado
+        """
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
+        if not user:
+            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+        return user
 
 
 user_service = UserService()

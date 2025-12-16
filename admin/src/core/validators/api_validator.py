@@ -43,7 +43,7 @@ def validate_api_pagination_params(page: Optional[object] = None, per_page: Opti
         raise
 
 
-def validate_positive_int(value: Optional[object], field_name: str, allow_none: bool = False) -> int:
+def validate_positive_int(value: Optional[object], field_name: str, allow_none: bool = False) -> int | None:
     """
     Valida que un valor sea un entero positivo.
     Usa _validate_optional_int internamente para evitar duplicación.
@@ -54,10 +54,10 @@ def validate_positive_int(value: Optional[object], field_name: str, allow_none: 
         allow_none: Si True, permite None (útil para parámetros opcionales)
     
     Returns:
-        int: Valor validado (o None si allow_none=True y value es None)
+        int | None: Valor validado como entero positivo, o None si allow_none=True y value es None
     
     Raises:
-        ValidationError: Si el valor no es un entero positivo
+        ValidationError: Si el valor no es un entero positivo o es None cuando allow_none=False
     """
     from .listing_validator import _validate_optional_int
     
