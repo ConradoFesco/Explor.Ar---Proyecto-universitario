@@ -3,6 +3,8 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/composables/useAuth'
 import { getApiBaseUrl } from '@/lib/api'
+import { useRouter } from 'vue-router'
+import { useAlert } from '@/composables/useAlert'
 import UserProfileHeader from '../components/profile/UserProfileHeader.vue'
 import ListReviewUser from '@/components/profile/ListReviewUser.vue'
 import ListFavoritesUser from '@/components/profile/ListFavoritesUser.vue'
@@ -22,6 +24,7 @@ const currentUser = computed(() => {
   return { name: 'Cargando...', email: '...', avatar_url: '' }
 })
 
+const { showConfirm, showSuccess, showError } = useAlert()
 const loading = ref(false)
 const activeTab = ref('reviews')
 const sortOrder = ref<'asc' | 'desc'>('desc')
@@ -41,6 +44,8 @@ const favorites = ref<Array<{
   location: string
   added_at: string
 }>>([])
+
+const router = useRouter()
 
 const fetchData = async () => {
   if (!authUser.value?.id) return
@@ -64,7 +69,7 @@ const fetchData = async () => {
       const url = `${base}/me/reviews?${params.toString()}`
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -79,17 +84,19 @@ const fetchData = async () => {
       const data = await response.json()
       reviews.value = (data.items || []).map((r: any) => ({
         id: r.id,
+        site_id: r.site_id,
         site_name: r.site_name || 'Sitio sin nombre',
-        rating: r.rating,
+        rating: Number(r.rating),
         date: r.inserted_at ? new Date(r.inserted_at).toLocaleDateString('es-AR') : '',
-        excerpt: (r.comment || '') ? ((r.comment || '').length > 100 ? (r.comment || '').substring(0, 100) + '...' : (r.comment || '')) : ''
+        excerpt: (r.comment || '') ? ((r.comment || '').length > 100 ? (r.comment || '').substring(0, 100) + '...' : (r.comment || '')) : '',
+        status: r.status || 'pending'
       }))
       totalPages.value = data.pagination?.pages || 1
     } else {
       const url = `${base}/me/favorites?${params.toString()}`
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -139,6 +146,44 @@ const changePage = (delta: number) => {
   }
 }
 
+const handleEditReview = (review: any) => {
+  router.push({
+    name: 'SiteDetail',
+    params: { id: review.site_id },
+    query: { editReview: review.id }
+  })
+}
+
+const handleDeleteReview = async (reviewId: number) => {
+  const result = await showConfirm(
+    'Eliminar reseña',
+    '¿Está seguro de que desea eliminar su reseña? Esta acción no se puede deshacer.'
+  )
+
+  if (!result.isConfirmed) {
+    return
+  }
+
+  try {
+    const base = getApiBaseUrl()
+    await fetch(`${base}/me/reviews/${reviewId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+    await showSuccess(
+      'Reseña eliminada',
+      'Su reseña ha sido eliminada correctamente.'
+    )
+    fetchData()
+  } catch (e) {
+    console.error('Error eliminando reseña', e)
+    await showError(
+      'Error',
+      'No se pudo eliminar la reseña. Por favor, intente nuevamente.'
+    )
+  }
+}
+
 onMounted(() => { if (authUser.value) fetchData() })
 watch(authUser, (newVal) => { if (newVal) fetchData() })
 watch(sortOrder, () => { page.value = 1; fetchData() })
@@ -184,7 +229,10 @@ watch(activeTab, () => { page.value = 1; fetchData() })
         </div>
 
         <TabsContent value="reviews" class="mt-0 focus-visible:outline-none w-full">
-          <ListReviewUser :reviews="reviews" :loading="loading" />
+          <ListReviewUser :reviews="reviews"
+                          :loading="loading"
+                          @edit="handleEditReview"
+                          @delete="handleDeleteReview" />
         </TabsContent>
 
         <TabsContent value="favorites" class="mt-0 focus-visible:outline-none w-full">
