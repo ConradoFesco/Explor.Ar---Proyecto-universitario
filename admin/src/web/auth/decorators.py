@@ -1,6 +1,8 @@
 from functools import wraps
 from flask import jsonify, session, redirect, url_for, flash, request, g, current_app
 from src.core.services.auth_service import auth_service
+from src.core.services.usuario_service import user_service
+from src.core.models.user import PrivateUser
 import jwt
 
 
@@ -18,6 +20,9 @@ def permission_required(permission_name):
 
             if not current_user:
                 return jsonify({"error": "Usuario no autenticado"}), 401
+
+            if isinstance(current_user, PrivateUser):
+                user_service.hydrate_user_permissions(current_user)
 
             if not current_user.has_permission(permission_name):
                 return jsonify({"error": f"Acceso denegado. Se requiere el permiso: {permission_name}"}), 403
@@ -105,6 +110,9 @@ def web_permission_required(permission_name):
                 session.pop('user_id', None)
                 flash('Usuario no encontrado.', 'error')
                 return redirect(url_for('main.index'))
+
+            if isinstance(current_user, PrivateUser):
+                user_service.hydrate_user_permissions(current_user)
 
             if not current_user.has_permission(permission_name):
                 flash(f'Acceso denegado. Se requiere el permiso: {permission_name}', 'error')
