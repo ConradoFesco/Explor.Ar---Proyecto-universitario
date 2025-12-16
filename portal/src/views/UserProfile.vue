@@ -27,8 +27,20 @@ const activeTab = ref('reviews')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const page = ref(1)
 const totalPages = ref(1)
-const reviews = ref([])
-const favorites = ref([])
+const reviews = ref<Array<{
+  id: any
+  site_name: string
+  rating: number
+  date: string
+  excerpt: string
+}>>([])
+const favorites = ref<Array<{
+  id: any
+  site_name: string
+  image_url: any
+  location: string
+  added_at: string
+}>>([])
 
 const fetchData = async () => {
   if (!authUser.value?.id) return
