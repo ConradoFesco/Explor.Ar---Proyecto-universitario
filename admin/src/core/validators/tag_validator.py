@@ -3,7 +3,6 @@ Validaciones de entrada para tags.
 """
 from slugify import slugify
 
-from src.core.services.tag_service import tag_service
 from src.web.exceptions import ValidationError, NotFoundError
 
 from .utils import clean_string, ensure_max_length
@@ -23,6 +22,9 @@ def validate_tag_ids_exist(tag_ids_list: list[int]) -> None:
     """
     if not tag_ids_list:
         return
+    
+    # Lazy import para evitar importación circular
+    from src.core.services.tag_service import tag_service
     
     non_existent_tags = []
     for tag_id in tag_ids_list:
@@ -55,6 +57,9 @@ def validate_tag(name: str, tag_id: int | None = None) -> dict:
 
     slug = slugify(name)
 
+    # Lazy import para evitar importación circular
+    from src.core.services.tag_service import tag_service
+    
     if tag_service.tag_name_exists(name, exclude_tag_id=tag_id):
         raise ValidationError('El nombre del tag ya existe.')
     if tag_service.tag_slug_exists(slug, exclude_tag_id=tag_id):

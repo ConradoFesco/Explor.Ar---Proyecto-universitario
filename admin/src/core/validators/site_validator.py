@@ -3,7 +3,6 @@ Validaciones de entrada para Sitios Históricos.
 """
 from src.core.models.historic_site import HistoricSite
 from src.core.services.category_service import category_service
-from src.core.services.historic_site_service import historic_site_service
 from src.core.services.state_service import state_service
 from src.core.validators.api_validator import validate_positive_int
 from src.web.exceptions import ValidationError, NotFoundError
@@ -56,6 +55,9 @@ def validate_create_site(data: dict) -> dict:
     if not is_float_like(lat) or not is_float_like(lng):
         raise ValidationError('Latitud/Longitud inválidas')
 
+    # Lazy import para evitar importación circular
+    from src.core.services.historic_site_service import historic_site_service
+    
     if historic_site_service.site_name_exists(name):
         raise ValidationError('Ya existe un sitio histórico con este nombre')
 
@@ -171,4 +173,8 @@ def validate_site_exists(site_id: int, must_be_visible: bool = False) -> Histori
         NotFoundError: Si el sitio no existe, está eliminado o no es visible (si se requiere)
     """
     site_id = validate_positive_int(site_id, "site_id")
+    
+    # Lazy import para evitar importación circular
+    from src.core.services.historic_site_service import historic_site_service
+    
     return historic_site_service.get_site_object(site_id, must_be_visible=must_be_visible)

@@ -2,7 +2,6 @@
 Validaciones de entrada para usuarios.
 """
 from src.core.models.user import User
-from src.core.services.usuario_service import user_service
 from src.core.validators.api_validator import validate_positive_int
 from src.web.exceptions import NotFoundError, ValidationError
 
@@ -46,6 +45,9 @@ def validate_create_user(data: dict) -> dict:
     if not ensure_max_length(mail, MAX_MAIL):
         raise ValidationError('El email no debe superar 120 caracteres')
 
+    # Lazy import para evitar importación circular
+    from src.core.services.usuario_service import user_service
+    
     if user_service.user_exists_by_email(mail):
         raise ValidationError('Ya existe un usuario con ese mail')
 
@@ -123,6 +125,10 @@ def validate_role_ids(role_ids: list[int]) -> list[int]:
         ids = [int(r) for r in role_ids]
     except Exception:
         raise ValidationError('IDs de roles inválidos')
+    
+    # Lazy import para evitar importación circular
+    from src.core.services.usuario_service import user_service
+    
     missing = []
     for rid in ids:
         if not user_service.role_exists(rid):
@@ -146,6 +152,10 @@ def validate_user_exists(user_id: int) -> User:
         ValidationError: Si el usuario no existe o está eliminado
     """
     user_id = validate_positive_int(user_id, "user_id")
+    
+    # Lazy import para evitar importación circular
+    from src.core.services.usuario_service import user_service
+    
     try:
         user = user_service.get_user_object(user_id)
         return user
