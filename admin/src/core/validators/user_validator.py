@@ -141,12 +141,13 @@ def validate_role_ids(role_ids: list[int]) -> list[int]:
 def validate_user_exists(user_id: int) -> User:
     """
     Valida que un usuario existe y no está eliminado.
+    Funciona tanto con usuarios privados (PrivateUser) como públicos (PublicUser).
     
     Args:
         user_id: ID del usuario a validar
     
     Returns:
-        User: Usuario encontrado
+        User: Usuario encontrado (PrivateUser o PublicUser)
     
     Raises:
         ValidationError: Si el usuario no existe o está eliminado
@@ -154,10 +155,11 @@ def validate_user_exists(user_id: int) -> User:
     user_id = validate_positive_int(user_id, "user_id")
     
     # Lazy import para evitar importación circular
-    from src.core.services.usuario_service import user_service
+    # Usamos auth_service porque busca tanto PrivateUser como PublicUser
+    from src.core.services.auth_service import auth_service
     
-    try:
-        user = user_service.get_user_object(user_id)
-        return user
-    except NotFoundError:
+    user = auth_service.get_user_by_id(user_id)
+    if not user:
         raise ValidationError("Usuario inválido")
+    
+    return user
