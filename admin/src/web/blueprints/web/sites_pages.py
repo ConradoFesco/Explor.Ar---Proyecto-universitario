@@ -130,9 +130,11 @@ def alta_sitios():
     try:
         options = historic_site_service.get_filter_options()
         tags = options.get('tags', [])
-        states = options.get('states', [])
     except Exception:
         tags = []
+    try:
+        states = state_service.get_all_states()
+    except Exception:
         states = []
     try:
         categories = category_service.get_all_categories()
