@@ -291,10 +291,16 @@ export const useSitesStore = defineStore('sites', {
         orderDir = this.sort.dir
       }
       
-      const convertToNumber = (value: number | string | undefined): number | undefined => {
-        if (value === undefined || value === null) return undefined
+      const convertToNumber = (value: number | string | null | undefined): number | undefined => {
+        if (value === undefined || value === null || value === '') return undefined
         const num = typeof value === 'number' ? value : Number(value)
         return isNaN(num) ? undefined : num
+      }
+      
+      const convertToNumberOrNull = (value: number | string | null | undefined): number | null | undefined => {
+        if (value === undefined || value === null || value === '') return null
+        const num = typeof value === 'number' ? value : Number(value)
+        return isNaN(num) ? null : num
       }
       
       return {
@@ -304,9 +310,9 @@ export const useSitesStore = defineStore('sites', {
         tags: this.tags.length ? this.tags : null,
         orderBy,
         orderDir,
-        lat: convertToNumber(this.lat) ?? null,
-        long: convertToNumber(this.long) ?? null,
-        radius: convertToNumber(this.radius) ?? null,
+        lat: convertToNumberOrNull(this.lat),
+        long: convertToNumberOrNull(this.long),
+        radius: convertToNumberOrNull(this.radius),
         page: convertToNumber(this.page),
         perPage: convertToNumber(this.perPage),
         favoritesOnly: this.favoritesOnly,
