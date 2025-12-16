@@ -34,7 +34,7 @@
         ]) }}
         {% from 'components/page_header.html.jinja' import render_page_header %}
         {% call render_page_header('Usuarios registrados', 'users-heading') %}
-            <button onclick="window.location.href='/users/nuevo'" 
+            <button onclick="window.location.href='{{ url_for('users_web.create_user_form_page') }}'" 
                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -59,7 +59,7 @@
     pageUrl: "{{ url_for('users_web.list_users_page') }}",
     fragmentUrl: "{{ url_for('users_web.list_users_fragment') }}",
   };
-  window.CURRENT_USER_ID = {{ session.get('user_id') | tojson }};
+  window.CURRENT_USER_ID = {{ current_user_id | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/users.js') }}"></script>
 {% endblock %}

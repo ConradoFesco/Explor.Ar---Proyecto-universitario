@@ -1,6 +1,7 @@
 from minio import Minio
 
-class Storage: 
+
+class Storage:
     def __init__(self, app=None):
         self._client = None
 
@@ -9,7 +10,6 @@ class Storage:
 
     def init_app(self, app):
         """Inicializa la conexión a MinIO con la configuración de la app"""
-        # 🔧 Asegurarse de que el endpoint no incluya "http://"
         endpoint = app.config['MINIO_SERVER'].replace("http://", "").replace("https://", "")
 
         self._client = Minio(
@@ -20,5 +20,6 @@ class Storage:
         )
         app.storage = self._client
         return app
+
 
 storage = Storage()

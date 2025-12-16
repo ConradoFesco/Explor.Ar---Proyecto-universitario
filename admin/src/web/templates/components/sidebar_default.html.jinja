@@ -1,6 +1,6 @@
 <!-- Sidebar default content -->
-<!-- Sitios Históricos (NO accesible para usuario común) -->
-{% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
+<!-- Sitios Históricos -->
+{% if current_user and (is_super_admin or current_user.has_permission('site_index')) %}
 <a href="{{ url_for('sites_web.lista_sitios') }}" 
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
     <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -11,9 +11,8 @@
     </a>
 {% endif %}
 
-{# Moderación de Reseñas - solo para roles con permiso 'moderate_reviews' o admins #}
-{% if (current_user and (is_admin or 'moderator' in user_roles or ('usuario' not in user_roles and 'editor' in user_roles))) or
-      (current_user and current_user.has_permission('moderate_reviews') if current_user else False) %}
+<!-- Moderación de Reseñas -->
+{% if current_user and (is_super_admin or current_user.has_permission('review_index')) %}
     <a href="{{ url_for('reviews_web.list_reviews_page') }}"
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
     <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -23,8 +22,8 @@
     <span class="font-medium">Moderación de Reseñas</span>
 </a>
 {% endif %}
-<!-- Gestión de Tags (NO accesible para usuario común) -->
-{% if 'usuario' not in user_roles or is_admin or 'editor' in user_roles %}
+<!-- Gestión de Tags -->
+{% if current_user and (is_super_admin or current_user.has_permission('tag_index')) %}
 <a href="{{ url_for('tags_web.lista_tags') }}" 
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
     <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,8 +34,8 @@
 </a>
 {% endif %}
 
-<!-- Gestión de Usuarios (solo admin o super admin, NO editor ni usuario) -->
-{% if is_admin %}
+<!-- Gestión de Usuarios -->
+{% if current_user and (is_super_admin or current_user.has_permission('user_index')) %}
 <a href="{{ url_for('users_web.list_users_page') }}" 
     class="flex items-center p-4 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group">
     <svg class="w-6 h-6 mr-4 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,6 +2,7 @@ from src.web.extensions import db
 from datetime import datetime
 from typing import Dict, Any
 
+
 class Event(db.Model):
     __tablename__ = 'Event'
     

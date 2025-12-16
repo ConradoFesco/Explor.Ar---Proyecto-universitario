@@ -34,18 +34,52 @@ const province = ref<string>('')
 const selectedTags = ref<string[]>(store.tags)
 const favoritesOnly = ref(store.favoritesOnly)
 
-const lat = ref(store.lat)
-const long = ref(store.long)
-const radius = ref(store.radius ?? 1000)
+function safeNumber(value: number | string | undefined | null, defaultValue: number | null = null): number | null {
+  if (value === undefined || value === null) return defaultValue
+  if (typeof value === 'number') return isNaN(value) ? defaultValue : value
+  const num = Number(value)
+  return isNaN(num) ? defaultValue : num
+}
+
+const lat = ref<number | null>(safeNumber(store.lat))
+const long = ref<number | null>(safeNumber(store.long))
+const radius = ref<number | string>(safeNumber(store.radius, 1000) ?? 1000)
+
+const radiusForMap = ref<number | null>(safeNumber(store.radius, 1000))
+
+watch(radius, (newVal) => {
+  const numVal = safeNumber(newVal)
+  if (numVal !== null && numVal > 0 && numVal !== radiusForMap.value) {
+    radiusForMap.value = numVal
+  } else if (numVal === null && radiusForMap.value !== null) {
+    radiusForMap.value = null
+  }
+}, { immediate: true })
+
+watch(radiusForMap, (newVal) => {
+  if (newVal !== null) {
+    const currentRadius = safeNumber(radius.value)
+    if (newVal !== currentRadius) {
+      radius.value = newVal
+    }
+  }
+})
 
 const mapAccordionOpen = ref<string | undefined>(undefined)
 const radiusDropdownOpen = ref(false)
 const radiusDropdownRef = ref<HTMLDivElement | null>(null)
 
+const latError = ref<string | undefined>(undefined)
+const longError = ref<string | undefined>(undefined)
+const radiusError = ref<string | undefined>(undefined)
+
+const storeLatError = computed(() => store.validationErrors.lat)
+const storeLongError = computed(() => store.validationErrors.long)
+const storeRadiusError = computed(() => store.validationErrors.radius)
+
 const filterOptions = ref<FilterOptions | null>(null)
 const isLoadingOptions = ref(false)
 
-// Computed para opciones de selectores (sin incluir la opción "Todas", se maneja con placeholder)
 const cityOptions = computed(() => 
   (filterOptions.value?.cities || []).map(c => ({ value: c.name, label: c.name }))
 )
@@ -64,10 +98,13 @@ onMounted(async () => {
     isLoadingOptions.value = false
   }
   
-  // Sincronizar con el store al montar
   if (store.city) city.value = store.city
   if (store.province) province.value = store.province
   favoritesOnly.value = store.favoritesOnly
+  
+  if (store.validationErrors.lat) latError.value = store.validationErrors.lat
+  if (store.validationErrors.long) longError.value = store.validationErrors.long
+  if (store.validationErrors.radius) radiusError.value = store.validationErrors.radius
 })
 
 onClickOutside(radiusDropdownRef, () => {
@@ -75,23 +112,127 @@ onClickOutside(radiusDropdownRef, () => {
 })
 
 function applyTextSearch() {
+  store.clearValidationErrors()
+  
   store.text = text.value.trim()
-  store.page = 1
+  
+  store.page = undefined
   store.loadFirstPage()
   emit('apply')
 }
 
 function applyMapFilters() {
-  store.lat = lat.value != null ? Number(lat.value) : null
-  store.long = long.value != null ? Number(long.value) : null
-  store.radius = radius.value != null ? Number(radius.value) : null
-  store.page = 1
-  store.loadFirstPage()
-  emit('apply')
+  latError.value = undefined
+  longError.value = undefined
+  radiusError.value = undefined
+  
+  store.clearValidationErrors()
+  
+  let hasErrors = false
+  
+  if (lat.value != null) {
+    const latResult = store.validateLat(lat.value)
+    if (!latResult.valid) {
+      latError.value = latResult.error
+      hasErrors = true
+    } else {
+      if (latResult.cleaned !== undefined) {
+        lat.value = latResult.cleaned
+      }
+    }
+  } else {
+    store.lat = undefined
+  }
+  
+  if (long.value != null) {
+    const longResult = store.validateLong(long.value)
+    if (!longResult.valid) {
+      longError.value = longResult.error
+      hasErrors = true
+    } else {
+      if (longResult.cleaned !== undefined) {
+        long.value = longResult.cleaned
+      }
+    }
+  } else {
+    store.long = undefined
+  }
+  
+  const radiusValue = radius.value
+  const hasCoordinates = store.lat !== undefined && store.long !== undefined
+  
+  if (radiusValue != null && radiusValue !== '' && radiusValue !== '0') {
+    if (!hasCoordinates && (radiusValue === 1000 || radiusValue === '1000')) {
+      store.radius = undefined
+      radiusForMap.value = null
+    } else {
+      const radiusResult = store.validateRadius(radiusValue)
+      if (!radiusResult.valid) {
+        radiusError.value = radiusResult.error
+        hasErrors = true
+      } else if (radiusResult.cleaned !== undefined) {
+        radius.value = radiusResult.cleaned
+        radiusForMap.value = radiusResult.cleaned
+      } else {
+        store.radius = undefined
+        radiusForMap.value = null
+      }
+    }
+  } else {
+    store.radius = undefined
+    radiusForMap.value = null
+  }
+  
+  if ((store.lat !== undefined) !== (store.long !== undefined)) {
+    if (store.lat !== undefined) {
+      longError.value = 'La longitud es requerida cuando se especifica latitud'
+      hasErrors = true
+    } else {
+      latError.value = 'La latitud es requerida cuando se especifica longitud'
+      hasErrors = true
+    }
+  }
+  
+  if (store.radius !== undefined && store.radius !== null && (store.lat === undefined || store.long === undefined)) {
+    radiusError.value = 'El radio requiere especificar latitud y longitud'
+    hasErrors = true
+  }
+  
+  if (hasErrors) {
+    if (latError.value) {
+      store.setValidationError('lat', latError.value)
+    }
+    if (longError.value) {
+      store.setValidationError('long', longError.value)
+    }
+    if (radiusError.value) {
+      store.setValidationError('radius', radiusError.value)
+    }
+    return
+  }
+  
+  if (!latError.value) {
+    delete store.validationErrors.lat
+  }
+  if (!longError.value) {
+    delete store.validationErrors.long
+  }
+  if (!radiusError.value) {
+    delete store.validationErrors.radius
+  }
+  
+  if (Object.keys(store.validationErrors).length > 0) {
+    return
+  }
+  
+  if (store.lat != null && store.long != null) {
+    store.page = undefined
+    store.loadFirstPage()
+    emit('apply')
+  }
 }
 
 async function applyManualFilters() {
-  // Si se activa el filtro de favoritos, verificar autenticación
   if (favoritesOnly.value) {
     await checkAuth()
     if (!isAuthenticated.value) {
@@ -105,11 +246,18 @@ async function applyManualFilters() {
     }
   }
   
+  store.clearValidationErrors()
+  
   store.city = city.value.trim()
   store.province = province.value.trim()
   store.tags = selectedTags.value
   store.favoritesOnly = favoritesOnly.value === true
-  store.page = 1
+  
+  if (Object.keys(store.validationErrors).length > 0) {
+    return
+  }
+  
+  store.page = undefined
   await store.loadFirstPage()
   emit('apply')
 }
@@ -117,7 +265,16 @@ async function applyManualFilters() {
 const debouncedTextSearch = useDebounceFn(applyTextSearch, 500)
 
 watch([text], debouncedTextSearch)
-watch([lat, long, radius], applyMapFilters)
+
+const debouncedMapFilters = useDebounceFn(applyMapFilters, 300)
+watch([lat, long, radius], () => {
+  const hasCoordinates = lat.value != null || long.value != null
+  const hasNonDefaultRadius = radius.value != null && radius.value !== '' && radius.value !== 1000
+  
+  if (hasCoordinates || hasNonDefaultRadius) {
+    debouncedMapFilters()
+  }
+})
 
 function toggleTag(tagSlug: string) {
   const idx = selectedTags.value.indexOf(tagSlug)
@@ -130,6 +287,12 @@ function toggleTag(tagSlug: string) {
 
 
 function reset() {
+  latError.value = undefined
+  longError.value = undefined
+  radiusError.value = undefined
+  
+  store.resetFilters()
+  
   text.value = ''
   city.value = ''
   province.value = ''
@@ -138,21 +301,33 @@ function reset() {
   lat.value = null
   long.value = null
   radius.value = 1000
+  radiusForMap.value = 1000
   mapAccordionOpen.value = undefined
   radiusDropdownOpen.value = false
-  store.resetFilters()
+  
   store.loadFirstPage()
   emit('reset')
 }
 
 function clearMapSelection() {
+  latError.value = undefined
+  longError.value = undefined
+  radiusError.value = undefined
+  
   lat.value = null
   long.value = null
   radius.value = 1000
-  store.lat = null
-  store.long = null
-  store.radius = null
-  store.page = 1
+  radiusForMap.value = 1000
+  
+  store.lat = undefined
+  store.long = undefined
+  store.radius = undefined
+  
+  delete store.validationErrors.lat
+  delete store.validationErrors.long
+  delete store.validationErrors.radius
+  
+  store.page = undefined
   store.loadFirstPage()
 }
 </script>
@@ -237,14 +412,20 @@ function clearMapSelection() {
               <SearchMap
                 v-model:lat="lat"
                 v-model:long="long"
-                v-model:radius="radius"
+                v-model:radius="radiusForMap"
               />
             </div>
             <div class="flex items-center justify-between">
               <div v-if="lat != null && long != null" class="text-xs text-gray-600 dark:text-gray-300">
                 <p class="font-medium">Punto seleccionado:</p>
-                <p>{{ lat.toFixed(5) }}, {{ long.toFixed(5) }}</p>
-                <p class="mt-1">Radio: {{ radius }} m</p>
+                <p>{{ typeof lat === 'number' ? lat.toFixed(5) : lat }}, {{ typeof long === 'number' ? long.toFixed(5) : long }}</p>
+                <p v-if="radius != null && radius !== ''" class="mt-1">Radio: {{ radius }} m</p>
+                <p v-if="latError || storeLatError" class="text-red-600 dark:text-red-400 mt-1 font-medium">
+                  ⚠️ {{ latError || storeLatError }}
+                </p>
+                <p v-if="longError || storeLongError" class="text-red-600 dark:text-red-400 mt-1 font-medium">
+                  ⚠️ {{ longError || storeLongError }}
+                </p>
               </div>
               <div v-else class="text-xs text-gray-500 dark:text-gray-400">
                 Hacé clic en el mapa para seleccionar un punto
@@ -266,16 +447,20 @@ function clearMapSelection() {
                   >
                     <label class="block text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">Radio de búsqueda (metros)</label>
                     <Input
-                      v-model.number="radius"
+                      v-model="radius"
                       type="number"
                       min="100"
                       max="50000"
                       step="100"
                       placeholder="1000"
-                      class="mb-2"
+                      :class="['mb-2', (radiusError || storeRadiusError) && 'border-red-500 dark:border-red-500']"
+                      @blur="applyMapFilters"
                     />
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                      El radio se aplicará desde el punto seleccionado en el mapa.
+                    <p v-if="radiusError || storeRadiusError" class="text-xs text-red-600 dark:text-red-400 mb-2 font-medium">
+                      {{ radiusError || storeRadiusError }}
+                    </p>
+                    <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+                      El radio se aplicará desde el punto seleccionado en el mapa (100-50000 metros).
                     </p>
                   </div>
                 </div>

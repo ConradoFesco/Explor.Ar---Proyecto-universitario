@@ -20,7 +20,6 @@ let map: L.Map | null = null
 let marker: L.Marker | null = null
 let circle: L.Circle | null = null
 
-// Fix para iconos de Leaflet en Vite
 import icon from 'leaflet/dist/images/marker-icon.png?url'
 import iconShadow from 'leaflet/dist/images/marker-shadow.png?url'
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png?url'
@@ -84,20 +83,26 @@ function createCircle(latlng: [number, number], radiusMeters: number) {
 function updateMarker() {
   if (!map) return
 
-  removeLayers()
-
   if (props.lat != null && props.long != null) {
     const latlng: [number, number] = [props.lat, props.long]
     const radiusMeters = props.radius ?? 1000
     
-    createMarker(latlng)
-    createCircle(latlng, radiusMeters)
-    
-    if (circle) {
+    if (circle && circle.getLatLng().lat === props.lat && circle.getLatLng().lng === props.long) {
+      circle.setRadius(radiusMeters)
       map.fitBounds(circle.getBounds(), { padding: [20, 20] })
     } else {
-      map.setView(latlng, Math.max(map.getZoom(), 12))
+      removeLayers()
+      createMarker(latlng)
+      createCircle(latlng, radiusMeters)
+      
+      if (circle) {
+        map.fitBounds(circle.getBounds(), { padding: [20, 20] })
+      } else {
+        map.setView(latlng, Math.max(map.getZoom(), 12))
+      }
     }
+  } else {
+    removeLayers()
   }
 }
 

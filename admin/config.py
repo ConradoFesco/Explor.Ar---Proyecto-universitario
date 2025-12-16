@@ -14,10 +14,8 @@ class Config:
     SESSION_TYPE = os.getenv("SESSION_TYPE", "filesystem")
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "")
-    # Google OAuth2
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-    # Frontend URL para redirecciones después de OAuth
     FRONTEND_URL = os.getenv("FRONTEND_URL")
     SESSION_COOKIE_SECURE = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
@@ -36,7 +34,7 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     DEBUG_TB_INTERCEPT_REDIRECTS = (
-        False  # Para evitar que el debugbar se detenga en los redirects
+        False
     )
     SESSION_COOKIE_SECURE = False
     pass

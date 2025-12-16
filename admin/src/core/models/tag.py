@@ -2,6 +2,7 @@ from src.web.extensions import db
 from datetime import datetime
 from typing import Dict, Any
 
+
 class Tag(db.Model):
     __tablename__ = 'Tag'
     
@@ -11,7 +12,6 @@ class Tag(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     tag_historic_sites = db.relationship('TagHistoricSite', backref='tag', lazy=True)
     
     def __repr__(self) -> str:

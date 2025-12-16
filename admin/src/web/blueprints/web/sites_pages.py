@@ -1,26 +1,31 @@
-from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify, current_app
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash, Response, jsonify
 from src.web.auth.decorators import web_permission_required
 from src.core.services.state_service import state_service
 from src.core.services.category_service import category_service
 from src.core.services.historic_site_service import historic_site_service
 from src.core.services.site_image_service import site_image_service
 from src.core.validators.listing_validator import validate_site_list_params
+from src.core.validators.image_validator import validate_titulo_alt, validate_image_orders
 from src.web import exceptions as exc
 
 sites_web = Blueprint('sites_web', __name__)
 
 
 def _resolve_site_list_params():
+    """
+    Resuelve y valida parámetros de listado de sitios.
+    No aplica valores por defecto antes de validar - el validador lo hará.
+    """
     raw_args = {
-        'page': request.args.get('page', 1, type=int),
-        'per_page': request.args.get('per_page', 25, type=int),
+        'page': request.args.get('page'),
+        'per_page': request.args.get('per_page'),
         'search_text': request.args.get('search'),
-        'sort_by': request.args.get('sort_by', 'created_at'),
-        'sort_order': request.args.get('sort_order', 'desc'),
-        'city_id': request.args.get('city_id', type=int),
-        'province_id': request.args.get('province_id', type=int),
+        'sort_by': request.args.get('sort_by'),
+        'sort_order': request.args.get('sort_order'),
+        'city_id': request.args.get('city_id'),
+        'province_id': request.args.get('province_id'),
         'tag_ids': request.args.get('tag_ids'),
-        'state_id': request.args.get('state_id', type=int),
+        'state_id': request.args.get('state_id'),
         'date_from': request.args.get('date_from'),
         'date_to': request.args.get('date_to'),
         'visible': request.args.get('visible')
@@ -30,14 +35,14 @@ def _resolve_site_list_params():
     except exc.ValidationError as error:
         flash('Parámetros inválidos en el listado: ' + str(error), 'error')
         return validate_site_list_params(
-            page=1,
-            per_page=25,
+            page=None,  
+            per_page=None, 
             search_text=None,
-            sort_by='created_at',
-            sort_order='desc',
+            sort_by=None,  
+            sort_order=None, 
             city_id=None,
             province_id=None,
-            tag_ids=[],
+            tag_ids=None,
             state_id=None,
             date_from=None,
             date_to=None,
@@ -46,11 +51,9 @@ def _resolve_site_list_params():
 
 
 @sites_web.route("/sitios")
-@web_permission_required("get_all_historic_sites")
+@web_permission_required("site_index")
 def lista_sitios():
     """Listado SSR de sitios con filtros, orden y paginación."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     params = _resolve_site_list_params()
 
     result = historic_site_service.get_all_historic_sites(
@@ -71,10 +74,19 @@ def lista_sitios():
 
     sites = result.get('sites', [])
     pagination = result.get('pagination', {})
-    # Cargar opciones de filtros (SSR)
     filters = historic_site_service.get_filter_options()
+
     def map_opts(items):
-        return [{ 'value': str(it.get('id')), 'label': it.get('name') } for it in (items or [])]
+        """
+        Convierte una lista de items con 'id' y 'name' en formato para selectores HTML.
+        
+        Args:
+            items: Lista de diccionarios con 'id' y 'name'
+            
+        Returns:
+            list[dict]: Lista de diccionarios con 'value' (id como string) y 'label' (name)
+        """
+        return [{'value': str(it.get('id')), 'label': it.get('name')} for it in (items or [])]
     filters_options = {
         'cities': map_opts(filters.get('cities')),
         'provinces': map_opts(filters.get('provinces')),
@@ -85,12 +97,9 @@ def lista_sitios():
 
 
 @sites_web.route("/sitios/fragment")
-@web_permission_required("get_all_historic_sites")
+@web_permission_required("site_index")
 def lista_sitios_fragment():
     """Fragmento HTML para refrescar el listado de sitios (paginación/orden)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-
     params = _resolve_site_list_params()
 
     result = historic_site_service.get_all_historic_sites(
@@ -115,12 +124,9 @@ def lista_sitios_fragment():
 
 
 @sites_web.route("/alta-sitios")
-@web_permission_required("create_historic_site")
+@web_permission_required("site_new")
 def alta_sitios():
     """Formulario SSR de alta de sitio (carga de opciones desde servicios)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    # Pasar opciones de tags para SSR en selector
     try:
         options = historic_site_service.get_filter_options()
         tags = options.get('tags', [])
@@ -138,18 +144,28 @@ def alta_sitios():
 
 
 @sites_web.route("/modificar-sitios")
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def modificar_sitios():
     """Formulario SSR de edición de sitio (incluye opciones y datos del sitio)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    edit_id = request.args.get('edit', type=int)
+    edit_id = request.args.get('edit')
     site = None
+    
     if edit_id:
         try:
+            edit_id = int(edit_id)
+        except (ValueError, TypeError):
+            flash('ID de sitio inválido', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
+        
+        try:
             site = historic_site_service.get_historic_site(edit_id)
-        except Exception:
-            site = None
+        except exc.NotFoundError:
+            flash('Sitio histórico no encontrado', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
+        except Exception as e:
+            flash(f'Error al cargar el sitio: {str(e)}', 'error')
+            return redirect(url_for('sites_web.lista_sitios'))
+    
     try:
         states = state_service.get_all_states()
     except Exception:
@@ -161,23 +177,23 @@ def modificar_sitios():
     return render_template("sites/modificar_sitios.html", site_edit=site, states_options=states, categories_options=categories)
 
 
-
 @sites_web.route("/sitios/<int:site_id>/fragment")
-@web_permission_required("get_historic_site")
+@web_permission_required("site_show")
 def site_detail_fragment(site_id: int):
     """Fragmento HTML con detalle de sitio para uso en modales o vistas parciales."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    site = historic_site_service.get_historic_site(site_id)
-    return render_template("features/sites/_detail.html.jinja", site=site)
+    try:
+        site = historic_site_service.get_historic_site(site_id)
+        return render_template("features/sites/_detail.html.jinja", site=site)
+    except exc.NotFoundError:
+        return '<div class="text-red-600 p-4">Sitio histórico no encontrado</div>', 404
+    except Exception as e:
+        return f'<div class="text-red-600 p-4">Error al cargar el sitio: {str(e)}</div>', 500
 
 
 @sites_web.route("/sitios/<int:site_id>/eliminar", methods=["POST"])
-@web_permission_required("delete_historic_site")
+@web_permission_required("site_destroy")
 def eliminar_sitio(site_id: int):
     """Elimina lógicamente un sitio histórico (solo con permisos)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     data_user = session.get('user_id')
     try:
         historic_site_service.soft_delete_historic_site(site_id, data_user)
@@ -188,11 +204,9 @@ def eliminar_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/tags", methods=["POST"])
-@web_permission_required("update_tags")
+@web_permission_required("site_tags_update")
 def actualizar_tags_sitio(site_id: int):
     """Actualiza las etiquetas asociadas a un sitio histórico."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     tag_ids = []
     try:
         tag_ids = [int(t) for t in request.form.getlist('tag_ids') if t.strip()]
@@ -208,11 +222,9 @@ def actualizar_tags_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/tags/fragment")
-@web_permission_required("update_tags")
+@web_permission_required("site_tags_update")
 def editar_tags_fragment(site_id: int):
     """Fragmento HTML para selección/edición de tags de un sitio."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     site = historic_site_service.get_historic_site(site_id)
     options = historic_site_service.get_filter_options()
     tags = options.get('tags', [])
@@ -221,13 +233,10 @@ def editar_tags_fragment(site_id: int):
 
 
 @sites_web.route('/sitios', methods=['POST'])
-@web_permission_required("create_historic_site")
+@web_permission_required("site_new")
 def crear_sitio_web():
     """Procesa la creación de un sitio a partir de datos de formulario."""
-    if "user_id" not in session:
-        if request.is_json or request.headers.get('Content-Type') == 'application/json':
-            return jsonify({'success': False, 'error': 'No autorizado'}), 401
-        return redirect(url_for("main.index"))
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
     data_user = session.get('user_id')
     form = request.form
     data_site = {
@@ -244,7 +253,6 @@ def crear_sitio_web():
         'name_province': form.get('provincia')
     }
     try:
-        # Obtener tags seleccionados del formulario
         tag_ids = []
         try:
             tag_ids = [int(t) for t in form.getlist('tag_ids') if t.strip()]
@@ -252,36 +260,33 @@ def crear_sitio_web():
             tag_ids = []
         data_site['tag_ids'] = tag_ids
         
-        # Crear el sitio y obtener el objeto creado con su ID
         created_site = historic_site_service.create_historic_site(data_site, data_user)
         
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        if is_ajax:
             return jsonify({
                 'success': True,
-                'message': 'Sitio histórico creado correctamente',
-                'site_id': created_site.id
-            })
+                'site_id': created_site.id,
+                'message': 'Sitio histórico creado correctamente. Ahora puede agregar imágenes.'
+            }), 200
         
         flash('Sitio histórico creado correctamente. Ahora puede agregar imágenes.', 'success')
         return redirect(url_for('sites_web.modificar_sitios', edit=created_site.id))
     except exc.ValidationError as e:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        if is_ajax:
             return jsonify({'success': False, 'error': str(e)}), 400
         flash('Error al crear sitio: ' + str(e), 'error')
         return redirect(url_for('sites_web.alta_sitios'))
     except Exception as e:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
-            return jsonify({'success': False, 'error': f'Error al crear sitio: {str(e)}'}), 500
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(e)}), 500
         flash('Error al crear sitio: ' + str(e), 'error')
         return redirect(url_for('sites_web.alta_sitios'))
 
 
 @sites_web.route('/sitios/<int:site_id>/editar', methods=['POST'])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def editar_sitio_web(site_id: int):
     """Procesa la actualización de un sitio histórico y redirige al listado."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     data_user = session.get('user_id')
     form = request.form
     data_site = {
@@ -305,47 +310,23 @@ def editar_sitio_web(site_id: int):
 
 
 @sites_web.route("/sitios/export-csv", methods=["GET"])
-@web_permission_required("export_historic_sites")
+@web_permission_required("site_export")
 def export_sites_csv_web():
     """Genera un CSV con sitios históricos respetando filtros actuales."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     try:
-        search_text = request.args.get('search', None)
-        sort_by = request.args.get('sort_by', 'created_at')
-        sort_order = request.args.get('sort_order', 'desc')
-        city_id = request.args.get('city_id', type=int)
-        province_id = request.args.get('province_id', type=int)
-        state_id = request.args.get('state_id', type=int)
-        visible_param = request.args.get('visible')
-        visible = None
-        if visible_param is not None:
-            visible = visible_param.lower() == 'true'
-        tag_ids = request.args.get('tag_ids', '')
-        if tag_ids:
-            try:
-                tag_ids = [int(tid.strip()) for tid in tag_ids.split(',') if tid.strip()]
-            except ValueError:
-                tag_ids = []
-        else:
-            tag_ids = []
-        date_from = request.args.get('date_from', None)
-        date_to = request.args.get('date_to', None)
-        if sort_by not in ['name', 'city', 'created_at']:
-            sort_by = 'created_at'
-        if sort_order not in ['asc', 'desc']:
-            sort_order = 'desc'
+        params = _resolve_site_list_params()
+
         csv_content, filename = historic_site_service.export_sites_to_csv(
-            search_text=search_text,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            city_id=city_id,
-            province_id=province_id,
-            tag_ids=tag_ids,
-            state_id=state_id,
-            date_from=date_from,
-            date_to=date_to,
-            visible=visible
+            search_text=params['search_text'],
+            sort_by=params['sort_by'],
+            sort_order=params['sort_order'],
+            city_id=params['city_id'],
+            province_id=params['province_id'],
+            tag_ids=params['tag_ids'],
+            state_id=params['state_id'],
+            date_from=params['date_from'],
+            date_to=params['date_to'],
+            visible=params['visible'],
         )
         response = Response(
             csv_content,
@@ -361,33 +342,21 @@ def export_sites_csv_web():
         return redirect(url_for('sites_web.lista_sitios'))
 
 
-@sites_web.route("/sitios/<int:site_id>/imagenes/fragment")
-@web_permission_required("get_historic_site")
-def listar_imagenes_sitio(site_id: int):
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
-
-
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["GET"])
-@web_permission_required("get_historic_site")
+@web_permission_required("site_show")
 def obtener_imagenes_sitio(site_id: int):
-    if "user_id" not in session:
-        return jsonify({'success': False, 'error': 'No autorizado'}), 401
-    
+    """Devuelve las imágenes de un sitio en formato JSON para el gestor de imágenes del panel."""
     try:
         images = site_image_service.get_images_by_site(site_id)
-        return jsonify({'success': True, 'images': images})
+        return jsonify({'success': True, 'images': images}), 200
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': f'Error al cargar imágenes: {str(e)}'}), 500
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def subir_imagen_sitio(site_id: int):
-    if "user_id" not in session:
-        return jsonify({'success': False, 'error': 'No autorizado'}), 401
-    
+    """Sube una o varias imágenes para un sitio histórico."""
     data_user = session.get('user_id')
     
     if 'imagenes' in request.files:
@@ -397,25 +366,31 @@ def subir_imagen_sitio(site_id: int):
         
         titulos = request.form.getlist('titulo_alt[]')
         descripciones = request.form.getlist('descripcion[]')
-        cover_index = request.form.get('cover_index', type=int)
+        cover_index = request.form.get('cover_index')
+        if cover_index is not None:
+            try:
+                cover_index = int(cover_index)
+            except (ValueError, TypeError):
+                flash('Índice de portada inválido', 'error')
+                return redirect(url_for('sites_web.lista_sitios'))
         
         files_data = []
         for idx, file in enumerate(files):
             if file and file.filename:
-                # Manejar titulo_alt de forma segura
                 if idx < len(titulos) and titulos[idx]:
                     titulo_alt = str(titulos[idx]).strip() if titulos[idx] else file.filename
                 else:
                     titulo_alt = file.filename
                 
-                # Manejar descripcion de forma segura
                 if idx < len(descripciones) and descripciones[idx]:
                     descripcion = str(descripciones[idx]).strip() or None
                 else:
                     descripcion = None
                 
-                if not titulo_alt:
-                    return jsonify({'success': False, 'error': f'El título/alt es obligatorio para la imagen {idx + 1}'}), 400
+                try:
+                    titulo_alt = validate_titulo_alt(titulo_alt, f"título/alt de la imagen {idx + 1}")
+                except exc.ValidationError as e:
+                    return jsonify({'success': False, 'error': str(e)}), 400
                 
                 is_cover = (cover_index is not None and idx == cover_index)
                 
@@ -435,7 +410,7 @@ def subir_imagen_sitio(site_id: int):
                 'success': True,
                 'images': [img.to_dict() for img in images],
                 'message': f'Se subieron {len(images)} imagen(es) correctamente'
-            })
+            }), 200
         except exc.ValidationError as e:
             return jsonify({'success': False, 'error': str(e)}), 400
         except exc.NotFoundError as e:
@@ -447,11 +422,13 @@ def subir_imagen_sitio(site_id: int):
         return jsonify({'success': False, 'error': 'No se proporcionó ningún archivo'}), 400
     
     file = request.files['imagen']
-    titulo_alt = request.form.get('titulo_alt', '').strip()
+    titulo_alt_raw = request.form.get('titulo_alt', '')
     descripcion = request.form.get('descripcion', '').strip() or None
     
-    if not titulo_alt:
-        return jsonify({'success': False, 'error': 'El título/alt es obligatorio'}), 400
+    try:
+        titulo_alt = validate_titulo_alt(titulo_alt_raw)
+    except exc.ValidationError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
     
     try:
         image = site_image_service.upload_image(
@@ -461,7 +438,7 @@ def subir_imagen_sitio(site_id: int):
             descripcion=descripcion,
             user_id=data_user
         )
-        return jsonify({'success': True, 'image': image.to_dict()})
+        return jsonify({'success': True, 'image': image.to_dict(), 'message': 'Imagen subida correctamente'}), 200
     except exc.ValidationError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
     except exc.NotFoundError as e:
@@ -471,16 +448,14 @@ def subir_imagen_sitio(site_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>", methods=["DELETE"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def eliminar_imagen_sitio(site_id: int, image_id: int):
-    if "user_id" not in session:
-        return jsonify({'success': False, 'error': 'No autorizado'}), 401
-    
+    """Elimina una imagen de un sitio. Responde JSON para el gestor de imágenes."""
     data_user = session.get('user_id')
     
     try:
         site_image_service.delete_image(image_id, user_id=data_user)
-        return jsonify({'success': True})
+        return jsonify({'success': True}), 200
     except exc.ValidationError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
     except exc.NotFoundError as e:
@@ -490,16 +465,14 @@ def eliminar_imagen_sitio(site_id: int, image_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/portada", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def marcar_portada_imagen(site_id: int, image_id: int):
-    if "user_id" not in session:
-        return jsonify({'success': False, 'error': 'No autorizado'}), 401
-    
+    """Marca una imagen como portada. Responde JSON para el gestor de imágenes."""
     data_user = session.get('user_id')
     
     try:
         image = site_image_service.set_cover_image(image_id, user_id=data_user)
-        return jsonify({'success': True, 'image': image.to_dict()})
+        return jsonify({'success': True, 'image': image.to_dict()}), 200
     except exc.NotFoundError as e:
         return jsonify({'success': False, 'error': str(e)}), 404
     except Exception as e:
@@ -507,13 +480,9 @@ def marcar_portada_imagen(site_id: int, image_id: int):
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/reordenar", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def reordenar_imagenes_sitio(site_id: int):
-    if "user_id" not in session:
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'error': 'No autorizado'}), 401
-        return redirect(url_for("main.index"))
-    
+    """Reordena imágenes de un sitio."""
     data_user = session.get('user_id')
     
     try:
@@ -529,17 +498,18 @@ def reordenar_imagenes_sitio(site_id: int):
                     nuevo_orden = int(request.form.get(key))
                     image_orders.append({'id': image_id, 'orden': nuevo_orden})
         
-        if not image_orders:
+        try:
+            validate_image_orders(image_orders)
+        except exc.ValidationError as e:
             if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'error': 'No se proporcionaron órdenes'}), 400
-            flash('No se proporcionaron órdenes', 'error')
+                return jsonify({'success': False, 'error': str(e)}), 400
+            flash(str(e), 'error')
             return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
         
         site_image_service.reorder_images(site_id, image_orders, user_id=data_user)
-        
+
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Imágenes reordenadas correctamente'})
-        
+            return jsonify({'success': True, 'message': 'Imágenes reordenadas correctamente'}), 200
         flash('Imágenes reordenadas correctamente', 'success')
     except exc.NotFoundError as e:
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -549,19 +519,22 @@ def reordenar_imagenes_sitio(site_id: int):
         if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': False, 'error': f'Error al reordenar imágenes: {str(e)}'}), 500
         flash('Error al reordenar imágenes: ' + str(e), 'error')
-    
-    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': False, 'error': 'Error desconocido'}), 500
-    
     return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
 
 
 @sites_web.route("/sitios/<int:site_id>/imagenes/<int:image_id>/actualizar", methods=["POST"])
-@web_permission_required("update_historic_site")
+@web_permission_required("site_update")
 def actualizar_metadatos_imagen(site_id: int, image_id: int):
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Actualiza los metadatos (título/alt y descripción) de una imagen de un sitio.
     
+    Args:
+        site_id: ID del sitio histórico
+        image_id: ID de la imagen a actualizar
+        
+    Returns:
+        redirect: Redirección a la página de edición del sitio con mensaje flash
+    """
     data_user = session.get('user_id')
     
     try:
@@ -583,4 +556,3 @@ def actualizar_metadatos_imagen(site_id: int, image_id: int):
         flash('Error al actualizar metadatos: ' + str(e), 'error')
     
     return redirect(url_for('sites_web.modificar_sitios', edit=site_id))
-

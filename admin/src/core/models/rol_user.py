@@ -1,6 +1,7 @@
 from src.web.extensions import db
 from typing import Dict, Any
 
+
 class RolUser(db.Model):
     __tablename__ = 'Rol_User'
     
@@ -8,7 +9,6 @@ class RolUser(db.Model):
     name = db.Column(db.String, unique=True)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     permission_rol_users = db.relationship('PermissionRolUser', backref='rol_user', lazy=True)
     rol_user_users = db.relationship('RolUserUser', backref='rol_user', lazy=True)
     

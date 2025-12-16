@@ -1,36 +1,54 @@
 """
 Rutas Web para gestión de tags (renderizado HTML/Jinja).
 """
-from flask import Blueprint, render_template, session, redirect, url_for, request, flash
+from flask import Blueprint, render_template, session, redirect, url_for, request, flash, current_app
 from src.web.auth.decorators import web_permission_required
 from src.core.services.tag_service import tag_service
+from src.web import exceptions as exc
+from src.web.exceptions import ValidationError
 
 tags_web = Blueprint('tags_web', __name__)
 
 
 @tags_web.route("/tags")
-@web_permission_required("get_all_tags")
+@web_permission_required("tag_index")
 def lista_tags():
     """Listado de tags con filtros, orden y paginación (SSR)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    page = request.args.get('page')
+    per_page = request.args.get('per_page')
+    search = request.args.get('search')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
 
-    # Parámetros de filtrado/orden
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-    search = request.args.get('search', '')
-    sort_by = request.args.get('sort_by', 'name')
-    sort_order = request.args.get('sort_order', 'asc')
-
-    # Obtener datos del service
-    result = tag_service.get_all_tags_paginated(
-        page=page,
-        per_page=per_page,
-        search=search,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        include_deleted=False,
-    )
+    try:
+        result = tag_service.get_all_tags_paginated(
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            include_deleted=False,
+        )
+    except exc.ValidationError as e:
+        flash(f'Parámetros inválidos en el listado de tags: {str(e)}', 'error')
+        result = tag_service.get_all_tags_paginated(
+            page=None,
+            per_page=None,
+            search=None,
+            sort_by=None,
+            sort_order=None,
+            include_deleted=False,
+        )
+    except Exception as e:
+        flash(f'Error inesperado: {str(e)}', 'error')
+        result = tag_service.get_all_tags_paginated(
+            page=None,
+            per_page=None,
+            search=None,
+            sort_by=None,
+            sort_order=None,
+            include_deleted=False,
+        )
 
     tags = result.get('tags', [])
     p = result.get('pagination', {})
@@ -49,26 +67,45 @@ def lista_tags():
 
 
 @tags_web.route('/tags/fragment')
-@web_permission_required("get_all_tags")
+@web_permission_required("tag_index")
 def lista_tags_fragment():
     """Fragmento HTML del listado de tags para paginación/filtrado dinámico."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    page = request.args.get('page')
+    per_page = request.args.get('per_page')
+    search = request.args.get('search')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-    search = request.args.get('search', '')
-    sort_by = request.args.get('sort_by', 'name')
-    sort_order = request.args.get('sort_order', 'asc')
-
-    result = tag_service.get_all_tags_paginated(
-        page=page,
-        per_page=per_page,
-        search=search,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        include_deleted=False,
-    )
+    try:
+        result = tag_service.get_all_tags_paginated(
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            include_deleted=False,
+        )
+    except ValidationError as e:
+        current_app.logger.warning(f"Error de validación en fragmento de tags: {e}")
+        result = tag_service.get_all_tags_paginated(
+            page=None,
+            per_page=None,
+            search=None,
+            sort_by=None,
+            sort_order=None,
+            include_deleted=False,
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error inesperado en fragmento de tags: {e}")
+        flash(f'Parámetros inválidos en el listado de tags: {str(e)}', 'error')
+        result = tag_service.get_all_tags_paginated(
+            page=1,
+            per_page=25,
+            search='',
+            sort_by='name',
+            sort_order='asc',
+            include_deleted=False,
+        )
 
     tags = result.get('tags', [])
     p = result.get('pagination', {})
@@ -87,15 +124,13 @@ def lista_tags_fragment():
 
 
 @tags_web.route('/tags', methods=['POST'])
-@web_permission_required("create_tag")
+@web_permission_required("tag_new")
 def crear_tag_web():
     """Crea un tag a partir de datos de formulario y redirige con flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     payload_json = request.get_json(silent=True) or {}
     name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
     try:
-        tag_service.create_tag({ 'name': name })
+        tag_service.create_tag({'name': name})
         flash('Tag creado correctamente', 'success')
     except Exception as e:
         flash(str(e), 'error')
@@ -103,15 +138,13 @@ def crear_tag_web():
 
 
 @tags_web.route('/tags/<int:tag_id>/editar', methods=['POST'])
-@web_permission_required("update_tag")
+@web_permission_required("tag_update")
 def editar_tag_web(tag_id: int):
     """Actualiza un tag existente con datos del formulario."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     payload_json = request.get_json(silent=True) or {}
     name = (request.form.get('name') or request.form.get('tagName') or payload_json.get('name') or '').strip()
     try:
-        tag_service.update_tag(tag_id, { 'name': name })
+        tag_service.update_tag(tag_id, {'name': name})
         flash('Tag actualizado', 'success')
     except Exception as e:
         flash(str(e), 'error')
@@ -119,11 +152,9 @@ def editar_tag_web(tag_id: int):
 
 
 @tags_web.route('/tags/<int:tag_id>/eliminar', methods=['POST'])
-@web_permission_required("delete_tag")
+@web_permission_required("tag_destroy")
 def eliminar_tag_web(tag_id: int):
     """Elimina un tag y redirige al listado con mensaje flash."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
     try:
         tag_service.delete_tag(tag_id)
         flash('Tag eliminado', 'success')

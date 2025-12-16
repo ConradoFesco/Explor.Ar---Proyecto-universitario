@@ -2,26 +2,35 @@ from flask import Blueprint, render_template, session, redirect, url_for, reques
 from src.web.auth.decorators import web_permission_required
 from src.core.services.usuario_service import user_service
 
+
 profile_web = Blueprint("profile_web", __name__)
 
 
 @profile_web.route("/profile", methods=["GET"])
-@web_permission_required("view_profile")
+@web_permission_required("profile_show")
 def view_profile():
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Muestra el perfil del usuario autenticado.
+    
+    Returns:
+        render_template: Página de perfil del usuario o redirección a login si hay error
+    """
     try:
-        user = user_service.get_user(session["user_id"])  # dict
+        user = user_service.get_user(session["user_id"])
     except Exception:
         return redirect(url_for("main.index"))
     return render_template("users/profile.html", user=user)
 
 
 @profile_web.route("/profile/update_password", methods=["POST"])
-@web_permission_required("update_password")
+@web_permission_required("profile_update_password")
 def update_password():
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Actualiza la contraseña del usuario autenticado.
+    
+    Returns:
+        redirect: Redirección al perfil con mensaje flash de éxito o error
+    """
     new_password = (request.form.get('new_password') or '').strip()
     if not new_password or len(new_password) < 6:
         flash('La contraseña debe tener al menos 6 caracteres', 'error')

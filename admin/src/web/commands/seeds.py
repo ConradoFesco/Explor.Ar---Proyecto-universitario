@@ -17,7 +17,7 @@ from src.core.models.permission import Permission
 from src.core.models.rol_user import RolUser
 from src.core.models.permission_rol_user import PermissionRolUser
 from src.core.models.rol_user_user import RolUserUser
-from src.core.models.user import User
+from src.core.models.user import User, PrivateUser
 from src.core.models.category_site import CategorySite
 from src.core.models.state_site import StateSite
 from src.core.models.flag import Flag
@@ -31,64 +31,55 @@ from src.core.services.site_image_service import site_image_service
 def create_permissions():
     """Crear los permisos necesarios para el sistema"""
     permissions = [
-        # Permisos para sitios históricos
-        "create_historic_site",
-        "get_historic_site", 
-        "get_all_historic_sites",
-        "get_all_sites_for_map",
-        "update_historic_site",
-        "delete_historic_site",
-        "add_tags",
-        "update_tags",
-        "get_filter_options",
-        "export_historic_sites",
+        "site_new",
+        "site_show", 
+        "site_index",
+        "site_map_index",
+        "site_update",
+        "site_destroy",
+        "site_tags_add",
+        "site_tags_update",
+        "site_filters_index",
+        "site_export",
         
-        # Permisos para usuarios
-        "create_user",
-        "get_user",
-        "get_all_users", 
-        "update_user",
-        "delete_user",
+        "user_new",     
+        "user_show",    
+        "user_index",   
+        "user_update",  
+        "user_destroy",
         
-        # Permisos para categorías
-        "create_category",
-        "get_category",
-        "get_all_categories",
-        "update_category", 
-        "delete_category",
+        "category_new",
+        "category_show",
+        "category_index",
+        "category_update", 
+        "category_destroy",
         
-        # Permisos para tags
-        "create_tag",
-        "get_tag",
-        "get_all_tags",
-        "update_tag",
-        "delete_tag",
+        "tag_new",
+        "tag_show",
+        "tag_index",
+        "tag_update",
+        "tag_destroy",
         
-        # Permisos para eventos
-        "create_event",
-        "get_event",
-        "get_all_events",
-        "update_event",
-        "delete_event",
+        "event_new",
+        "event_show",
+        "event_index",
+        "event_update",
+        "event_destroy",
         
-        # Permisos para estados
-        "create_state",
-        "get_state", 
-        "get_all_states",
-        "update_state",
-        "delete_state",
+        "state_new",
+        "state_show", 
+        "state_index",
+        "state_update",
+        "state_destroy",
 
-        # Permisos para flags
-        "flag_admin",
+        "flag_index",
+        "flag_update",
         
-        # Permisos para exportación
-        "export_historic_sites",
-        
-        # Permisos para perfil de usuario
-        "view_profile",
-        "update_password",
-        # Permiso para moderar reseñas (panel privado)
-        "moderate_reviews",
+        "profile_show",
+        "profile_update_password",
+        "review_index",
+        "review_update",
+        "review_destroy"
     ]
     
     created_count = 0
@@ -106,8 +97,7 @@ def create_roles():
     roles = {
         "admin": "Administrador del sistema - acceso completo",
         "editor": "Editor - puede crear, editar y eliminar contenido",
-        "moderador": "Moderador - puede revisar y moderar reseñas",
-        "usuario": "Usuario autenticado - solo puede ver contenido"
+        "moderador": "Moderador - puede revisar y moderar reseñas"
     }
     
     created_roles = {}
@@ -127,42 +117,29 @@ def create_roles():
 def assign_permissions_to_roles(roles):
     """Asignar permisos a los roles"""
     
-    # Definir qué permisos tiene cada rol
     role_permissions = {
         "admin": [
-            # Todos los permisos excepto gestión de flags
-            "create_historic_site", "get_historic_site", "get_all_historic_sites", 
-            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options", "export_historic_sites",
-            "create_user", "get_user", "get_all_users", "update_user", "delete_user",
-            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
-            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
-            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "moderate_reviews"
+            "site_new", "site_show", "site_index", "site_map_index", "site_update", "site_destroy",
+            "site_tags_add", "site_tags_update", "site_filters_index", "site_export",
+            "user_new", "user_show", "user_index", "user_update", "user_destroy",
+            "category_new", "category_show", "category_index", "category_update", "category_destroy",
+            "tag_new", "tag_show", "tag_index", "tag_update", "tag_destroy",
+            "event_new", "event_show", "event_index", "event_update", "event_destroy",
+            "state_new", "state_show", "state_index", "state_update", "state_destroy",
+            "profile_show", "profile_update_password", "review_index", "review_update", "review_destroy"
         ],
         "editor": [
-            # Permisos para gestionar contenido
-            "create_historic_site", "get_historic_site", "get_all_historic_sites",
-            "get_all_sites_for_map", "update_historic_site", "delete_historic_site",
-            "add_tags", "update_tags", "get_filter_options",
-            "create_category", "get_category", "get_all_categories", "update_category", "delete_category",
-            "create_tag", "get_tag", "get_all_tags", "update_tag", "delete_tag",
-            "create_event", "get_event", "get_all_events", "update_event", "delete_event",
-            "create_state", "get_state", "get_all_states", "update_state", "delete_state",
-            "view_profile", "update_password", "moderate_reviews"
+            "site_new", "site_show", "site_index", "site_map_index", "site_update", "site_destroy",
+            "site_tags_add", "site_tags_update", "site_filters_index",
+            "category_new", "category_show", "category_index", "category_update", "category_destroy",
+            "tag_new", "tag_show", "tag_index", "tag_update", "tag_destroy",
+            "event_new", "event_show", "event_index", "event_update", "event_destroy",
+            "state_new", "state_show", "state_index", "state_update", "state_destroy",
+            "profile_show", "profile_update_password", "review_index", "review_update", "review_destroy"
         ],
         "moderador": [
-            # Permisos limitados pero incluye moderación
-            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
-            "view_profile", "update_password", "moderate_reviews"
-        ],
-        "usuario": [
-            # Permisos básicos para usuarios autenticados
-            "get_historic_site", "get_all_historic_sites", "get_all_sites_for_map",
-            "get_category", "get_all_categories", "get_tag", "get_all_tags",
-            "get_state", "get_all_states", "get_event", "get_all_events",
-            "view_profile", "update_password"
+            "site_show", "site_index", "site_map_index",
+            "profile_show", "profile_update_password", "review_index", "review_update", "review_destroy"
         ]
     }
     
@@ -173,19 +150,16 @@ def assign_permissions_to_roles(roles):
             continue
             
         for perm_name in permission_names:
-            # Buscar el permiso
             permission = Permission.query.filter_by(name=perm_name).first()
             if not permission:
                 continue
             
-            # Verificar si ya existe la relación
             existing = PermissionRolUser.query.filter_by(
                 Permission_id=permission.id,
                 Rol_User_id=role.id
             ).first()
             
             if not existing:
-                # Crear la relación
                 perm_role = PermissionRolUser(
                     Permission_id=permission.id,
                     Rol_User_id=role.id
@@ -277,13 +251,11 @@ def create_super_admin():
     """Crear usuario super administrador"""
     admin_email = "grupo06@gmail.com"
     
-    # Verificar si ya existe
-    existing_admin = User.query.filter_by(mail=admin_email).first()
+    existing_admin = PrivateUser.query.filter_by(mail=admin_email).first()
     if existing_admin:
         return False
     
-    # Crear el usuario super administrador
-    admin_user = User(
+    admin_user = PrivateUser(
         mail=admin_email,
         name="grupo",
         last_name="06",
@@ -295,9 +267,10 @@ def create_super_admin():
     admin_user.set_password("grupo06")
     
     db.session.add(admin_user)
-    db.session.flush()  # Para obtener el ID
-    
+    db.session.flush()
     return True
+
+
 def create_dummy_users(existing_roles):
     """Crear 3 usuarios dummy y asignarles un rol distinto cada uno."""
     
@@ -309,7 +282,6 @@ def create_dummy_users(existing_roles):
 
     dummy_users = []
 
-    # Datos de los usuarios y el rol a asignar
     user_data = [
         ("user1@example.com", "Usuario Prueba 1", rol_admin),
         ("user2@example.com", "Usuario Prueba 2", rol_editor),
@@ -317,12 +289,12 @@ def create_dummy_users(existing_roles):
     ]
 
     for mail, name, rol in user_data:
-        existing_user = User.query.filter_by(mail=mail).first()
+        existing_user = PrivateUser.query.filter_by(mail=mail).first()
         if existing_user:
             print(f"   [SKIP] Usuario {mail} ya existe, saltando...")
             continue
 
-        u = User(
+        u = PrivateUser(
             mail=mail,
             name=name,
             last_name="Seed",
@@ -333,9 +305,8 @@ def create_dummy_users(existing_roles):
         )
         u.set_password("password123")
         db.session.add(u)
-        db.session.flush()  # para asegurar que u.id exista antes de asignar el rol
-
-        # Crear la relación usuario-rol
+        db.session.flush()  
+        
         u.user_roles.append(RolUserUser(User_id=u.id, Rol_User_id=rol.id))
 
         dummy_users.append(u)
@@ -370,7 +341,6 @@ def ensure_category_and_state():
 
     return category.id, state.id
 
-# URLs de imágenes de placeholder para sitios históricos
 PLACEHOLDER_IMAGE_URLS = [
     "https://picsum.photos/800/600?random=1",
     "https://picsum.photos/800/600?random=2",
@@ -389,7 +359,6 @@ PLACEHOLDER_IMAGE_URLS = [
     "https://picsum.photos/800/600?random=15",
 ]
 
-# Descripciones genéricas para las imágenes
 IMAGE_DESCRIPTIONS = [
     "Vista exterior del sitio histórico",
     "Detalle arquitectónico del edificio",
@@ -465,35 +434,28 @@ def load_images_for_site(site: HistoricSite, min_images: int = 3, max_images: in
         int: Número de imágenes cargadas exitosamente
     """
     try:
-        # Verificar cuántas imágenes ya tiene
         current_count = SiteImage.query.filter_by(id_site=site.id).count()
         
         if current_count > 0:
             return 0
         
-        # Determinar cuántas imágenes cargar (entre min y max)
         num_images = random.randint(min_images, max_images)
         
-        # Mezclar las URLs para tener variedad
         shuffled_urls = random.sample(PLACEHOLDER_IMAGE_URLS, min(num_images, len(PLACEHOLDER_IMAGE_URLS)))
         
         files_data = []
         for idx, url in enumerate(shuffled_urls):
             try:
-                # Descargar imagen
                 image_data = download_image(url)
                 if not image_data:
                     continue
                 
-                # Crear FileStorage
                 filename = f"site_{site.id}_image_{idx + 1}.jpg"
                 file_storage = create_file_storage(image_data, filename)
                 
-                # Generar título y descripción
                 titulo_alt = f"{site.name} - {IMAGE_DESCRIPTIONS[idx % len(IMAGE_DESCRIPTIONS)]}"
                 descripcion = f"Imagen {idx + 1} de {num_images} del sitio histórico {site.name}"
                 
-                # Marcar la primera como portada
                 is_cover = (idx == 0)
                 
                 files_data.append({
@@ -504,13 +466,11 @@ def load_images_for_site(site: HistoricSite, min_images: int = 3, max_images: in
                     'order': idx
                 })
             except Exception as e:
-                # Continuar con la siguiente imagen si una falla
                 continue
         
         if not files_data:
             return 0
         
-        # Subir imágenes usando el servicio
         uploaded_images = site_image_service.upload_multiple_images(
             site_id=site.id,
             files_data=files_data,
@@ -520,8 +480,6 @@ def load_images_for_site(site: HistoricSite, min_images: int = 3, max_images: in
         return len(uploaded_images) if uploaded_images else 0
         
     except Exception as e:
-        # Si falla completamente (por ejemplo, MinIO no configurado), retornar 0 sin fallar
-        # El error ya se maneja en la función que llama
         raise
 
 
@@ -552,7 +510,6 @@ def create_historic_sites_with_images():
     """
     print("[SITES] Creando sitios historicos con imagenes...")
     
-    # Asegurar que las categorías y estados existan (deben haberse creado en pasos anteriores)
     arquitectura = CategorySite.query.filter_by(name="Arquitectura", deleted=False).first()
     infraestructura = CategorySite.query.filter_by(name="Infraestructura", deleted=False).first()
     arqueologico = CategorySite.query.filter_by(name="Sitio arqueologico", deleted=False).first()
@@ -561,7 +518,6 @@ def create_historic_sites_with_images():
     estado_regular = StateSite.query.filter_by(state="Regular", deleted=False).first()
     estado_malo = StateSite.query.filter_by(state="Malo", deleted=False).first()
     
-    # Si no existen, crear categorías y estados básicos
     if not arquitectura:
         arquitectura = CategorySite(name="Arquitectura", deleted=False)
         db.session.add(arquitectura)
@@ -598,21 +554,17 @@ def create_historic_sites_with_images():
         db.session.flush()
         print("   [INFO] Estado 'Malo' creado")
     
-    # Hacer commit de categorías y estados antes de continuar
     db.session.commit()
     
-    # Obtener o crear provincias
     provincia_ba = get_or_create_province("Buenos Aires")
     db.session.commit()
     
-    # Obtener o crear ciudades
     la_plata = get_or_create_city("La Plata", provincia_ba.id)
     buenos_aires = get_or_create_city("Ciudad Autónoma de Buenos Aires", provincia_ba.id)
     tigre = get_or_create_city("Tigre", provincia_ba.id)
     san_isidro = get_or_create_city("San Isidro", provincia_ba.id)
     db.session.commit()
     
-    # Definir los sitios históricos
     sites_data = [
         {
             "name": "Catedral de La Plata",
@@ -801,8 +753,7 @@ def create_historic_sites_with_images():
     skipped_count = 0
     images_total = 0
     
-    # Obtener usuario admin para las imágenes (debe existir por el paso anterior)
-    admin_user = User.query.filter_by(mail="grupo06@gmail.com").first()
+    admin_user = PrivateUser.query.filter_by(mail="grupo06@gmail.com").first()
     user_id = admin_user.id if admin_user else None
     
     if not user_id:
@@ -810,24 +761,20 @@ def create_historic_sites_with_images():
     
     for site_data in sites_data:
         try:
-            # Verificar si ya existe
             existing = HistoricSite.query.filter_by(name=site_data["name"]).first()
             if existing:
                 skipped_count += 1
                 continue
             
-            # Crear el sitio
             site = HistoricSite(**site_data, deleted=False, created_at=datetime.utcnow())
             db.session.add(site)
-            db.session.flush()  # Para obtener el ID
+            db.session.flush()
             
-            # Intentar cargar imágenes para el sitio (no fallar si falla)
             images_loaded = 0
             try:
                 images_loaded = load_images_for_site(site, min_images=3, max_images=7, user_id=user_id)
                 images_total += images_loaded
             except Exception as img_error:
-                # No fallar todo el proceso si falla la carga de imágenes
                 print(f"      [WARNING] No se pudieron cargar imagenes para '{site_data['name']}': {img_error}")
                 images_loaded = 0
             
@@ -843,7 +790,6 @@ def create_historic_sites_with_images():
             db.session.rollback()
             continue
     
-    # Hacer commit de todos los sitios creados
     try:
         db.session.commit()
     except Exception as e:
@@ -876,12 +822,9 @@ def create_dummy_sites_if_needed(id_category, id_estado):
             name=f"Sitio Histórico de Prueba {i+1}",
             brief_description="Breve descripción de prueba generada automáticamente.",
             complete_description="Texto completo de ejemplo para el sitio histórico de prueba.",
-            # Asignamos campos FK según tu modelo
             id_category=id_category,
             id_estado=id_estado,
-            # city id opcional, lo dejamos None
             id_ciudad=None,
-            # latitude/longitude como strings
             latitude=str(-34.60 + random.uniform(-0.02, 0.02)),
             longitude=str(-58.38 + random.uniform(-0.02, 0.02)),
             year_inauguration=None,
@@ -892,13 +835,11 @@ def create_dummy_sites_if_needed(id_category, id_estado):
         db.session.add(s)
         db.session.flush()
         
-        # Intentar cargar imágenes para sitios dummy también (no fallar si falla)
         try:
-            admin_user = User.query.filter_by(mail="grupo06@gmail.com").first()
+            admin_user = PrivateUser.query.filter_by(mail="grupo06@gmail.com").first()
             user_id = admin_user.id if admin_user else None
             load_images_for_site(s, min_images=2, max_images=5, user_id=user_id)
         except Exception as img_error:
-            # No fallar si las imágenes no se pueden cargar
             print(f"      [WARNING] No se pudieron cargar imagenes para sitio dummy: {img_error}")
         
         dummy_sites.append(s)
@@ -907,27 +848,24 @@ def create_dummy_sites_if_needed(id_category, id_estado):
     print(f"   [OK] Sitios dummy creados: {len(dummy_sites)}")
     return dummy_sites
 
+
 def create_test_reviews(users):
     """
     Crea reseñas de prueba. Asegura usuarios y sitios (crea dummy si hace falta).
     Usa strings para status ('pending','approved','rejected','deleted').
     """
-  
     print("[REVIEWS] Creando resenas de prueba...")
 
-   
     if not users:
         print("   [ERROR] No hay usuarios y no se pudieron crear.")
         return 0
 
-    # 2) Asegurar category/state y sitios
     category_id, state_id = ensure_category_and_state()
     sites = create_dummy_sites_if_needed(category_id, state_id)
     if not sites:
         print("   [ERROR] No se pudieron crear sitios.")
         return 0
 
-    # 3) Crear reseñas
     possible_statuses = ['pending', 'approved', 'rejected']
     created = 0
     examples = [
@@ -968,52 +906,43 @@ def main(app=None):
     print("[SEEDS] Iniciando carga de datos iniciales (seeds)...")
     print("=" * 60)
     
-    # Si no se proporciona una app, crear una nueva
     if app is None:
         app = create_app()
         use_context = True
     else:
-        # Si ya tenemos una app, asumimos que ya estamos en un contexto
         use_context = False
     
     def _execute_seeds():
         try:
-            # 1. Crear permisos
             print("\n[1/9] Creando permisos...")
             permisos_creados = create_permissions()
             print(f"   [OK] Permisos procesados: {permisos_creados} nuevos")
             
-            # 2. Crear roles
             print("\n[2/9] Creando roles...")
             roles, roles_creados = create_roles()
-            db.session.commit() 
+            db.session.commit()
             print(f"   [OK] Roles procesados: {roles_creados} nuevos")
             
-            # 3. Asignar permisos a roles
             print("\n[3/9] Asignando permisos a roles...")
             asignaciones = assign_permissions_to_roles(roles)
             db.session.commit()
             print(f"   [OK] Relaciones permiso-rol creadas: {asignaciones}")
             
-            # 4. Crear categorías
             print("\n[4/9] Creando categorias...")
             categorias = create_categories()
             db.session.commit()
             print(f"   [OK] Categorias creadas: {categorias}")
             
-            # 5. Crear estados
             print("\n[5/9] Creando estados de conservacion...")
             estados = create_states()
             db.session.commit()
             print(f"   [OK] Estados creados: {estados}")
             
-            # 6. Crear flags
             print("\n[6/9] Creando flags del sistema...")
             flags = create_flags()
             db.session.commit()
             print(f"   [OK] Flags creados: {flags}")
             
-            # 7. Crear super administrador
             print("\n[7/9] Creando usuario super administrador...")
             super_admin_created = create_super_admin()
             if super_admin_created:
@@ -1022,17 +951,14 @@ def main(app=None):
                 print(f"   [SKIP] Super Admin ya existe")
             db.session.commit()
             
-            # 8. Crear sitios históricos con imágenes
             print("\n[8/9] Creando sitios historicos con imagenes...")
             sites = create_historic_sites_with_images()
             print(f"   [OK] Proceso de sitios completado")
             
-            # 9. Crear usuarios dummy y reseñas
             print("\n[9/9] Creando usuarios dummy y reseñas de prueba...")
             users = create_dummy_users(roles)
             reviews = create_test_reviews(users)
             
-            # Resumen final
             print("\n" + "=" * 60)
             print("[SUCCESS] Seeds cargados exitosamente!")
             print("\nResumen del sistema:")
@@ -1064,7 +990,6 @@ def main(app=None):
         
         return True
     
-    # Ejecutar dentro o fuera del contexto según corresponda
     if use_context:
         with app.app_context():
             return _execute_seeds()
@@ -1074,4 +999,3 @@ def main(app=None):
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
-

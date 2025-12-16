@@ -9,28 +9,36 @@ flags_web = Blueprint('flags_web', __name__)
 
 
 @flags_web.route("/flags", methods=["GET"])
-@web_permission_required("flag_admin")
+@web_permission_required("flag_index")
 def list_flags_page():
-    """Listado de flags del sistema para administradores."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Listado de flags del sistema para administradores.
+    
+    Returns:
+        render_template: Página con el listado de todos los flags del sistema
+    """
     flags = flag_service.get_all_flags()
     return render_template("flags/list_flags.html", flags=flags)
 
 
 @flags_web.route("/flags/<int:flag_id>/set", methods=["POST"])
-@web_permission_required("flag_admin")
+@web_permission_required("flag_update")
 def set_flag(flag_id: int):
-    """Establece explícitamente el estado del flag (on/off)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Establece explícitamente el estado del flag (on/off) y opcionalmente su mensaje.
+    
+    Args:
+        flag_id: ID del flag a modificar
+        
+    Returns:
+        redirect: Redirección al listado de flags con mensaje flash de éxito o error
+    """
     user_id = session.get('user_id')
     raw = (request.form.get('enabled') or '').strip().lower()
-    enabled = True if raw in ('1','true','on','yes') else False
+    enabled = True if raw in ('1', 'true', 'on', 'yes') else False
     message = (request.form.get('message') or '').strip() or None
     try:
         flag = flag_service.set_flag_state(flag_id, enabled, user_id, message=message)
-        # Feedback al usuario (SweetAlert via flash)
         if enabled:
             flash('Modo activado correctamente', 'success')
         else:
@@ -41,11 +49,17 @@ def set_flag(flag_id: int):
 
 
 @flags_web.route("/flags/<int:flag_id>/message", methods=["POST"])
-@web_permission_required("flag_admin")
+@web_permission_required("flag_update")
 def set_flag_message(flag_id: int):
-    """Actualiza solo el mensaje del flag (vía Web)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Actualiza solo el mensaje del flag (vía Web).
+    
+    Args:
+        flag_id: ID del flag a modificar
+        
+    Returns:
+        redirect: Redirección al listado de flags con mensaje flash de éxito o error
+    """
     user_id = session.get('user_id')
     message = (request.form.get('message') or '').strip()
     try:
@@ -59,9 +73,12 @@ def set_flag_message(flag_id: int):
 @flags_web.route("/flags/public-maintenance", methods=["POST"])
 @web_system_admin_required
 def toggle_public_maintenance():
-    """Establece el estado del modo mantenimiento del portal público (vía Web)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
+    """
+    Establece el estado del modo mantenimiento del portal público (vía Web).
+    
+    Returns:
+        redirect: Redirección al listado de flags con mensaje flash de éxito o error
+    """
     user_id = session.get('user_id')
     raw = (request.form.get('enabled') or '').strip().lower()
     enabled = True if raw in ('1', 'true', 'on', 'yes') else False
@@ -73,7 +90,6 @@ def toggle_public_maintenance():
             data_user=user_id,
             message=message
         )
-        # Feedback al usuario (SweetAlert via flash)
         if enabled:
             flash('Mantenimiento público activado correctamente', 'success')
         else:

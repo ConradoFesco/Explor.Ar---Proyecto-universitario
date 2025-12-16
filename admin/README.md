@@ -119,7 +119,7 @@ admin/
 - **Web (blueprints/web)**: Solo renderiza o redirige; API devuelve JSON.
 - **JS**: Consume únicamente endpoints Web; datos iniciales por SSR.
 - **Validaciones**: Centralizadas en `src/core/validators/`.
-- **Permisos**: Patrón `modulo_accion` (p.ej. `moderate_reviews`, `create_user`, `flag_admin`).
+- **Permisos**: Patrón `modulo_accion` (p.ej. `review_index`, `user_new`, `flag_update`).
 - **Mensajería**: Unificada con SweetAlert2 a partir de `flash`.
 
 ### Modelos y Servicios

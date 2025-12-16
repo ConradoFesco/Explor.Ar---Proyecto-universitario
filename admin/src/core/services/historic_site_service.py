@@ -9,6 +9,7 @@ from src.core.models.city import City
 from src.core.models.province import Province
 from src.core.models.state_site import StateSite
 from src.core.models.review import HistoricSiteReview
+from src.core.models.favorite_site import FavoriteSite
 from src.web import exceptions as exc
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -18,6 +19,8 @@ from src.core.services.tag_service import tag_service
 from src.core.services.city_service import city_service
 from src.core.services.province_service import province_service
 from src.core.validators.site_validator import validate_create_site, validate_update_site
+from src.core.validators.tag_validator import validate_tag_ids_exist
+from src.core.services.site_image_service import site_image_service
 import csv
 import io
 import math
@@ -25,6 +28,83 @@ import math
 
 class HistoricSiteService:
     """Casos de uso de sitios históricos (crear, obtener, listar, actualizar, tags, exportar)."""
+
+    @staticmethod
+    def _build_pagination_dict(pagination):
+        """
+        Construye un diccionario de paginación estándar.
+        
+        Args:
+            pagination: Objeto de paginación de SQLAlchemy
+            
+        Returns:
+            dict: Diccionario con información de paginación (page, pages, per_page, total, etc.)
+        """
+        return {
+            'page': pagination.page,
+            'pages': pagination.pages,
+            'per_page': pagination.per_page,
+            'total': pagination.total,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev,
+            'next_num': pagination.next_num,
+            'prev_num': pagination.prev_num
+        }
+
+    def site_name_exists(self, name: str) -> bool:
+        """
+        Verifica si existe un sitio histórico con el nombre dado (no eliminado).
+        
+        Args:
+            name: Nombre del sitio a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        site = HistoricSite.query.filter_by(name=name, deleted=False).first()
+        return site is not None
+
+    def site_exists(self, site_id: int, must_be_visible: bool = False) -> bool:
+        """
+        Verifica si existe un sitio histórico con el ID dado (no eliminado).
+        
+        Args:
+            site_id: ID del sitio a verificar
+            must_be_visible: Si True, también verifica que el sitio sea visible
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        query = HistoricSite.query.filter_by(id=site_id, deleted=False)
+        if must_be_visible:
+            query = query.filter_by(visible=True)
+        site = query.first()
+        return site is not None
+
+    def get_site_object(self, site_id: int, must_be_visible: bool = False) -> HistoricSite:
+        """
+        Obtiene el objeto HistoricSite directamente (no eliminado).
+        
+        Args:
+            site_id: ID del sitio
+            must_be_visible: Si True, también verifica que el sitio sea visible
+            
+        Returns:
+            HistoricSite: Objeto sitio encontrado
+            
+        Raises:
+            NotFoundError: Si el sitio no existe, está eliminado o no es visible (si se requiere)
+        """
+        query = HistoricSite.query.filter_by(id=site_id, deleted=False)
+        if must_be_visible:
+            query = query.filter_by(visible=True)
+        site = query.first()
+        if not site:
+            if must_be_visible:
+                raise exc.NotFoundError("Sitio histórico no encontrado o no visible")
+            raise exc.NotFoundError("Sitio histórico no encontrado")
+        return site
+
     def create_historic_site(self, data_site, data_user):
         """
         Crea un sitio histórico y registra evento de creación.
@@ -41,12 +121,9 @@ class HistoricSiteService:
             ValidationError: Si faltan campos o datos inválidos.
             DatabaseError: Si falla la persistencia.
         """
-        required_fields = ['name', 'brief_description', 'name_city', 'name_province', 'latitude', 'longitude', 'id_category', 'visible']
-        if ( not all(field in data_site for field in required_fields)):
-            raise exc.ValidationError("Faltan campos obligatorios del sitio histórico: Nombre, descripción, ciudad, latitud, longitud, categoría y visible")
-        id_user = data_user
-        if not id_user:
+        if not data_user:
             raise exc.ValidationError("Usuario no autenticado. Por favor, inicie sesión.")
+        
         validated = validate_create_site(data_site)
         name = validated.get('name')
         brief_description = validated.get('brief_description')
@@ -61,48 +138,44 @@ class HistoricSiteService:
         visible = validated.get('visible')
         deleted = False
         created_at = datetime.now()
+        
         try:
-            # Primero crear/buscar la provincia
             province = province_service.find_or_create(name_province)
-            
-            # Luego crear/buscar la ciudad usando el objeto provincia
             city = city_service.find_or_create(name_city, province)
-            
-            # Asegurar que los cambios de provincia y ciudad se guarden
+
             db.session.flush()
             
             historic_site = HistoricSite(
-                name=name, 
-                brief_description=brief_description, 
-                complete_description=complete_description, 
-                id_ciudad=city.id, 
-                latitude=latitude, 
-                longitude=longitude, 
-                id_estado=id_estado, 
-                year_inauguration=year_inauguration, 
-                id_category=id_category, 
-                visible=visible, 
-                deleted=deleted, 
-                created_at=created_at)
+                name=name,
+                brief_description=brief_description,
+                complete_description=complete_description,
+                id_ciudad=city.id,
+                latitude=latitude,
+                longitude=longitude,
+                id_estado=id_estado,
+                year_inauguration=year_inauguration,
+                id_category=id_category,
+                visible=visible,
+                deleted=deleted,
+                created_at=created_at
+            )
             
             db.session.add(historic_site)
             db.session.flush()
             
-            # Si se proporcionaron tags, agregarlos al sitio (sin crear evento adicional)
             tag_ids = data_site.get('tag_ids', [])
             if tag_ids:
-                self.add_tags(historic_site.id, tag_ids, id_user, event_action=False)
+                self.add_tags(historic_site.id, tag_ids, data_user, event_action=False)
             
             event_data = {
                 'id_site': historic_site.id,
-                'id_user': id_user,
+                'id_user': data_user,
                 'type_Action': 'CREATE'
             }
             event_service.create_event(event_data,commit=False)
             db.session.commit()
         except IntegrityError as e:
             db.session.rollback()
-            # Verificar si es un error de violación de unicidad del nombre
             if "Historic_Site_name_key" in str(e):
                 raise exc.ValidationError("Ya existe un sitio histórico con este nombre. Por favor, elija otro nombre.")
             else:
@@ -128,9 +201,7 @@ class HistoricSiteService:
             NotFoundError: Si no existe.
         """
         from src.core.models.category_site import CategorySite
-        from src.core.models.favorite_site import FavoriteSite
         
-        # Hacer join para obtener datos de relaciones
         site = HistoricSite.query.join(City, HistoricSite.id_ciudad == City.id)\
                                  .join(Province, City.id_province == Province.id)\
                                  .join(StateSite, HistoricSite.id_estado == StateSite.id, isouter=True)\
@@ -141,76 +212,70 @@ class HistoricSiteService:
         if site is None:
             raise exc.NotFoundError("Sitio histórico no encontrado")
         
-        # Crear respuesta personalizada que incluya los tags y relaciones
         site_data = site.to_dict()
         
-        # Agregar información de tags (solo no eliminados) usando consulta
-        from src.core.models.tag import Tag
         site_tags = Tag.query.join(TagHistoricSite).\
             filter(TagHistoricSite.Historic_Site_id == site.id, Tag.deleted == False).all()
         site_data['tags'] = [{ 'id': t.id, 'name': t.name, 'slug': t.slug } for t in site_tags]
         
-        # Agregar información de relaciones usando los joins
         site_data['city_name'] = site.city.name if hasattr(site, 'city') and site.city else None
         site_data['province_name'] = site.city.province.name if hasattr(site, 'city') and site.city and site.city.province else None
         site_data['state_name'] = site.state_site.state if hasattr(site, 'state_site') and site.state_site else None
         site_data['category_name'] = site.category.name if hasattr(site, 'category') and site.category else None
         
-        # Verificar si es favorito del usuario (si está autenticado)
         is_favorite = False
         if user_id:
             favorite = FavoriteSite.query.filter_by(site_id=id, user_id=user_id).first()
             is_favorite = favorite is not None
         site_data['is_favorite'] = is_favorite
         
-        # Agregar imágenes del sitio
-        from src.core.services.site_image_service import site_image_service
         site_data['images'] = site_image_service.get_images_by_site(site.id)
-        
-        # Agregar imagen portada (si existe) con URL firmada
         site_data['cover_image'] = site_image_service.get_cover_image(site.id)
         
-        # si se encuentra el sitio histórico, devuelve el sitio histórico
         return site_data
     
-    def get_all_historic_sites(self, include_deleted=False, page=1, per_page=25, 
-                              search_text=None, sort_by='created_at', sort_order='desc',
+    def get_all_historic_sites(self, include_deleted=False, page=None, per_page=None, 
+                              search_text=None, sort_by=None, sort_order=None,
                               city_id=None, province_id=None, tag_ids=None, 
                               state_id=None, date_from=None, date_to=None, 
                               visible=None): 
         """
         Lista sitios con paginación, filtros y orden.
-
-        Args: ver parámetros.
-
+        Nota: Los parámetros deben venir ya validados desde el controlador.
+        
+        Args:
+            include_deleted: Si True, incluye sitios eliminados lógicamente
+            page: Número de página (opcional)
+            per_page: Elementos por página (opcional)
+            search_text: Texto de búsqueda por nombre o descripción (opcional)
+            sort_by: Campo por el cual ordenar ('name', 'city', 'created_at') (opcional)
+            sort_order: Dirección del orden ('asc' o 'desc') (opcional)
+            city_id: ID de la ciudad para filtrar (opcional)
+            province_id: ID de la provincia para filtrar (opcional)
+            tag_ids: Lista de IDs de tags para filtrar (opcional)
+            state_id: ID del estado de conservación para filtrar (opcional)
+            date_from: Fecha desde para filtrar (opcional)
+            date_to: Fecha hasta para filtrar (opcional)
+            visible: Si el sitio debe ser visible (opcional)
+            
         Returns:
-            dict: {'sites': [...], 'pagination': {...}}
+            dict: Diccionario con 'sites' (lista de sitios) y 'pagination' (info de paginación)
         """
         from sqlalchemy import and_, or_, desc, asc, func
+        from datetime import datetime
         
-        # Validaciones de entrada
-        from src.core.validators.listing_validator import validate_site_list_params
-        params = validate_site_list_params(
-            page=page, per_page=per_page, search_text=search_text, sort_by=sort_by, sort_order=sort_order,
-            city_id=city_id, province_id=province_id, tag_ids=tag_ids, state_id=state_id,
-            date_from=date_from, date_to=date_to, visible=visible,
-        )
-        page = params['page']; per_page = params['per_page']; search_text = params['search_text']
-        sort_by = params['sort_by']; sort_order = params['sort_order']; city_id = params['city_id']
-        province_id = params['province_id']; tag_ids = params['tag_ids']; state_id = params['state_id']
-        date_from = params['date_from']; date_to = params['date_to']; visible = params['visible']
+        if date_from and isinstance(date_from, str):
+            date_from = datetime.strptime(date_from, '%Y-%m-%d')
+        if date_to and isinstance(date_to, str):
+            date_to = datetime.strptime(date_to, '%Y-%m-%d')
 
-        # Query base
         query = HistoricSite.query
         
-        # Variable para controlar si ya se hizo join con City
         city_joined = False
         
-        # Filtro de eliminados
         if not include_deleted:
             query = query.filter_by(deleted=False)
         
-        # Filtro de búsqueda por texto (prefijo en nombre o descripción breve)
         if search_text:
             prefix = f"{search_text.strip()}%"
             search_filter = or_(
@@ -219,17 +284,14 @@ class HistoricSiteService:
             )
             query = query.filter(search_filter)
         
-        # Filtro por ciudad
         if city_id:
             query = query.filter(HistoricSite.id_ciudad == city_id)
         
-        # Filtro por provincia (a través de la relación con ciudad)
         if province_id:
             query = query.join(City)
             city_joined = True
             query = query.filter(City.id_province == province_id)
         
-        # Filtro por tags (multiselección): deben contener TODOS los seleccionados
         if tag_ids and len(tag_ids) > 0:
             tags_subq = (
                 db.session.query(TagHistoricSite.Historic_Site_id)
@@ -240,28 +302,23 @@ class HistoricSiteService:
             )
             query = query.filter(HistoricSite.id.in_(tags_subq))
         
-        # Filtro por estado del sitio
         if state_id:
             query = query.filter(HistoricSite.id_estado == state_id)
         
-        # Filtro por rango de fechas
         if date_from:
             query = query.filter(HistoricSite.created_at >= date_from)
         if date_to:
             query = query.filter(HistoricSite.created_at <= date_to)
         
-        # Filtro por visibilidad
         if visible is not None:
             query = query.filter(HistoricSite.visible == visible)
         
-        # Ordenamiento
         if sort_by == 'name':
             if sort_order == 'desc':
                 query = query.order_by(desc(HistoricSite.name))
             else:
                 query = query.order_by(asc(HistoricSite.name))
         elif sort_by == 'city':
-            # Solo hacer join si no se hizo antes
             if not city_joined:
                 query = query.join(City)
             if sort_order == 'desc':
@@ -274,10 +331,8 @@ class HistoricSiteService:
             else:
                 query = query.order_by(asc(HistoricSite.created_at))
         else:
-            # Por defecto, ordenar por fecha de creación descendente
             query = query.order_by(desc(HistoricSite.created_at))
         
-        # Aplicar paginación
         pagination = query.paginate(
             page=page, 
             per_page=per_page, 
@@ -287,8 +342,6 @@ class HistoricSiteService:
         sites_data = []
         for site in sites:
             site_tags = self._get_site_tags(site.id)
-            # Obtener imagen portada con URL firmada
-            from src.core.services.site_image_service import site_image_service
             cover_image = site_image_service.get_cover_image(site.id)
             sites_data.append({
                 'id': site.id, 
@@ -305,16 +358,7 @@ class HistoricSiteService:
         
         return {
             'sites': sites_data,
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev,
-                'next_num': pagination.next_num,
-                'prev_num': pagination.prev_num
-            }
+            'pagination': self._build_pagination_dict(pagination)
         }
 
     def update_historic_site(self, id, data_site, data_user):
@@ -334,13 +378,10 @@ class HistoricSiteService:
             DatabaseError: Si falla la persistencia.
         """
         historic_site = HistoricSite.query.get(id)
-        # si no se encuentra el sitio histórico, devuelve un error 404
         if historic_site is None:
             raise exc.NotFoundError("Sitio histórico no encontrado")
-        # Validaciones de entrada parcial
         cleaned = validate_update_site(data_site or {})
 
-        # si se encuentra el sitio histórico, actualiza el sitio histórico
         historic_site.name = cleaned.get('name', historic_site.name)
         historic_site.brief_description = cleaned.get('brief_description', historic_site.brief_description)
         historic_site.complete_description = cleaned.get('complete_description', historic_site.complete_description)
@@ -382,14 +423,10 @@ class HistoricSiteService:
             NotFoundError: Si no existe.
             DatabaseError: Si falla la persistencia.
         """
-        # 1. Busca el sitio histórico por su ID
         site = HistoricSite.query.get(id)
-        # 2. Si no lo encuentra, lanza un error claro
         if not site:
             raise exc.NotFoundError(f"El sitio histórico con id {id} no fue encontrado.") 
-        # 3. Realiza la "baja lógica" cambiando el estado
         site.deleted = True
-        # 4. Guarda los cambios en la base de datos
         try:
             event_data = {
                 'id_site': site.id,
@@ -401,7 +438,6 @@ class HistoricSiteService:
         except (IntegrityError, exc.ValidationError) as e:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al eliminar el sitio histórico: {e}")
-        # 5. Devuelve el objeto modificado (opcional pero útil)
         return site
 
 
@@ -421,19 +457,16 @@ class HistoricSiteService:
         Raises:
             ValidationError/NotFoundError/DatabaseError según corresponda.
         """
-        # Validar que el sitio histórico existe
         site = HistoricSite.query.get(site_id)
         if not site:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
         
-        # Validar que tag_ids_list es una lista
         if not isinstance(tag_ids_list, list):
             raise exc.ValidationError("Los tags deben enviarse como una lista.")
         
         if not tag_ids_list:
             raise exc.ValidationError("La lista de tags no puede estar vacía.")
         
-        # Validar que todos los tags existen
         non_existent_tags = []
         for tag_id in tag_ids_list:
             try:
@@ -444,7 +477,6 @@ class HistoricSiteService:
         if non_existent_tags:
             raise exc.NotFoundError(f"Los siguientes tags no existen: {non_existent_tags}")
 
-        # Obtener relaciones existentes para evitar duplicados
         existing_relations = TagHistoricSite.query.filter_by(
             Historic_Site_id=site_id
         ).filter(TagHistoricSite.Tag_id.in_(tag_ids_list)).all()
@@ -455,7 +487,6 @@ class HistoricSiteService:
         if not new_tag_ids:
             raise exc.ValidationError("El sitio histórico ya posee todos los tags especificados.")
 
-        # Crear las nuevas relaciones solo para los tags que no existen
         relations_to_add = []
         for tag_id in new_tag_ids:
             relation = TagHistoricSite(
@@ -465,11 +496,9 @@ class HistoricSiteService:
             relations_to_add.append(relation)
         
         try:
-            # Agregar todas las relaciones nuevas
             for relation in relations_to_add:
                 db.session.add(relation)
             
-            # Crear evento si es necesario
             if event_action:
                 event_data = {
                     'id_site': site.id,
@@ -480,7 +509,6 @@ class HistoricSiteService:
             
             db.session.commit()
             
-            # Retornar información útil sobre qué se agregó
             return {
                 'site': site,
                 'added_tags': new_tag_ids,
@@ -507,44 +535,28 @@ class HistoricSiteService:
         Raises:
             ValidationError/NotFoundError/DatabaseError según corresponda.
         """
-        # Validar que el sitio histórico existe
         site = HistoricSite.query.get(site_id)
         if not site:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
         
-        # Validar que new_tag_ids es una lista
         if not isinstance(new_tag_ids, list):
             raise exc.ValidationError("Los tags deben enviarse como una lista.")
         
-        # Si new_tag_ids está vacío, significa que queremos quitar todos los tags
         if new_tag_ids:
-            # Validar que todos los tags existen
-            non_existent_tags = []
-            for tag_id in new_tag_ids:
-                try:
-                    tag_service.get_tag_by_id(tag_id)
-                except exc.NotFoundError:
-                    non_existent_tags.append(tag_id)
-            
-            if non_existent_tags:
-                raise exc.NotFoundError(f"Los siguientes tags no existen: {non_existent_tags}")
+            validate_tag_ids_exist(new_tag_ids)
 
-        # Obtener relaciones actuales
         current_relations = TagHistoricSite.query.filter_by(Historic_Site_id=site_id).all()
         current_tag_ids = [rel.Tag_id for rel in current_relations]
         
-        # Determinar qué tags agregar y cuáles quitar
         tags_to_add = [tag_id for tag_id in new_tag_ids if tag_id not in current_tag_ids]
         tags_to_remove = [tag_id for tag_id in current_tag_ids if tag_id not in new_tag_ids]
         
         try:
-            # Eliminar tags que ya no están en la lista
             if tags_to_remove:
                 TagHistoricSite.query.filter_by(Historic_Site_id=site_id).filter(
                     TagHistoricSite.Tag_id.in_(tags_to_remove)
                 ).delete(synchronize_session=False)
             
-            # Agregar nuevos tags
             for tag_id in tags_to_add:
                 new_relation = TagHistoricSite(
                     Historic_Site_id=site_id,
@@ -552,7 +564,6 @@ class HistoricSiteService:
                 )
                 db.session.add(new_relation)
             
-            # Crear evento solo si hubo cambios
             if tags_to_add or tags_to_remove:
                 event_data = {
                     'id_site': site.id,
@@ -563,7 +574,6 @@ class HistoricSiteService:
             
             db.session.commit()
             
-            # Retornar información sobre los cambios realizados
             return {
                 'site': site,
                 'added_tags': tags_to_add,
@@ -592,7 +602,6 @@ class HistoricSiteService:
         query = HistoricSite.query
         if not include_deleted:
             query = query.filter_by(deleted=False)
-        # Aplicar paginación
         pagination = query.paginate(
             page=page, 
             per_page=per_page, 
@@ -616,65 +625,68 @@ class HistoricSiteService:
         
         return {
             'sites': sites_data,
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev,
-                'next_num': pagination.next_num,
-                'prev_num': pagination.prev_num
-            }
+            'pagination': self._build_pagination_dict(pagination)
         }
 
-    def search_public_sites(self, *, name=None, description=None, city=None, province=None,
-                            tags=None, order_by='latest', latitude=None, longitude=None,
-                            radius_km=None, page=1, per_page=25, user_id=None, favorites_only=False):
+    def search_public_sites(self, *, name=None, description=None, city=None, province=None, tags=None, order_by=None, latitude=None, longitude=None, radius_km=None, page=None, per_page=None, user_id=None, favorites_only=False):
         """
-        Devuelve sitios visibles para el portal público respetando filtros estandarizados.
+        Devuelve sitios visibles para el portal público respetando filtros estandarizados
+        y formateados según la especificación del cliente.
         
         Args:
-            user_id (int, optional): ID del usuario para verificar favoritos.
-            favorites_only (bool): Si es True y user_id está presente, solo devuelve sitios favoritos del usuario.
+            name: Nombre del sitio para búsqueda (opcional)
+            description: Descripción para búsqueda (opcional)
+            city: Nombre de la ciudad para filtrar (opcional)
+            province: Nombre de la provincia para filtrar (opcional)
+            tags: Lista de slugs de tags para filtrar (opcional)
+            order_by: Orden de resultados ('latest', 'oldest', 'rating-5-1', 'rating-1-5', 'name-asc', 'name-desc') (opcional)
+            latitude: Latitud para búsqueda por radio (opcional)
+            longitude: Longitud para búsqueda por radio (opcional)
+            radius_km: Radio de búsqueda en kilómetros (opcional)
+            page: Número de página (opcional)
+            per_page: Elementos por página (opcional)
+            user_id: ID del usuario para marcar favoritos (opcional)
+            favorites_only: Si True, solo muestra sitios favoritos del usuario (opcional)
+            
+        Returns:
+            dict: Diccionario con 'data' (lista de sitios) y 'meta' (info de paginación)
+                Formato según especificación del cliente con información adicional:
+                - rating: Calificación promedio (opcional)
+                - cover_image_url: URL de imagen de portada (opcional)
+                - is_favorite: Si es favorito del usuario (opcional)
+                - distance: Distancia en km si se usó búsqueda por radio (opcional)
         """
-        from sqlalchemy import asc, desc, func, literal, or_, cast, Float
-        from src.core.models.favorite_site import FavoriteSite
+        from sqlalchemy import asc, desc, func, or_, cast, Float
 
         tags = tags or []
-        
-        # Subconsulta para calcular el promedio de calificaciones aprobadas por sitio
+
         rating_subquery = (
             db.session.query(
                 HistoricSiteReview.site_id,
-                func.avg(cast(HistoricSiteReview.rating, Float)).label('avg_rating')
+                func.avg(cast(HistoricSiteReview.rating, Float)).label('avg_rating'),
             )
             .filter(HistoricSiteReview.status == 'approved')
             .group_by(HistoricSiteReview.site_id)
             .subquery()
         )
-        
-        # Usar la query base normal (sin add_columns para evitar problemas con paginate)
+
         query = HistoricSite.query.join(City).join(Province)
-        # LEFT JOIN con la subconsulta de ratings para poder ordenar por rating
         query = query.outerjoin(rating_subquery, HistoricSite.id == rating_subquery.c.site_id)
-        query = query.filter(HistoricSite.deleted == False, HistoricSite.visible == True)
-        
-        # Filtrar por favoritos si se solicita
+        query = query.filter(HistoricSite.deleted.is_(False), HistoricSite.visible.is_(True))
+
         if favorites_only and user_id:
             query = query.join(FavoriteSite, HistoricSite.id == FavoriteSite.site_id)
             query = query.filter(FavoriteSite.user_id == user_id)
 
-        # Búsqueda por texto: busca en nombre O descripción (OR, no AND)
-        # Si ambos parámetros están presentes, se usa el mismo texto para ambos
         search_text = name or description
         if search_text:
-            # Búsqueda "comienza con" (no "contiene")
             like_pattern = f"{search_text}%"
-            query = query.filter(or_(
-                HistoricSite.name.ilike(like_pattern),
-                HistoricSite.brief_description.ilike(like_pattern),
-            ))
+            query = query.filter(
+                or_(
+                    HistoricSite.name.ilike(like_pattern),
+                    HistoricSite.brief_description.ilike(like_pattern),
+                )
+            )
 
         if city:
             query = query.filter(func.lower(City.name) == city.lower())
@@ -694,14 +706,15 @@ class HistoricSiteService:
             )
             query = query.filter(HistoricSite.id.in_(tags_subquery))
 
+        distance_expr = None
         if latitude is not None and longitude is not None and radius_km is not None:
             lat_col = cast(HistoricSite.latitude, Float)
             lon_col = cast(HistoricSite.longitude, Float)
             km_per_lat = 111.32
             km_per_lon = max(abs(111.32 * math.cos(math.radians(latitude))), 1e-6)
             distance_expr = func.sqrt(
-                func.pow((lat_col - latitude) * km_per_lat, 2) +
-                func.pow((lon_col - longitude) * km_per_lon, 2)
+                func.pow((lat_col - latitude) * km_per_lat, 2)
+                + func.pow((lon_col - longitude) * km_per_lon, 2)
             )
             query = query.filter(distance_expr <= radius_km)
 
@@ -710,98 +723,118 @@ class HistoricSiteService:
         elif order_by == 'oldest':
             query = query.order_by(asc(HistoricSite.created_at))
         elif order_by == 'rating-5-1':
-            # Ordenar por promedio de rating descendente (de 5 a 1), luego por fecha
             rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0)
             query = query.order_by(desc(rating_expr), desc(HistoricSite.created_at))
         elif order_by == 'rating-1-5':
-            # Ordenar por promedio de rating ascendente (de 1 a 5), luego por fecha
             rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0)
             query = query.order_by(asc(rating_expr), desc(HistoricSite.created_at))
+        elif order_by == 'name-asc':
+            query = query.order_by(asc(HistoricSite.name))
+        elif order_by == 'name-desc':
+            query = query.order_by(desc(HistoricSite.name))
         else:
             query = query.order_by(desc(HistoricSite.created_at))
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        sites_payload = []
-        # Importar el servicio de imágenes una sola vez
-        from src.core.services.site_image_service import site_image_service
-        
-        # Obtener todos los IDs de sitios favoritos del usuario de una vez (si está autenticado)
-        favorite_site_ids = set()
+
+        favorite_site_ids: set[int] = set()
         if user_id:
             favorites = FavoriteSite.query.filter_by(user_id=user_id).all()
             favorite_site_ids = {f.site_id for f in favorites}
-        
-        # Obtener los IDs de los sitios para calcular ratings en batch
+
         site_ids = [site.id for site in pagination.items]
-        
-        # Calcular ratings para todos los sitios de una vez usando la subconsulta
-        ratings_dict = {}
+        ratings_dict: dict[int, float] = {}
         if site_ids:
-            ratings_query = db.session.query(
-                HistoricSiteReview.site_id,
-                func.avg(cast(HistoricSiteReview.rating, Float)).label('avg_rating')
-            ).filter(
-                HistoricSiteReview.site_id.in_(site_ids),
-                HistoricSiteReview.status == 'approved'
-            ).group_by(HistoricSiteReview.site_id).all()
-            
+            ratings_query = (
+                db.session.query(
+                    HistoricSiteReview.site_id,
+                    func.avg(cast(HistoricSiteReview.rating, Float)).label('avg_rating'),
+                )
+                .filter(
+                    HistoricSiteReview.site_id.in_(site_ids),
+                    HistoricSiteReview.status == 'approved',
+                )
+                .group_by(HistoricSiteReview.site_id)
+                .all()
+            )
+
             for site_id, avg_rating in ratings_query:
                 if avg_rating is not None:
                     ratings_dict[site_id] = round(float(avg_rating), 1)
-        
+
+        data: list[dict] = []
         for site in pagination.items:
             site_lat = self._safe_float(site.latitude)
             site_lon = self._safe_float(site.longitude)
-            distance_value = None
-            if latitude is not None and longitude is not None and site_lat is not None and site_lon is not None:
-                distance_value = self._distance_between(latitude, longitude, site_lat, site_lon)
 
-            # Obtener imagen portada con URL firmada
+            distance_value = None
+            if (
+                distance_expr is not None
+                and latitude is not None
+                and longitude is not None
+                and site_lat is not None
+                and site_lon is not None
+            ):
+                distance_value = self._distance_between(
+                    latitude, longitude, site_lat, site_lon
+                )
+
             cover_image = site_image_service.get_cover_image(site.id)
-            
-            # Verificar si es favorito del usuario
             is_favorite = site.id in favorite_site_ids if user_id else False
-            
-            # Obtener el promedio de calificaciones desde el diccionario
             avg_rating = ratings_dict.get(site.id)
-            
-            site_data = {
+
+            tags_list = [t['slug'] for t in self._get_site_tags(site.id)]
+
+            state_name = getattr(getattr(site, 'state_site', None), 'state', None)
+
+            inserted_at = site.created_at.isoformat() if site.created_at else None
+            updated_at = (
+                site.updated_at.isoformat() if hasattr(site, 'updated_at') and site.updated_at else inserted_at
+            )
+
+            item = {
                 'id': site.id,
                 'name': site.name,
-                'brief_description': site.brief_description,
-                'complete_description': site.complete_description,
+                'short_description': site.brief_description,
+                'description': site.complete_description,
                 'city': site.city.name if site.city else None,
                 'province': site.city.province.name if site.city and site.city.province else None,
-                'latitude': site_lat,
-                'longitude': site_lon,
-                'created_at': site.created_at.isoformat() if site.created_at else None,
-                'tags': self._get_site_tags(site.id),
+                'country': 'AR',
+                'lat': site_lat,
+                'long': site_lon,
+                'tags': tags_list,
+                'state_of_conservation': state_name,
+                'inserted_at': inserted_at,
+                'updated_at': updated_at,
                 'rating': avg_rating,
-                'cover_image': cover_image,
                 'cover_image_url': cover_image['url_publica'] if cover_image else None,
-                'is_favorite': is_favorite
+                'is_favorite': is_favorite,
             }
-            if distance_value is not None:
-                site_data['distance_km'] = round(distance_value, 3)
 
-            sites_payload.append(site_data)
+            if distance_value is not None:
+                item['distance_km'] = round(distance_value, 3)
+
+            data.append(item)
 
         return {
-            'sites': sites_payload,
-            'pagination': {
+            'data': data,
+            'meta': {
                 'page': pagination.page,
-                'pages': pagination.pages,
                 'per_page': pagination.per_page,
                 'total': pagination.total,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev,
-                'next_num': pagination.next_num,
-                'prev_num': pagination.prev_num
-            }
+            },
         }
 
     def _get_site_tags(self, site_id: int) -> list[dict]:
-        """Obtiene los tags activos asociados a un sitio histórico."""
+        """
+        Obtiene los tags activos asociados a un sitio histórico.
+        
+        Args:
+            site_id: ID del sitio histórico
+            
+        Returns:
+            list[dict]: Lista de diccionarios con 'id', 'name' y 'slug' de cada tag
+        """
         tags_q = Tag.query.join(TagHistoricSite).\
             filter(
                 TagHistoricSite.Historic_Site_id == site_id,
@@ -811,6 +844,15 @@ class HistoricSiteService:
 
     @staticmethod
     def _safe_float(value):
+        """
+        Convierte un valor a float de forma segura, retornando None si falla.
+        
+        Args:
+            value: Valor a convertir (puede ser str, int, float, etc.)
+            
+        Returns:
+            float | None: Valor convertido a float o None si no es posible
+        """
         try:
             return float(value)
         except (TypeError, ValueError):
@@ -818,7 +860,18 @@ class HistoricSiteService:
 
     @staticmethod
     def _distance_between(lat1, lon1, lat2, lon2):
-        """Calcula distancia Haversine aproximada en KM."""
+        """
+        Calcula distancia Haversine aproximada entre dos puntos geográficos en kilómetros.
+        
+        Args:
+            lat1: Latitud del primer punto
+            lon1: Longitud del primer punto
+            lat2: Latitud del segundo punto
+            lon2: Longitud del segundo punto
+            
+        Returns:
+            float | None: Distancia en kilómetros o None si las coordenadas son inválidas
+        """
         from math import radians, sin, cos, sqrt, atan2
 
         if lat2 is None or lon2 is None:
@@ -845,19 +898,15 @@ class HistoricSiteService:
             dict: {'cities': [...], 'provinces': [...], 'tags': [...], 'states': [...]}
         """
         try:
-            # Obtener ciudades
             cities = City.query.filter_by(deleted=False).all()
             cities_data = [{'id': city.id, 'name': city.name} for city in cities]
             
-            # Obtener provincias
             provinces = Province.query.filter_by(deleted=False).all()
             provinces_data = [{'id': province.id, 'name': province.name} for province in provinces]
             
-            # Obtener tags
             tags = Tag.query.filter_by(deleted=False).all()
             tags_data = [{'id': tag.id, 'name': tag.name, 'slug': tag.slug} for tag in tags]
             
-            # Obtener estados
             states = StateSite.query.filter_by(deleted=False).all()
             states_data = [{'id': state.id, 'name': state.state} for state in states]
             
@@ -890,12 +939,23 @@ class HistoricSiteService:
                            visible=None):
         """
         Exporta sitios históricos a CSV respetando filtros.
-
+        
+        Args:
+            search_text: Texto de búsqueda por nombre o descripción (opcional)
+            sort_by: Campo por el cual ordenar ('name', 'city', 'created_at') (opcional)
+            sort_order: Dirección del orden ('asc' o 'desc') (opcional)
+            city_id: ID de la ciudad para filtrar (opcional)
+            province_id: ID de la provincia para filtrar (opcional)
+            tag_ids: Lista de IDs de tags para filtrar (opcional)
+            state_id: ID del estado de conservación para filtrar (opcional)
+            date_from: Fecha desde para filtrar (opcional)
+            date_to: Fecha hasta para filtrar (opcional)
+            visible: Si el sitio debe ser visible (opcional)
+            
         Returns:
-            tuple[str, str]: (contenido_csv, nombre_archivo)
+            tuple[str, str]: Tupla con (contenido_csv, nombre_archivo)
         """
         from sqlalchemy import and_, or_, desc, asc, func
-        # Validaciones de entrada (mismos parámetros que el listado)
         from src.core.validators.listing_validator import validate_site_list_params
         params = validate_site_list_params(
             page=1, per_page=25, search_text=search_text, sort_by=sort_by, sort_order=sort_order,
@@ -907,13 +967,10 @@ class HistoricSiteService:
         state_id = params['state_id']; date_from = params['date_from']; date_to = params['date_to']
         visible = params['visible']
         
-        # Query base - similar al método get_all_historic_sites pero sin paginación
         query = HistoricSite.query.join(City).join(Province).join(StateSite, isouter=True)
         
-        # Filtro de eliminados (solo sitios no eliminados)
         query = query.filter_by(deleted=False)
         
-        # Filtro de búsqueda por texto (prefijo en nombre o descripción breve)
         if search_text:
             prefix = f"{search_text.strip()}%"
             search_filter = or_(
@@ -922,15 +979,12 @@ class HistoricSiteService:
             )
             query = query.filter(search_filter)
         
-        # Filtro por ciudad
         if city_id:
             query = query.filter(HistoricSite.id_ciudad == city_id)
         
-        # Filtro por provincia
         if province_id:
             query = query.filter(City.id_province == province_id)
         
-        # Filtro por tags (multiselección): deben contener TODOS los seleccionados
         if tag_ids and len(tag_ids) > 0:
             tags_subq = (
                 db.session.query(TagHistoricSite.Historic_Site_id)
@@ -941,21 +995,17 @@ class HistoricSiteService:
             )
             query = query.filter(HistoricSite.id.in_(tags_subq))
         
-        # Filtro por estado del sitio
         if state_id:
             query = query.filter(HistoricSite.id_estado == state_id)
         
-        # Filtro por rango de fechas
         if date_from:
             query = query.filter(HistoricSite.created_at >= date_from)
         if date_to:
             query = query.filter(HistoricSite.created_at <= date_to)
         
-        # Filtro por visibilidad
         if visible is not None:
             query = query.filter(HistoricSite.visible == visible)
         
-        # Ordenamiento
         if sort_by == 'name':
             if sort_order == 'desc':
                 query = query.order_by(desc(HistoricSite.name))
@@ -972,20 +1022,16 @@ class HistoricSiteService:
             else:
                 query = query.order_by(asc(HistoricSite.created_at))
         else:
-            # Por defecto, ordenar por fecha de creación descendente
             query = query.order_by(desc(HistoricSite.created_at))
         
-        # Obtener todos los sitios (sin paginación)
         sites = query.all()
         
         if not sites:
             raise exc.NotFoundError("No hay datos para exportar")
         
-        # Crear el contenido CSV
         output = io.StringIO()
         writer = csv.writer(output, delimiter=',', quoting=csv.QUOTE_MINIMAL)
         
-        # Escribir encabezados
         headers = [
             'ID del sitio',
             'Nombre',
@@ -999,17 +1045,13 @@ class HistoricSiteService:
         ]
         writer.writerow(headers)
         
-        # Escribir datos
         for site in sites:
             site_tags = [tag['name'] for tag in self._get_site_tags(site.id)]
             
-            # Formatear coordenadas
             coordinates = f"{site.latitude},{site.longitude}"
             
-            # Formatear fecha
             date_str = site.created_at.strftime('%Y-%m-%d %H:%M:%S') if site.created_at else ''
             
-            # Escribir fila
             row = [
                 site.id,
                 site.name,
@@ -1019,22 +1061,19 @@ class HistoricSiteService:
                 site.state_site.state if site.state_site else '',
                 date_str,
                 coordinates,
-                '; '.join(site_tags)  # Separar tags con punto y coma
+                '; '.join(site_tags)
             ]
             writer.writerow(row)
         
-        # Obtener el contenido CSV
         csv_content = output.getvalue()
         output.close()
         
-        # Generar nombre del archivo con timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M')
         filename = f'sitios_{timestamp}.csv'
         
         return csv_content, filename
 
 
-# instancia de la clase HistoricSiteService
 historic_site_service = HistoricSiteService()
 
 

@@ -22,7 +22,6 @@
     if (password.length < 6){ if (typeof Swal !== 'undefined') Swal.fire({ icon:'warning', title:'Contraseña muy corta', text:'La contraseña debe tener al menos 6 caracteres', confirmButtonColor:'#3B82F6' }); return; }
     if (!validateEmail(mail)){ if (typeof Swal !== 'undefined') Swal.fire({ icon:'warning', title:'Email inválido', text:'Por favor ingresa un email válido', confirmButtonColor:'#3B82F6' }); return; }
 
-    // Enviar al endpoint Web mediante submit clásico
     const form = document.getElementById('createUserForm');
     if (form){ form.method = 'POST'; form.action = '/users'; form.submit(); }
   }

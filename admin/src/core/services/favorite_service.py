@@ -1,25 +1,37 @@
+from typing import Optional
 from src.core.models.favorite_site import FavoriteSite
 from src.core.models.historic_site import HistoricSite
-from src.core.models.user import User
+from src.core.models.tag import Tag
+from src.core.models.tag_historic_site import TagHistoricSite
 from src.web import exceptions as exc
 from src.web.extensions import db
-from src.core.validators.reviews_validator import validate_review_list_params
+from src.core.validators.listing_validator import _validate_pagination
+from src.core.validators.user_validator import validate_user_exists
+from src.core.validators.site_validator import validate_site_exists
+from src.core.services.site_image_service import site_image_service
 
 
 class FavoriteService:
     """Servicios para favoritos de sitios históricos."""
 
     def mark_favorite(self, *, site_id: int, user_id: int):
-        if not user_id:
-            raise exc.ValidationError("Usuario no autenticado")
-
-        site = HistoricSite.query.filter_by(id=site_id, deleted=False, visible=True).first()
-        if not site:
-            raise exc.NotFoundError("Sitio histórico no encontrado")
-
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise exc.ValidationError("Usuario inválido")
+        """
+        Marca un sitio histórico como favorito para un usuario.
+        
+        Args:
+            site_id: ID del sitio histórico a marcar como favorito
+            user_id: ID del usuario
+            
+        Returns:
+            FavoriteSite: Objeto favorito creado o existente
+            
+        Raises:
+            ValidationError: Si el usuario o sitio no existen
+            NotFoundError: Si el sitio no es visible
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
+        validate_user_exists(user_id)
+        validate_site_exists(site_id, must_be_visible=True)
 
         existing = FavoriteSite.query.filter_by(site_id=site_id, user_id=user_id).first()
         if existing:
@@ -29,19 +41,30 @@ class FavoriteService:
         try:
             db.session.add(favorite)
             db.session.commit()
-        except Exception as error:
+        except Exception as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al marcar favorito: {error}")
+            raise exc.DatabaseError(f"Error al marcar favorito: {e}")
 
         return favorite
 
     def unmark_favorite(self, *, site_id: int, user_id: int):
-        if not user_id:
-            raise exc.ValidationError("Usuario no autenticado")
-
-        site = HistoricSite.query.filter_by(id=site_id, deleted=False, visible=True).first()
-        if not site:
-            raise exc.NotFoundError("Sitio histórico no encontrado")
+        """
+        Desmarca un sitio histórico como favorito para un usuario.
+        
+        Args:
+            site_id: ID del sitio histórico a desmarcar como favorito
+            user_id: ID del usuario
+            
+        Returns:
+            bool: True si se eliminó el favorito, False si no existía
+            
+        Raises:
+            ValidationError: Si el usuario o sitio no existen
+            NotFoundError: Si el sitio no es visible
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
+        validate_user_exists(user_id)
+        validate_site_exists(site_id, must_be_visible=True)
 
         favorite = FavoriteSite.query.filter_by(site_id=site_id, user_id=user_id).first()
         if not favorite:
@@ -50,35 +73,36 @@ class FavoriteService:
         try:
             db.session.delete(favorite)
             db.session.commit()
-        except Exception as error:
+        except Exception as e:
             db.session.rollback()
-            raise exc.DatabaseError(f"Error al eliminar favorito: {error}")
+            raise exc.DatabaseError(f"Error al eliminar favorito: {e}")
 
         return True
 
-    def list_favorites(self, *, user_id: int, page: int = 1, per_page: int = 20):
+    def list_favorites(self, *, user_id: int, page: Optional[int] = None, per_page: Optional[int] = None):
         """
-        Lista los sitios favoritos del usuario en formato compatible con el frontend.
+        Lista los sitios favoritos del usuario autenticado.
         
+        Args:
+            user_id: ID del usuario
+            page: Número de página (opcional, por defecto 1)
+            per_page: Elementos por página (opcional, por defecto 20, máximo 100)
+            
         Returns:
-            dict: {
-                'items': [sitios en formato HistoricSite],
-                'total': int,
-                'total_pages': int,
-                'page': int,
-                'per_page': int
-            }
+            dict: Diccionario con 'data' (lista de sitios favoritos) y 'meta' (info de paginación)
+                Formato de la API pública con información adicional:
+                - rating: Calificación promedio del sitio (opcional)
+                - cover_image_url: URL de la imagen de portada (opcional)
+                - is_favorite: Siempre true para este endpoint
+                
+        Raises:
+            ValidationError: Si el usuario no existe o los parámetros son inválidos
         """
-        if not user_id:
-            raise exc.ValidationError("Usuario no autenticado")
+        validate_user_exists(user_id)
 
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise exc.ValidationError("Usuario inválido")
-
-        params = validate_review_list_params(page=page, per_page=per_page)
-        page = params['page']
-        per_page = params['per_page']
+        page, per_page = _validate_pagination(
+            page, per_page, default_page=1, default_per_page=20, max_per_page=100
+        )
 
         query = FavoriteSite.query.filter_by(user_id=user_id).join(HistoricSite).filter(
             HistoricSite.deleted == False,
@@ -87,53 +111,68 @@ class FavoriteService:
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        # Importar servicios necesarios
-        from src.core.services.site_image_service import site_image_service
-        from src.core.models.tag import Tag
-        from src.core.models.tag_historic_site import TagHistoricSite
-
-        items = []
+        data = []
         for favorite in pagination.items:
             site = favorite.site
             site_id = site.id
-            
-            # Obtener tags del sitio
-            site_tags = Tag.query.join(TagHistoricSite).\
-                filter(TagHistoricSite.Historic_Site_id == site_id, Tag.deleted == False).all()
-            tags = [t.slug for t in site_tags]  # Frontend espera slugs como strings
-            
-            # Obtener imagen portada
+
+            site_tags = (
+                Tag.query.join(TagHistoricSite)
+                .filter(
+                    TagHistoricSite.Historic_Site_id == site_id,
+                    Tag.deleted == False,
+                )
+                .all()
+            )
+            tags = [t.slug for t in site_tags]
+
             cover_image = site_image_service.get_cover_image(site_id)
-            
-            # Convertir coordenadas a float
+
             site_lat = float(site.latitude) if site.latitude is not None else None
             site_lon = float(site.longitude) if site.longitude is not None else None
-            
-            items.append({
-                'id': site_id,
-                'name': site.name,
-                'brief_description': site.brief_description,
-                'complete_description': site.complete_description,
-                'city': site.city.name if site.city else None,
-                'province': site.city.province.name if site.city and site.city.province else None,
-                'latitude': site_lat,
-                'longitude': site_lon,
-                'created_at': site.created_at.isoformat() if site.created_at else None,
-                'tags': tags,
-                'rating': None,
-                'cover_image': cover_image,
-                'cover_image_url': cover_image['url_publica'] if cover_image else None,
-                'is_favorite': True  # Todos los sitios en esta lista son favoritos
-            })
+
+            inserted_at = (
+                favorite.created_at.isoformat() if favorite.created_at else None
+            )
+            updated_at = (
+                site.updated_at.isoformat() if hasattr(site, 'updated_at') and site.updated_at else 
+                (site.created_at.isoformat() if site.created_at else inserted_at)
+            )
+
+            data.append(
+                {
+                    "id": site_id,
+                    "name": site.name,
+                    "short_description": site.brief_description,
+                    "description": site.complete_description,
+                    "city": site.city.name if site.city else None,
+                    "province": site.city.province.name
+                    if site.city and site.city.province
+                    else None,
+                    "country": "AR",
+                    "lat": site_lat,
+                    "long": site_lon,
+                    "tags": tags,
+                    "state_of_conservation": site.state_site.state
+                    if getattr(site, "state_site", None)
+                    else None,
+                    "inserted_at": inserted_at,
+                    "updated_at": updated_at,
+                    "cover_image_url": cover_image["url_publica"]
+                    if cover_image
+                    else None,
+                    "is_favorite": True,
+                }
+            )
 
         return {
-            'items': items,
-            'total': pagination.total,
-            'total_pages': pagination.pages,
-            'page': pagination.page,
-            'per_page': pagination.per_page
+            "data": data,
+            "meta": {
+                "page": pagination.page,
+                "per_page": pagination.per_page,
+                "total": pagination.total,
+            },
         }
 
 
 favorite_service = FavoriteService()
-

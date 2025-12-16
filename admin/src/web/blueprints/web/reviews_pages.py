@@ -3,119 +3,91 @@ Rutas Web para gestión de reseñas (renderizado HTML/Jinja).
 Requieren permisos equivalentes a los endpoints API.
 """
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash, current_app
-from src.web.auth.decorators import web_permission_required
+from src.web.auth.decorators import web_permission_required, get_current_user_id
 from src.core.services.review_service import review_service
 from src.core.services.historic_site_service import historic_site_service
-from src.core.validators.reviews_validator import validate_review_list_params
-from src.core.validators.listing_validator import _validate_sort
+from src.core.validators.reviews_validator import validate_review_detail_params, validate_rejection_reason
 from src.web import exceptions as exc
 
 reviews_web = Blueprint('reviews_web', __name__)
 
 
-def _resolve_review_list_params():
-    """Resuelve y valida parámetros de listado de reseñas desde request.args."""
-    raw_args = {
-        'page': request.args.get('page', 1, type=int),
-        'per_page': request.args.get('per_page', 25, type=int),
+def _get_review_list_params():
+    """Extrae y retorna los parámetros de filtros de la request."""
+    return {
+        'page': request.args.get('page'),
+        'per_page': request.args.get('per_page'),
+        'sort_by': request.args.get('sort_by'),
+        'sort_order': request.args.get('sort_order'),
         'status': request.args.get('status'),
-        'site_id': request.args.get('site_id', type=int),
-        'rating_from': request.args.get('rating_from', type=int),
-        'rating_to': request.args.get('rating_to', type=int),
+        'site_id': request.args.get('site_id'),
+        'user': request.args.get('user'),
+        'rating_from': request.args.get('rating_from'),
+        'rating_to': request.args.get('rating_to'),
         'date_from': request.args.get('date_from'),
         'date_to': request.args.get('date_to'),
-        'user': request.args.get('user'),
-        'sort_by': request.args.get('sort_by', 'created_at'),
-        'sort_order': request.args.get('sort_order', 'desc')
     }
+
+
+def _handle_review_action(action_name: str, action_func, success_message: str):
+    """
+    Maneja acciones de reseñas (aprobar, rechazar, eliminar) con manejo de errores común.
     
+    Args:
+        action_name: Nombre de la acción para logging
+        action_func: Función que ejecuta la acción (debe recibir review_id)
+        success_message: Mensaje de éxito a mostrar
+    """
     try:
-        # Validar paginación
-        pagination = validate_review_list_params(page=raw_args['page'], per_page=raw_args['per_page'])
-        page = pagination['page']
-        per_page = pagination['per_page']
-        
-        # Validar sort
-        allowed_sort_fields = ['created_at', 'rating', 'user_mail', 'site_name']
-        sort_by, sort_order = _validate_sort(raw_args['sort_by'], raw_args['sort_order'], allowed_fields=allowed_sort_fields)
-        
-        # Preparar filtros
-        filters = {}
-        
-        # Status: solo filtrar si se especifica explícitamente
-        status = raw_args['status']
-        if status and status != '' and status != 'null':
-            filters['status'] = status
-        # Si no se especifica, no filtrar por status (mostrar todas)
-        
-        if raw_args['site_id']:
-            filters['site_id'] = raw_args['site_id']
-        if raw_args['rating_from']:
-            filters['rating_from'] = raw_args['rating_from']
-        if raw_args['rating_to']:
-            filters['rating_to'] = raw_args['rating_to']
-        if raw_args['date_from']:
-            filters['date_from'] = raw_args['date_from']
-        if raw_args['date_to']:
-            filters['date_to'] = raw_args['date_to']
-        if raw_args['user']:
-            filters['user'] = raw_args['user']
-        
-        return {
-            'filters': filters,
-            'page': page,
-            'per_page': per_page,
-            'sort_by': sort_by,
-            'sort_order': sort_order
-        }
-    except exc.ValidationError as error:
-        flash('Parámetros inválidos en el listado: ' + str(error), 'error')
-        # Retornar valores por defecto
-        return {
-            'filters': {},  # Sin filtros por defecto (mostrar todas)
-            'page': 1,
-            'per_page': 25,
-            'sort_by': 'created_at',
-            'sort_order': 'desc'
-        }
+        action_func()
+        flash(success_message, 'success')
+    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
+        flash(f'Error al {action_name}: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Error inesperado: {str(e)}', 'error')
+    
+    return redirect(url_for('reviews_web.list_reviews_page'))
 
 
 @reviews_web.route("/reviews")
-@web_permission_required("moderate_reviews")
+@web_permission_required("review_index")
 def list_reviews_page():
-    """Listado SSR de reseñas con filtros, orden y paginación."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
-    params = _resolve_review_list_params()
-    
-    # Obtener opciones de sitios para el filtro
+    """Listado SSR de reseñas con filtros."""
+    items = []
+    pagination = {
+        'page': 1,
+        'pages': 1,
+        'per_page': 25,
+        'total': 0,
+        'has_next': False,
+        'has_prev': False
+    }
+    show_rejection_reason_column = False
+    site_options = []
+
     try:
         sites = historic_site_service.get_sites_for_filter()
-        # Formatear opciones para el selector (mismo formato que en sites_pages.py)
-        site_options = [{'value': str(s.get('id')), 'label': s.get('name')} for s in sites if s.get('id') and s.get('name')]
+        site_options = [
+            {'value': str(s.get('id')), 'label': s.get('name')}
+            for s in sites if s.get('id')
+        ]
     except Exception as e:
         current_app.logger.exception("Error al cargar sitios para filtro", exc_info=e)
-        site_options = []
-    
-    # Obtener reseñas usando el servicio
+
     try:
-        result = review_service.list_reviews(
-            filters=params['filters'],
-            page=params['page'],
-            per_page=params['per_page'],
-            sort_by=params['sort_by'],
-            sort_order=params['sort_order']
-        )
+        params = _get_review_list_params()
+        result = review_service.list_reviews(**params)
         items = result.get('items', [])
         pagination = result.get('pagination', {})
-        # Determinar si mostrar columna de motivo de rechazo (lógica en controlador, no en template)
         show_rejection_reason_column = any(item.get('status') == 'rejected' for item in items)
-    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
-        flash('Error al cargar reseñas: ' + str(e), 'error')
-        items = []
-        pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0, 'has_next': False, 'has_prev': False, 'next_num': None, 'prev_num': None}
-        show_rejection_reason_column = False
+
+    except exc.ValidationError as e:
+        flash(f"Error en los filtros: {str(e)}", "error")
+    except (exc.NotFoundError, exc.DatabaseError) as e:
+        flash(f"Error al cargar datos: {str(e)}", "error")
+    except Exception as e:
+        current_app.logger.error(f"Error inesperado listando reseñas: {e}")
+        flash("Ocurrió un error inesperado al cargar las reseñas.", "error")
     
     return render_template(
         'features/reviews/reviews.html.jinja',
@@ -127,30 +99,31 @@ def list_reviews_page():
 
 
 @reviews_web.route("/reviews/fragment")
-@web_permission_required("moderate_reviews")
+@web_permission_required("review_index")
 def list_reviews_fragment():
-    """Fragmento HTML para refrescar el listado de reseñas (paginación/orden)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
-    params = _resolve_review_list_params()
-    
+    """Fragmento HTML para refrescar el listado de reseñas."""
+    items = []
+    pagination = {
+        'page': 1,
+        'pages': 1,
+        'per_page': 25,
+        'total': 0,
+        'has_next': False,
+        'has_prev': False
+    }
+    show_rejection_reason_column = False
+
     try:
-        result = review_service.list_reviews(
-            filters=params['filters'],
-            page=params['page'],
-            per_page=params['per_page'],
-            sort_by=params['sort_by'],
-            sort_order=params['sort_order']
-        )
+        params = _get_review_list_params()
+        result = review_service.list_reviews(**params)
         items = result.get('items', [])
         pagination = result.get('pagination', {})
-        # Determinar si mostrar columna de motivo de rechazo (lógica en controlador, no en template)
         show_rejection_reason_column = any(item.get('status') == 'rejected' for item in items)
-    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
-        items = []
-        pagination = {'page': 1, 'pages': 1, 'per_page': 25, 'total': 0, 'has_next': False, 'has_prev': False, 'next_num': None, 'prev_num': None}
-        show_rejection_reason_column = False
+
+    except exc.ValidationError as e:
+        current_app.logger.warning(f"Error de validación en fragmento de reseñas: {e}")
+    except Exception as e:
+        current_app.logger.error(f"Error en fragmento de reseñas: {e}")
     
     return render_template(
         'features/reviews/_list_fragment.html.jinja',
@@ -161,103 +134,65 @@ def list_reviews_fragment():
 
 
 @reviews_web.route("/reviews/<int:review_id>/fragment")
-@web_permission_required("moderate_reviews")
+@web_permission_required("review_show")
 def review_detail_fragment(review_id):
-    """Fragmento HTML con detalle de reseña para uso en modales o vistas parciales."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
-    # Obtener site_id desde query parameter (el JavaScript lo pasa desde el item del listado)
-    site_id = request.args.get('site_id', type=int)
-    
-    if not site_id:
-        flash('Parámetro site_id requerido', 'error')
-        return redirect(url_for('reviews_web.list_reviews_page'))
-    
+    """Fragmento HTML con detalle de reseña."""
     try:
-        # Para moderación, validar autenticación pero no ownership (los moderadores pueden ver cualquier reseña)
-        review_data = review_service.get_review(
-            site_id=site_id,
-            review_id=review_id,
-            current_user_id=session.get('user_id'),  # Validar autenticación
-            skip_ownership_validation=True  # Los moderadores pueden ver cualquier reseña
+        params = validate_review_detail_params(
+            site_id=request.args.get('site_id'),
+            review_id=review_id
         )
         
+        review_data = review_service.get_review(
+            site_id=params['site_id'],
+            review_id=params['review_id'],
+            current_user_id=get_current_user_id(),
+            skip_ownership_validation=True
+        )
         return render_template('features/reviews/_detail_fragment.html.jinja', review=review_data)
-    except (exc.ValidationError, exc.NotFoundError, exc.ForbiddenError, exc.DatabaseError) as e:
-        # Si es una petición AJAX/fetch, devolver HTML de error en lugar de redirect
-        if request.headers.get('X-Requested-With') == 'fetch':
-            return f'<div class="text-red-600 p-4">Error al cargar reseña: {str(e)}</div>', 400
-        flash('Error al cargar reseña: ' + str(e), 'error')
-        return redirect(url_for('reviews_web.list_reviews_page'))
+    
+    except exc.ValidationError as e:
+        return f'<div class="text-red-600 p-4">Error: {str(e)}</div>', 400
+    except (exc.NotFoundError, exc.ForbiddenError) as e:
+        return f'<div class="text-red-600 p-4">Error: {str(e)}</div>', 400
     except Exception as e:
-        # Si es una petición AJAX/fetch, devolver HTML de error en lugar de redirect
-        if request.headers.get('X-Requested-With') == 'fetch':
-            return f'<div class="text-red-600 p-4">Error inesperado: {str(e)}</div>', 500
-        flash('Error inesperado: ' + str(e), 'error')
-        return redirect(url_for('reviews_web.list_reviews_page'))
-
-
+        return f'<div class="text-red-600 p-4">Error inesperado: {str(e)}</div>', 500
 
 
 @reviews_web.route("/reviews/<int:review_id>/aprobar", methods=["POST"])
-@web_permission_required("moderate_reviews")
+@web_permission_required("review_update")
 def aprobar_review(review_id):
     """Aprueba una reseña."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
-    try:
-        review_service.approve_review(review_id=review_id)
-        flash('Reseña aprobada correctamente', 'success')
-    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
-        flash('Error al aprobar reseña: ' + str(e), 'error')
-    except Exception as e:
-        flash('Error inesperado: ' + str(e), 'error')
-    
-    return redirect(url_for('reviews_web.list_reviews_page'))
+    return _handle_review_action(
+        'aprobar',
+        lambda: review_service.approve_review(review_id=review_id),
+        'Reseña aprobada correctamente'
+    )
 
 
 @reviews_web.route("/reviews/<int:review_id>/rechazar", methods=["POST"])
-@web_permission_required("moderate_reviews")
+@web_permission_required("review_update")
 def rechazar_review(review_id):
     """Rechaza una reseña con motivo."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
-    reason = (request.form.get('reason') or "").strip()
-    
-    if not reason:
-        flash('Motivo de rechazo requerido', 'error')
-        return redirect(url_for('reviews_web.list_reviews_page'))
-    
     try:
-        review_service.reject_review(review_id=review_id, reason=reason)
-        flash('Reseña rechazada correctamente', 'success')
-    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
-        flash('Error al rechazar reseña: ' + str(e), 'error')
-    except Exception as e:
-        flash('Error inesperado: ' + str(e), 'error')
-    
-    return redirect(url_for('reviews_web.list_reviews_page'))
+        reason = validate_rejection_reason(request.form.get('reason'))
+    except exc.ValidationError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('reviews_web.list_reviews_page'))
+
+    return _handle_review_action(
+        'rechazar',
+        lambda: review_service.reject_review(review_id=review_id, reason=reason),
+        'Reseña rechazada correctamente'
+    )
 
 
 @reviews_web.route("/reviews/<int:review_id>/eliminar", methods=["POST"])
-@web_permission_required("moderate_reviews")
+@web_permission_required("review_destroy")
 def eliminar_review(review_id):
     """Elimina físicamente una reseña (acción administrativa)."""
-    if "user_id" not in session:
-        return redirect(url_for("main.index"))
-    
-    try:
-        review_service.delete_review_admin(review_id=review_id)
-        flash('Reseña eliminada correctamente', 'success')
-    except (exc.ValidationError, exc.NotFoundError, exc.DatabaseError) as e:
-        flash('Error al eliminar reseña: ' + str(e), 'error')
-    except Exception as e:
-        flash('Error inesperado: ' + str(e), 'error')
-    
-    return redirect(url_for('reviews_web.list_reviews_page'))
-
-
-
+    return _handle_review_action(
+        'eliminar',
+        lambda: review_service.delete_review_admin(review_id=review_id),
+        'Reseña eliminada correctamente'
+    )

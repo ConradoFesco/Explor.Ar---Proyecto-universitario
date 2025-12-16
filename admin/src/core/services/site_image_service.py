@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from io import BytesIO
+from src.core.validators.image_validator import validate_titulo_alt
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -20,6 +21,19 @@ class SiteImageService:
         self._minio_client = None
     
     def _extract_object_path_from_url(self, url_publica: str, bucket_name: str) -> str:
+        """
+        Extrae la ruta del objeto desde una URL pública de MinIO.
+        
+        Args:
+            url_publica: URL pública completa del objeto
+            bucket_name: Nombre del bucket
+            
+        Returns:
+            str: Ruta del objeto dentro del bucket
+            
+        Raises:
+            ValueError: Si la URL pública está vacía
+        """
         if not url_publica:
             raise ValueError("URL pública no puede estar vacía")
         
@@ -46,6 +60,15 @@ class SiteImageService:
     
     @property
     def minio_client(self):
+        """
+        Obtiene el cliente de MinIO configurado.
+        
+        Returns:
+            MinIO client: Cliente de MinIO
+            
+        Raises:
+            DatabaseError: Si MinIO no está configurado
+        """
         if self._minio_client is None:
             if not hasattr(current_app, 'storage') or current_app.storage is None:
                 raise exc.DatabaseError("MinIO no está configurado. Verifique las variables de entorno MINIO_SERVER, MINIO_ACCESS_KEY y MINIO_SECRET_KEY.")
@@ -53,9 +76,22 @@ class SiteImageService:
         return self._minio_client
     
     def _get_bucket_name(self) -> str:
+        """
+        Obtiene el nombre del bucket de MinIO desde la configuración.
+        
+        Returns:
+            str: Nombre del bucket (por defecto 'grupo06')
+        """
         return current_app.config.get('MINIO_BUCKET', 'grupo06')
     
     def _ensure_bucket_exists(self):
+        """
+        Verifica que el bucket de MinIO exista, y lo crea si no existe.
+        Configura el bucket como público para acceso de lectura.
+        
+        Raises:
+            DatabaseError: Si hay un error al verificar o crear el bucket
+        """
         bucket_name = self._get_bucket_name()
         try:
             minio = self.minio_client
@@ -89,6 +125,15 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error inesperado al verificar bucket en MinIO: {e}")
     
     def _validate_file(self, file) -> tuple[bool, Optional[str]]:
+        """
+        Valida que un archivo cumpla con los requisitos (formato y tamaño).
+        
+        Args:
+            file: Objeto archivo a validar
+            
+        Returns:
+            tuple[bool, Optional[str]]: (True, None) si es válido, (False, mensaje_error) si no
+        """
         if not file or not file.filename:
             return False, "No se proporcionó ningún archivo"
         
@@ -110,13 +155,42 @@ class SiteImageService:
         return True, None
     
     def _generate_unique_filename(self, original_filename: str, site_id: int) -> str:
+        """
+        Genera un nombre de archivo único basado en timestamp y extensión original.
+        
+        Args:
+            original_filename: Nombre original del archivo
+            site_id: ID del sitio (para contexto, aunque no se usa en el nombre)
+            
+        Returns:
+            str: Nombre de archivo único con formato 'site_image_{timestamp}.{extension}'
+        """
         extension = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else 'jpg'
         unique_number = int(datetime.now().timestamp() * 1000000) % 100000000
         filename = f"site_image_{unique_number}.{extension}"
         return filename
     
-    def upload_image(self, site_id: int, file, titulo_alt: str, descripcion: Optional[str] = None, 
-                    user_id: int = None) -> SiteImage:
+    def upload_image(self, site_id: int, file, titulo_alt: str, descripcion: Optional[str] = None,
+                     user_id: int = None) -> SiteImage:
+        """
+        Sube una imagen para un sitio histórico a MinIO y la registra en la base de datos.
+        
+        Args:
+            site_id: ID del sitio histórico
+            file: Objeto archivo a subir
+            titulo_alt: Título/alt de la imagen (obligatorio)
+            descripcion: Descripción de la imagen (opcional)
+            user_id: ID del usuario que realiza la acción (opcional, para eventos)
+            
+        Returns:
+            SiteImage: Imagen creada
+            
+        Raises:
+            NotFoundError: Si el sitio no existe o está eliminado
+            ValidationError: Si se alcanzó el límite de imágenes, el archivo es inválido
+                o el título/alt es inválido
+            DatabaseError: Si hay un error al subir a MinIO o persistir en la base de datos
+        """
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
@@ -125,15 +199,7 @@ class SiteImageService:
         if current_count >= MAX_IMAGES_PER_SITE:
             raise exc.ValidationError(f"Se ha alcanzado el límite máximo de {MAX_IMAGES_PER_SITE} imágenes por sitio.")
         
-        if not titulo_alt:
-            raise exc.ValidationError("El título/alt es obligatorio")
-        
-        titulo_alt = str(titulo_alt).strip()
-        if not titulo_alt:
-            raise exc.ValidationError("El título/alt es obligatorio")
-        
-        if len(titulo_alt) > 255:
-            raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
+        titulo_alt = validate_titulo_alt(titulo_alt)
         
         is_valid, error_msg = self._validate_file(file)
         if not is_valid:
@@ -182,33 +248,48 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al crear imagen: {e}")
     
     def _get_presigned_url(self, url_publica: str, bucket_name: str, image_id: int) -> str:
+        """
+        Normaliza y ajusta la URL pública de una imagen según la configuración.
+        
+        Args:
+            url_publica: URL pública original
+            bucket_name: Nombre del bucket
+            image_id: ID de la imagen (para contexto, aunque no se usa)
+            
+        Returns:
+            str: URL pública normalizada y ajustada
+        """
         if not url_publica:
             return ""
         
-        # En producción, convertir HTTP a HTTPS si está configurado
         use_https = current_app.config.get('MINIO_USE_HTTPS', False)
         if use_https and url_publica.startswith('http://'):
-            url_publica = url_publica.replace('http://', 'https://', 1)  # Solo reemplazar el primer http://
+            url_publica = url_publica.replace('http://', 'https://', 1)
         
-        # Corregir doble slash si existe (excepto después de http:// o https://)
-        # Primero normalizar protocolo
         protocol = ''
         if url_publica.startswith('https://'):
             protocol = 'https://'
-            url_publica = url_publica[8:]  # Quitar 'https://'
+            url_publica = url_publica[8:]
         elif url_publica.startswith('http://'):
             protocol = 'http://'
-            url_publica = url_publica[7:]  # Quitar 'http://'
+            url_publica = url_publica[7:]
         
-        # Eliminar dobles slashes en el path
         url_publica = url_publica.replace('//', '/')
         
-        # Reconstruir la URL
         url_publica = f"{protocol}{url_publica}"
         
         return url_publica
     
     def get_images_by_site(self, site_id: int) -> List[Dict[str, Any]]:
+        """
+        Obtiene todas las imágenes de un sitio histórico ordenadas por orden.
+        
+        Args:
+            site_id: ID del sitio histórico
+            
+        Returns:
+            List[Dict[str, Any]]: Lista de diccionarios con los datos de cada imagen
+        """
         images = SiteImage.query.filter_by(id_site=site_id).order_by(SiteImage.orden.asc()).all()
         bucket_name = self._get_bucket_name()
         
@@ -224,6 +305,15 @@ class SiteImageService:
         return result
     
     def get_cover_image(self, site_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Obtiene la imagen de portada de un sitio histórico.
+        
+        Args:
+            site_id: ID del sitio histórico
+            
+        Returns:
+            Optional[Dict[str, Any]]: Diccionario con los datos de la imagen de portada o None si no existe
+        """
         cover = SiteImage.query.filter_by(id_site=site_id, es_portada=True).first()
         if not cover or not cover.url_publica:
             return None
@@ -234,6 +324,22 @@ class SiteImageService:
         return cover_dict
     
     def delete_image(self, image_id: int, user_id: int = None) -> bool:
+        """
+        Elimina una imagen de un sitio histórico (tanto de MinIO como de la base de datos).
+        Reordena las imágenes restantes.
+        
+        Args:
+            image_id: ID de la imagen a eliminar
+            user_id: ID del usuario que realiza la acción (opcional, para eventos)
+            
+        Returns:
+            bool: True si se eliminó correctamente
+            
+        Raises:
+            NotFoundError: Si la imagen no existe
+            ValidationError: Si la imagen es la portada
+            DatabaseError: Si hay un error al eliminar de MinIO o persistir en la base de datos
+        """
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")
@@ -273,6 +379,21 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al eliminar imagen: {e}")
     
     def set_cover_image(self, image_id: int, user_id: int = None) -> SiteImage:
+        """
+        Establece una imagen como portada del sitio histórico.
+        Desmarca cualquier otra imagen que fuera portada previamente.
+        
+        Args:
+            image_id: ID de la imagen a establecer como portada
+            user_id: ID del usuario que realiza la acción (opcional, para eventos)
+            
+        Returns:
+            SiteImage: Imagen establecida como portada
+            
+        Raises:
+            NotFoundError: Si la imagen no existe
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")
@@ -300,6 +421,21 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al establecer imagen portada: {e}")
     
     def reorder_images(self, site_id: int, image_orders: List[Dict[str, int]], user_id: int = None) -> bool:
+        """
+        Reordena las imágenes de un sitio histórico según los órdenes proporcionados.
+        
+        Args:
+            site_id: ID del sitio histórico
+            image_orders: Lista de diccionarios con 'id' e 'orden' para cada imagen
+            user_id: ID del usuario que realiza la acción (opcional, para eventos)
+            
+        Returns:
+            bool: True si se reordenó correctamente
+            
+        Raises:
+            NotFoundError: Si el sitio no existe o está eliminado
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
@@ -331,6 +467,21 @@ class SiteImageService:
             raise exc.DatabaseError(f"Error al reordenar imágenes: {e}")
     
     def _upload_file_to_minio(self, file, site_id: int, bucket_name: str) -> tuple[str, str]:
+        """
+        Sube un archivo a MinIO y retorna la URL pública y el nombre del objeto.
+        
+        Args:
+            file: Objeto archivo a subir
+            site_id: ID del sitio (para contexto en generación de nombre)
+            bucket_name: Nombre del bucket de MinIO
+            
+        Returns:
+            tuple[str, str]: Tupla con (url_publica, nombre_objeto)
+            
+        Raises:
+            ValidationError: Si el archivo no es válido o está vacío
+            DatabaseError: Si hay un error al subir a MinIO o la configuración es incorrecta
+        """
         if not file or not hasattr(file, 'filename') or not file.filename:
             raise exc.ValidationError("El archivo no es válido o no tiene nombre")
         
@@ -376,28 +527,40 @@ class SiteImageService:
         
         minio_server = current_app.config.get('MINIO_SERVER', 'http://127.0.0.1:9000')
         
-        # Normalizar la URL del servidor MinIO
         if not minio_server.startswith('http://') and not minio_server.startswith('https://'):
             minio_server = f"http://{minio_server}"
         
-        # En producción, forzar HTTPS si la URL es HTTP
-        # Esto se puede controlar con una variable de entorno MINIO_USE_HTTPS
         use_https = current_app.config.get('MINIO_USE_HTTPS', False)
         if use_https and minio_server.startswith('http://'):
             minio_server = minio_server.replace('http://', 'https://')
         
-        # Construir la URL pública, asegurándose de no tener doble slash
         minio_server = minio_server.rstrip('/')
-        bucket_name = bucket_name.strip('/')  # Quitar barras al inicio y final
-        unique_filename = unique_filename.lstrip('/')  # Quitar barra al inicio si existe
+        bucket_name = bucket_name.strip('/')
+        unique_filename = unique_filename.lstrip('/')
         url_publica = f"{minio_server}/{bucket_name}/{unique_filename}"
-        # Normalizar cualquier doble slash que pueda quedar
         url_publica = url_publica.replace('//', '/').replace('http:/', 'http://').replace('https:/', 'https://')
         
         return url_publica, unique_filename
     
-    def upload_multiple_images(self, site_id: int, files_data: List[Dict[str, Any]], 
-                              user_id: int = None) -> List[SiteImage]:
+    def upload_multiple_images(self, site_id: int, files_data: List[Dict[str, Any]],
+                               user_id: int = None) -> List[SiteImage]:
+        """
+        Sube múltiples imágenes para un sitio histórico a MinIO y las registra en la base de datos.
+        
+        Args:
+            site_id: ID del sitio histórico
+            files_data: Lista de diccionarios con 'file', 'titulo_alt', 'descripcion' (opcional),
+                'order' (opcional), 'is_cover' (opcional) para cada imagen
+            user_id: ID del usuario que realiza la acción (opcional, para eventos)
+            
+        Returns:
+            List[SiteImage]: Lista de imágenes creadas
+            
+        Raises:
+            NotFoundError: Si el sitio no existe o está eliminado
+            ValidationError: Si se alcanzaría el límite de imágenes o algún archivo es inválido
+            DatabaseError: Si hay un error al subir a MinIO o persistir en la base de datos
+        """
         site = HistoricSite.query.get(site_id)
         if not site or site.deleted:
             raise exc.NotFoundError(f"El sitio histórico con id {site_id} no fue encontrado.")
@@ -417,16 +580,10 @@ class SiteImageService:
                 file = file_data.get('file')
                 
                 titulo_alt_raw = file_data.get('titulo_alt', '')
-                titulo_alt = str(titulo_alt_raw).strip() if titulo_alt_raw is not None else ''
+                titulo_alt = validate_titulo_alt(titulo_alt_raw, "título/alt")
                 
                 descripcion_raw = file_data.get('descripcion', '')
                 descripcion = str(descripcion_raw).strip() or None if descripcion_raw is not None else None
-                
-                if not titulo_alt:
-                    raise exc.ValidationError("El título/alt es obligatorio para todas las imágenes")
-                
-                if len(titulo_alt) > 255:
-                    raise exc.ValidationError(f"El título/alt '{titulo_alt}' excede 255 caracteres")
                 
                 is_valid, error_msg = self._validate_file(file)
                 if not is_valid:
@@ -483,20 +640,32 @@ class SiteImageService:
             db.session.rollback()
             raise exc.DatabaseError(f"Error al crear imágenes: {e}")
     
-    def update_image_metadata(self, image_id: int, titulo_alt: Optional[str] = None, 
-                              descripcion: Optional[str] = None, user_id: int = None) -> SiteImage:
+    def update_image_metadata(self, image_id: int, titulo_alt: Optional[str] = None,
+                               descripcion: Optional[str] = None, user_id: int = None) -> SiteImage:
+        """
+        Actualiza los metadatos (título/alt y descripción) de una imagen.
+        
+        Args:
+            image_id: ID de la imagen a actualizar
+            titulo_alt: Nuevo título/alt (opcional)
+            descripcion: Nueva descripción (opcional)
+            user_id: ID del usuario que realiza la acción (opcional, para eventos)
+            
+        Returns:
+            SiteImage: Imagen actualizada
+            
+        Raises:
+            NotFoundError: Si la imagen no existe
+            ValidationError: Si el título/alt es inválido
+            DatabaseError: Si hay un error al persistir en la base de datos
+        """
         image = SiteImage.query.get(image_id)
         if not image:
             raise exc.NotFoundError(f"La imagen con id {image_id} no fue encontrada.")
         
         try:
             if titulo_alt is not None:
-                titulo_alt_str = str(titulo_alt).strip() if titulo_alt else ''
-                if not titulo_alt_str:
-                    raise exc.ValidationError("El título/alt no puede estar vacío")
-                if len(titulo_alt_str) > 255:
-                    raise exc.ValidationError("El título/alt no debe superar 255 caracteres")
-                image.titulo_alt = titulo_alt_str
+                image.titulo_alt = validate_titulo_alt(titulo_alt)
             
             if descripcion is not None:
                 if descripcion:

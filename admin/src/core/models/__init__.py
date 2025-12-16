@@ -1,5 +1,4 @@
-# Importar todos los modelos para que estén disponibles
-from .user import User
+from .user import User, PrivateUser, PublicUser
 from .category_site import CategorySite
 from .province import Province
 from .city import City
@@ -19,7 +18,9 @@ from .site_image import SiteImage
 
 __all__ = [
     'User',
-    'CategorySite', 
+    'PrivateUser',
+    'PublicUser',
+    'CategorySite',
     'Province',
     'City',
     'StateSite',

@@ -139,10 +139,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const form = document.getElementById('site-form');
     if (!form) return;
     
-    // Crear FormData desde el formulario
     const formData = new FormData(form);
     
-    // Agregar los tags seleccionados
     if (_data.tag_ids && Array.isArray(_data.tag_ids)) {
       _data.tag_ids.forEach(tagId => {
         formData.append('tag_ids', tagId);

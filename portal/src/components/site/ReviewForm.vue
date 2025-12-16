@@ -26,15 +26,12 @@ const isSubmitting = computed(() => props.isSubmitting || false)
 
 const isEditing = computed(() => !!props.review)
 
-// Cargar datos de la reseña si está editando
 watch(() => props.review, (newReview) => {
   if (newReview) {
-    // Cargar datos de la reseña existente para modificación
     rating.value = newReview.rating
-    hoveredRating.value = 0 // Resetear hover al cargar
+    hoveredRating.value = 0
     content.value = newReview.content
   } else {
-    // Resetear para formulario de alta
     rating.value = 0
     hoveredRating.value = 0
     content.value = ''
@@ -72,14 +69,12 @@ async function handleSubmit() {
     return
   }
   
-  // Emitir el evento de submit
   emit('submit', rating.value, trimmedContent)
 }
 
 function handleClose() {
   if (isSubmitting.value) return
   
-  // Resetear formulario al cerrar solo si no está en modo edición
   if (!props.review) {
     rating.value = 0
     hoveredRating.value = 0

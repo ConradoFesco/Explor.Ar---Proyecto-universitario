@@ -1,4 +1,3 @@
-// static/js/reviews.js
 document.addEventListener('DOMContentLoaded', () => {
   const cfg = window.REVIEWS_CONFIG || {};
   const container = document.getElementById('ssr-list-container');
@@ -7,12 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let modalReviewId = null;
   let modalSiteId = null;
 
-  // Helper modal functions (ensure availability and consistent behavior)
   function openModal(id) {
     const m = document.getElementById(id);
     if (!m) return;
     m.classList.remove('hidden');
-    // close on backdrop click
     m.addEventListener('click', function onBackdrop(e){ if (e.target === m) { closeModal(id); m.removeEventListener('click', onBackdrop); } });
   }
   function closeModal(id) {
@@ -20,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!m) return;
     m.classList.add('hidden');
   }
-  // expose to global in case other scripts expect them
   window.openModal = openModal;
   window.closeModal = closeModal;
 
@@ -29,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     params.set('page', page);
     params.set('per_page', cfg.perPage || 25);
     for (const k in filters) {
-      // Siempre enviar el filtro 'status', aunque sea vacío
       if (k === 'status') {
         params.set('status', filters[k] ?? '');
       } else if (filters[k] !== '' && filters[k] !== null && filters[k] !== undefined) {
@@ -49,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     bindButtons();
   }
 
-  // Load review detail fragment and populate modal body
   async function loadReviewDetail(reviewId, siteId) {
     const body = document.getElementById('review-detail-body');
     if (!body) return;
@@ -83,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
     form.method = 'POST';
     form.action = `/reviews/${reviewId}/${action}`;
     
-    // Agregar campos del formulario
     for (const key in data) {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -92,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
       form.appendChild(input);
     }
     
-    // Agregar CSRF token si existe
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (csrfToken) {
       const csrfInput = document.createElement('input');
@@ -107,44 +99,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function bindButtons() {
-    // approve
     container.querySelectorAll('.btn-approve').forEach(btn => {
       btn.onclick = () => {
         const id = btn.dataset.id;
-        if (confirm('¿Estás seguro que deseas aprobar esta reseña?')) {
+        showApproveConfirmModal(() => {
           submitForm('aprobar', id);
-        }
+        });
       };
     });
 
-    // reject (open modal reject section)
     container.querySelectorAll('.btn-reject').forEach(btn => {
-      btn.onclick = async () => {
+      btn.onclick = () => {
         const id = btn.dataset.id;
-        const siteId = btn.dataset.siteId;
         modalReviewId = id;
-        modalSiteId = siteId;
-        
-        // load detail first so body not left in 'Cargando...'
-        await loadReviewDetail(id, siteId);
-        
-        // open modal and show reject UI
-        const rejectSection = document.getElementById('reject-section');
+
         const rejectReason = document.getElementById('rejectReason');
         const rejectMsg = document.getElementById('rejectMsg');
         if (rejectMsg) rejectMsg.classList.add('hidden');
         if (rejectReason) rejectReason.value = '';
-        if (rejectSection) rejectSection.classList.remove('hidden');
-        // hide other modal action buttons
-        document.getElementById('modal-approve')?.classList.add('hidden');
-        document.getElementById('modal-delete')?.classList.add('hidden');
-        document.getElementById('modal-reject')?.classList.add('hidden');
-        document.getElementById('modal-close')?.classList.add('hidden');
-        openModal('reviewDetailModal');
+
+        openModal('rejectConfirmModal');
       };
     });
 
-    // delete
     container.querySelectorAll('.btn-delete').forEach(btn => {
       btn.onclick = () => {
         const id = btn.dataset.id;
@@ -154,7 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     });
 
-    // pagination
     container.querySelectorAll('.pagination-btn').forEach(btn => {
       btn.onclick = () => {
         const p = parseInt(btn.dataset.page, 10);
@@ -166,7 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     });
 
-    // view -> open modal with details
     container.querySelectorAll('.btn-view').forEach(btn => {
       btn.onclick = async () => {
         const id = btn.dataset.id;
@@ -175,18 +150,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           await loadReviewDetail(id, siteId);
 
-          // For 'Ver' the modal should be read-only: hide action buttons and reject section
           const approveBtn = document.getElementById('modal-approve');
           const rejectBtn = document.getElementById('modal-reject');
           const deleteBtn = document.getElementById('modal-delete');
-          // hide all action buttons and reject section when opening via 'Ver'
           if (approveBtn) approveBtn.classList.add('hidden');
           if (rejectBtn) rejectBtn.classList.add('hidden');
           if (deleteBtn) deleteBtn.classList.add('hidden');
           document.getElementById('reject-section')?.classList.add('hidden');
           document.getElementById('modal-close')?.classList.remove('hidden');
 
-          // open modal
           openModal('reviewDetailModal');
 
         } catch (err) {
@@ -200,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function gatherFilters(prefix = '') {
     const f = {};
     const searchInput = document.getElementById(prefix + 'search-input');
-    // El search_param es 'user' según el template de reviews
     if (searchInput && searchInput.value.trim()) {
       f['user'] = searchInput.value.trim();
     }
@@ -209,21 +180,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sortBy && sortBy.value) {
       f.sort_by = sortBy.value;
     } else {
-      f.sort_by = 'created_at'; // Valor por defecto
+      f.sort_by = 'created_at'; 
     }
     const sortOrder = document.getElementById(prefix + 'sort-order');
     if (sortOrder && sortOrder.value) {
       f.sort_order = sortOrder.value;
     } else {
-      f.sort_order = 'desc'; // Valor por defecto
+      f.sort_order = 'desc'; 
     }
 
-    // Collect selects and inputs for filters panels by convention: id = filter-<name>
     document.querySelectorAll('[id^="filter-"]').forEach(el => {
       const id = el.id.replace(/^filter-/, '');
       if (el.tagName === 'SELECT') {
         const value = el.value;
-        // Mapear rating a rating_from y rating_to
         if (id === 'rating' && value) {
           const rating = parseInt(value, 10);
           if (!isNaN(rating) && rating >= 1 && rating <= 5) {
@@ -250,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sortBy = document.getElementById(prefix + 'sort-by');
     const sortOrder = document.getElementById(prefix + 'sort-order');
     
-    // Bind sort changes to trigger search
     if (sortBy) {
       sortBy.addEventListener('change', () => {
         currentFilters = gatherFilters(prefix);
@@ -270,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
       applyBtn.onclick = () => {
         currentFilters = gatherFilters(prefix);
         currentPage = 1;
-        // Si el filtro de status es 'Todos' o vacío, no incluir el filtro
         if (currentFilters.status === undefined || currentFilters.status === null || currentFilters.status === '' || currentFilters.status === 'Todos') {
           delete currentFilters.status;
         }
@@ -279,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (clearBtn) {
       clearBtn.onclick = () => {
-        // clear inputs inside filters panel
         const panel = document.getElementById(prefix + 'filters-panel');
         if (panel) {
           panel.querySelectorAll('input').forEach(i => i.value = '');
@@ -290,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchFragment(currentPage, currentFilters);
       };
     }
-    // Búsqueda reactiva: al escribir en el input de búsqueda, actualizar resultados
     if (searchInput) {
       let searchTimeout;
       searchInput.addEventListener('input', () => {
@@ -299,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
           currentFilters = gatherFilters(prefix);
           currentPage = 1;
           fetchFragment(currentPage, currentFilters);
-        }, 400); // Espera 400ms tras dejar de tipear
+        }, 400); 
       });
     }
   }
@@ -310,23 +275,16 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchFragment(currentPage, currentFilters);
   });
 
-  // init
-  // bind filter panel actions (no prefix was passed when rendering macro in page)
   bindFilterPanel('');
-  // initial load: apply existing querystring filters if present
   const initialFilters = {};
-  // populate initialFilters from current URL search params (so SSR values persist on first AJAX load)
   const urlParams = new URLSearchParams(window.location.search);
   urlParams.forEach((v,k) => {
     initialFilters[k]=v;
   });
-  // Establecer valores de ordenamiento desde URL o por defecto
   if (!initialFilters.sort_by) initialFilters.sort_by = 'created_at';
   if (!initialFilters.sort_order) initialFilters.sort_order = 'desc';
-  // No establecer status por defecto (mostrar todas)
   fetchFragment(1, initialFilters);
 
-  // modal reject save/cancel handlers (bind directly - we're already in DOMContentLoaded)
   const saveReject = document.getElementById('saveReject');
   const cancelReject = document.getElementById('cancelReject');
   if (saveReject) {
@@ -353,7 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
   
-  // Modal helpers para confirmación de acción y confirmación de borrado
   function showActionConfirmModal(message) {
     const modal = document.getElementById('actionConfirmModal');
     const msgDiv = document.getElementById('action-confirm-message');
@@ -367,7 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal('deleteConfirmModal');
     const confirmBtn = document.getElementById('confirmDelete');
     const cancelBtn = document.getElementById('cancelDelete');
-    // limpiar listeners previos
     confirmBtn.onclick = () => {
       closeModal('deleteConfirmModal');
       if (typeof onConfirm === 'function') onConfirm();
@@ -376,13 +332,27 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal('deleteConfirmModal');
     };
   }
+
+  function showApproveConfirmModal(onConfirm) {
+    const modal = document.getElementById('approveConfirmModal');
+    if (!modal) return;
+    openModal('approveConfirmModal');
+    const confirmBtn = document.getElementById('confirmApprove');
+    const cancelBtn = document.getElementById('cancelApprove');
+    if (!confirmBtn || !cancelBtn) return;
+    confirmBtn.onclick = () => {
+      closeModal('approveConfirmModal');
+      if (typeof onConfirm === 'function') onConfirm();
+    };
+    cancelBtn.onclick = () => {
+      closeModal('approveConfirmModal');
+    };
+  }
   
   if (cancelReject) { 
     cancelReject.onclick = () => { 
-      document.getElementById('reject-section')?.classList.add('hidden'); 
       modalReviewId = null; 
-      modalSiteId = null;
-      closeModal('reviewDetailModal'); 
+      closeModal('rejectConfirmModal'); 
     }; 
   }
 });

@@ -1,8 +1,9 @@
 """
 Servicios de dominio para gestión de usuarios y roles.
 Provee operaciones CRUD, roles y seguridad para ambos brazos (Web/API).
+Gestiona únicamente usuarios privados (PrivateUser) ya que los públicos no tienen roles ni permisos.
 """
-from src.core.models.user import User
+from src.core.models.user import User, PrivateUser
 from src.core.models.rol_user import RolUser
 from src.core.models.rol_user_user import RolUserUser
 from src.core.models.permission import Permission
@@ -11,15 +12,81 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from src.web.exceptions import ValidationError, DatabaseError, NotFoundError
 from werkzeug.security import generate_password_hash, check_password_hash
+from typing import Set
 from src.core.validators.user_validator import (
     validate_create_user,
     validate_update_user,
     validate_role_ids,
 )
+from src.core.validators.listing_validator import validate_user_list_params
 from src.core.validators.profile_validator import validate_new_password
 
 class UserService:
-    """Casos de uso relacionados a usuarios (crear, listar, actualizar, roles, bloqueo)."""
+    """Casos de uso relacionados a usuarios privados (crear, listar, actualizar, roles, bloqueo)."""
+
+    @staticmethod
+    def _require_super_admin(actor_id: int, action: str = "realizar esta acción") -> PrivateUser:
+        """
+        Valida que el actor es un SuperAdmin.
+        
+        Args:
+            actor_id: ID del usuario que intenta realizar la acción
+            action: Descripción de la acción (para mensaje de error)
+        
+        Returns:
+            PrivateUser: Usuario SuperAdmin validado
+        
+        Raises:
+            ValidationError: Si el usuario no es SuperAdmin
+        """
+        from src.core.validators.api_validator import validate_positive_int
+        
+        actor_id = validate_positive_int(actor_id, "actor_id")
+        actor = PrivateUser.query.filter_by(id=actor_id, deleted=False).first()
+        if not actor or not actor.is_super_admin:
+            raise ValidationError(f"Solo un SuperAdmin puede {action}")
+        return actor
+    
+    @staticmethod
+    def fetch_user_permissions(user_id: int) -> Set[str]:
+        """
+        Obtiene todos los permisos de un usuario mediante una consulta SQL optimizada.
+        Usa JOINs para evitar N+1 queries.
+        
+        Args:
+            user_id (int): ID del usuario
+            
+        Returns:
+            Set[str]: Conjunto de nombres de permisos del usuario
+        """
+        from src.core.models.permission_rol_user import PermissionRolUser
+        from src.core.models.rol_user_user import RolUserUser
+        
+        permission_names = (
+            db.session.query(Permission.name)
+            .join(PermissionRolUser, Permission.id == PermissionRolUser.Permission_id)
+            .join(RolUser, PermissionRolUser.Rol_User_id == RolUser.id)
+            .join(RolUserUser, RolUser.id == RolUserUser.Rol_User_id)
+            .filter(RolUserUser.User_id == user_id)
+            .filter(Permission.deleted == False)
+            .distinct()
+            .all()
+        )
+        
+        return {name for name, in permission_names}
+    
+    @staticmethod
+    def hydrate_user_permissions(user: PrivateUser) -> None:
+        """
+        Busca los permisos del usuario y se los inyecta in-place.
+        Encapsula la lógica de hidratación para mantener el código más declarativo.
+        
+        Args:
+            user (PrivateUser): Usuario a hidratar con permisos
+        """
+        permissions = UserService.fetch_user_permissions(user.id)
+        user.set_permissions(permissions)
+    
     def create_user(self, data_user, data_new_user, commit=True):
         """
         Crea un usuario con roles iniciales.
@@ -35,7 +102,6 @@ class UserService:
         Raises:
             ValidationError/DatabaseError según corresponda.
         """
-        # Validaciones de entrada
         cleaned = validate_create_user(data_new_user)
         hashed_password = generate_password_hash(cleaned['password'])
 
@@ -44,7 +110,7 @@ class UserService:
         last_name = cleaned['last_name']
         active = data_new_user.get('active', True)
         blocked = data_new_user.get('blocked', False)
-        role_ids = data_new_user.get('roles', [])  # Lista de IDs de roles seleccionados
+        role_ids = data_new_user.get('roles', [])
         role_ids = validate_role_ids(role_ids) if role_ids else []
         if not role_ids:
             raise ValidationError("Debe seleccionar al menos un rol para el usuario")
@@ -52,11 +118,9 @@ class UserService:
         created_at = datetime.now()
         is_super_admin = bool(data_new_user.get('is_super_admin'))
         if is_super_admin:
-            actor = User.query.filter_by(id=data_user, deleted=False).first()
-            if not actor or not actor.is_super_admin:
-                raise ValidationError("Solo un SuperAdmin puede crear otro SuperAdmin")
+            self._require_super_admin(data_user, "crear otro SuperAdmin")
 
-        user = User(
+        user = PrivateUser(
             mail=mail,
             name=name,
             last_name=last_name,
@@ -67,20 +131,12 @@ class UserService:
             created_at=created_at,
             is_super_admin=is_super_admin,
         )
-        
-        # Asignar los roles seleccionados si se proporcionan
-        if role_ids and len(role_ids) > 0:
-            for role_id in role_ids:
-                # Verificar que el rol existe
-                role = RolUser.query.get(role_id)
-                if not role:
-                    raise ValidationError(f"Rol con ID {role_id} no encontrado")
-                user.user_roles.append(RolUserUser(Rol_User_id=role_id))
-        else:
-            # Rol por defecto si no se especifica (usuario básico)
-            default_role = RolUser.query.filter_by(name='usuario').first()
-            if default_role:
-                user.user_roles.append(RolUserUser(Rol_User_id=default_role.id))
+
+        for role_id in role_ids:
+            role = RolUser.query.get(role_id)
+            if not role:
+                raise ValidationError(f"Rol con ID {role_id} no encontrado")
+            user.user_roles.append(RolUserUser(Rol_User_id=role_id))
         
         try:
             db.session.add(user)
@@ -91,10 +147,10 @@ class UserService:
             db.session.rollback()
             raise DatabaseError(f"Error al crear el usuario: {e}")
 
-
     def get_user(self, user_id):
         """
-        Obtiene un usuario no eliminado con roles actuales.
+        Obtiene un usuario privado no eliminado con roles actuales.
+        Hidrata los permisos del usuario antes de retornarlo.
 
         Args:
             user_id (int): ID del usuario.
@@ -105,12 +161,14 @@ class UserService:
         Raises:
             NotFoundError: Si no existe.
         """
-        user = User.query.filter_by(id=user_id, deleted=False).first()
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
+        # Hidratar permisos del usuario
+        self.hydrate_user_permissions(user)
+        
         user_dict = user.to_dict()
-        # Agregar información de roles actuales
         user_dict['current_roles'] = self.get_user_roles(user_id)
         return user_dict
 
@@ -130,24 +188,21 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if user is None:
             raise NotFoundError(f"Usuario no encontrado")
         
-        # Verificar si el usuario a editar es Admin o SuperAdmin: solo puede auto-modificarse
-        if self._is_admin_user(user):
+        if user and user.is_super_admin:
             if admin_user_id and user_id != admin_user_id:
                 raise ValidationError("No se puede editar un usuario administrador desde el listado de usuarios")
-        
-        # Validaciones de entrada
+
         cleaned = validate_update_user(changed_fields or {})
 
-        # Unicidad de mail si se modifica
         if 'mail' in cleaned and cleaned['mail'] != user.mail:
-            if User.query.filter_by(mail=cleaned['mail']).first():
-                raise ValidationError("Ya existe un usuario con ese mail")
+            existing_user = PrivateUser.query.filter_by(mail=cleaned['mail'], deleted=False).first()
+            if existing_user and existing_user.id != user_id:
+                raise ValidationError("Ya existe un usuario privado con ese mail")
 
-        # Actualizar solo los campos que vienen en cleaned
         if "name" in cleaned:
             user.name = cleaned["name"]
 
@@ -161,17 +216,14 @@ class UserService:
             user.active = cleaned["active"]
         
         if "blocked" in cleaned:
-            # Enforce: no se puede bloquear administradores/superadmins
-            if cleaned["blocked"] and self._is_admin_user(user):
+            if cleaned["blocked"] and user and user.is_super_admin:
                 raise ValidationError("No se pueden bloquear usuarios administradores")
             user.blocked = cleaned["blocked"]
         
         if "is_super_admin" in cleaned:
             if not admin_user_id:
                 raise ValidationError("Se requiere un usuario administrador para esta acción")
-            actor = User.query.get(admin_user_id)
-            if not actor or not actor.is_super_admin:
-                raise ValidationError("Solo un SuperAdmin puede modificar este atributo")
+            self._require_super_admin(admin_user_id, "modificar este atributo")
             user.is_super_admin = cleaned["is_super_admin"]
         
         if "password" in cleaned:
@@ -185,81 +237,52 @@ class UserService:
             db.session.rollback()
             raise DatabaseError(f"Error al actualizar el usuario: {e}")
 
-    def delete_user(self, user_id, commit=True):
+    def delete_user(self, user_id, admin_user_id, commit=True):
         """
-        Baja lógica del usuario.
+        Baja lógica de un usuario privado, registrando actor.
+        Solo gestiona usuarios privados de la aplicación.
+
+        Regla de negocio:
+        - Un usuario no puede eliminarse a sí mismo.
+        - Solo un SuperAdmin puede eliminar a otro SuperAdmin.
 
         Args:
-            user_id (int): ID del usuario.
+            user_id (int): ID del usuario privado a eliminar.
+            admin_user_id (int): ID del administrador que ejecuta la acción.
             commit (bool): Confirmar transacción.
 
         Returns:
             dict: Mensaje de resultado.
 
         Raises:
-            NotFoundError/DatabaseError.
-        """
-        user = User.query.filter_by(id=user_id, deleted=False).first()
-        if not user:
-            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        
-        user.deleted = True
-        try:
-            if commit:
-                db.session.commit()
-            return {"message": f"Usuario {user_id} eliminado correctamente"}
-        except IntegrityError as e:
-            db.session.rollback()
-            raise DatabaseError(f"Error al eliminar el usuario: {e}")
-
-    def delete_user_with_reason(self, user_id, reason, admin_user_data, commit=True):
-        """
-        Elimina lógicamente un usuario, guardando motivo y actor.
-
-        Args:
-            user_id (int): ID del usuario a eliminar.
-            reason (str): Motivo.
-            admin_user_data (int|dict): ID o dict del admin actor.
-            commit (bool): Confirmar transacción.
-
-        Returns:
-            str: Mensaje de éxito.
-
-        Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        user = User.query.filter_by(id=user_id, deleted=False).first()
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
         if not user:
-            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        
-        # Obtener el ID del administrador desde los datos de sesión
-        admin_id = admin_user_data if isinstance(admin_user_data, int) else admin_user_data.get('id', 1)
-        
-        # Verificar que el administrador no intente eliminarse a sí mismo
-        if user_id == admin_id:
+            raise NotFoundError(f"Usuario privado con id {user_id} no encontrado")
+
+        if user_id == admin_user_id:
             raise ValidationError("No puedes eliminarte a ti mismo")
-        
-        admin_user = User.query.get(admin_id)
-        # Verificar si el usuario a eliminar es superAdmin
+
+        admin_user = PrivateUser.query.get(admin_user_id)
+
         if user.is_super_admin:
             if not admin_user or not admin_user.is_super_admin:
                 raise ValidationError("Solo usuarios SuperAdmin pueden eliminar a un SuperAdmin")
-        
-        # Marcar como eliminado con información adicional
+
         user.active = False
         user.deleted = True
         user.deleted_at = datetime.utcnow()
-        user.deletion_reason = reason
-        user.deleted_by_id = admin_id
-        
+        user.deleted_by_id = admin_user_id
+
         try:
             if commit:
                 db.session.commit()
-            return f"El usuario '{user.mail}' ha sido eliminado correctamente."
+            return {"message": f"El usuario '{user.mail}' ha sido eliminado correctamente."}
         except IntegrityError as e:
             db.session.rollback()
             raise DatabaseError(f"Error al eliminar el usuario: {e}")
-            
+
     def update_password(self, user_id, new_password, commit=True):
         """
         Actualiza la contraseña del usuario, validando que cambie.
@@ -275,16 +298,15 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if user is None:
             raise NotFoundError("Usuario no encontrado")
-        
-        # Validación de formato/seguridad
+
         new_password = validate_new_password(new_password)
-        # Verificar si la nueva contraseña es igual a la actual
-        if check_password_hash(user.password, new_password):
+
+        if not user.password or check_password_hash(user.password, new_password):
             raise ValidationError("La nueva contraseña no puede ser igual a la actual")
-        
+
         user.password = generate_password_hash(new_password)
 
         try:
@@ -298,58 +320,78 @@ class UserService:
     def list_users(self, filters=None, page=1, per_page=25, sort_by='created_at', sort_order='desc'):
         """
         Lista usuarios con filtros, orden y paginación.
-
-        Returns:
-            dict: {'users': [...], 'pagination': {...}}
-        """
-        # Validaciones de entrada
-        from src.core.validators.listing_validator import validate_user_list_params
-        v = validate_user_list_params(page=int(page), per_page=int(per_page), filters=filters or {}, sort_by=sort_by, sort_order=sort_order)
-        page = v['page']; per_page = v['per_page']; filters = v['filters']; sort_by = v['sort_by']; sort_order = v['sort_order']
-
-        # Construir query base
-        query = User.query.filter_by(deleted=False)
         
-        # Aplicar filtros
+        Args:
+            filters: Diccionario con filtros (email, activo, blocked, rol) (opcional)
+            page: Número de página (por defecto 1)
+            per_page: Elementos por página (por defecto 25)
+            sort_by: Campo por el cual ordenar ('created_at' o 'name', por defecto 'created_at')
+            sort_order: Dirección del orden ('asc' o 'desc', por defecto 'desc')
+            
+        Returns:
+            dict: Diccionario con 'users' (lista de usuarios con roles) y 'pagination' (info de paginación)
+            
+        Raises:
+            DatabaseError: Si hay un error al consultar la base de datos
+        """
+        filters = filters or {}
+        v = validate_user_list_params(
+            page=page,
+            per_page=per_page,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        page = v['page']
+        per_page = v['per_page']
+        filters = v['filters']
+        sort_by = v['sort_by']
+        sort_order = v['sort_order']
+
+        query = PrivateUser.query.filter_by(deleted=False)
+        
         if filters:
             if filters.get('email'):
                 query = query.filter(User.mail.ilike(f"{filters['email']}%"))
             if filters.get('activo') is not None:
-                query = query.filter_by(active=bool(filters['activo']))
+                query = query.filter_by(active=filters['activo'])
             if filters.get('blocked') is not None:
-                query = query.filter_by(blocked=bool(filters['blocked']))
+                query = query.filter_by(blocked=filters['blocked'])
             if filters.get('rol'):
                 from src.core.models.rol_user_user import RolUserUser
                 from src.core.models.rol_user import RolUser
                 query = query.join(RolUserUser).join(RolUser).filter(RolUser.name.ilike(f"%{filters['rol']}%"))
-        
-        # Aplicar ordenamiento
+
         if sort_by == 'created_at':
             if sort_order == 'desc':
                 query = query.order_by(User.created_at.desc())
-            else:  # asc
+            else:
                 query = query.order_by(User.created_at.asc())
         elif sort_by == 'name':
             if sort_order == 'desc':
                 query = query.order_by(User.name.desc(), User.last_name.desc())
-            else:  # asc
+            else:
                 query = query.order_by(User.name.asc(), User.last_name.asc())
-        
-        # Aplicar paginación
-        pagination = query.paginate(
-            page=page, 
-            per_page=per_page, 
-            error_out=False
-        )
+
+        try:
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+        except Exception as e:
+            raise DatabaseError(f"Error al listar usuarios: {e}")
         users = pagination.items
-        
-        # Agregar información de roles a cada usuario
+
         users_with_roles = []
         for user in users:
             user_dict = user.to_dict()
-            user_dict['roles'] = user.get_user_roles()
+            if isinstance(user, PrivateUser):
+                user_dict['roles'] = user.get_user_roles()
+            else:
+                user_dict['roles'] = []
             users_with_roles.append(user_dict)
-        
+
         return {
             'users': users_with_roles,
             'pagination': {
@@ -367,48 +409,58 @@ class UserService:
     def assign_role_to_user(self, user_id, role_id, admin_user_id, commit=True):
         """
         Asigna un rol a un usuario.
-
+        
+        Args:
+            user_id: ID del usuario al que se le asignará el rol
+            role_id: ID del rol a asignar
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito con el nombre del rol asignado
+            
         Raises:
-            NotFoundError/ValidationError/DatabaseError.
+            NotFoundError: Si el usuario, rol o administrador no existen
+            ValidationError: Si el usuario ya tiene el rol asignado o es SuperAdmin y el admin no lo es
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
-        # Verificar que el usuario administrador existe y tiene permisos
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
         
-        # Verificar que el usuario objetivo existe
-        target_user = User.query.get(user_id)
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        
-        # Verificar que el rol existe
+
         role = RolUser.query.get(role_id)
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
         
-        # Verificar que el administrador tiene permisos para asignar roles a administradores
-        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
-            raise ValidationError("Solo los administradores pueden asignar roles a otros administradores")
-        
-        # Verificar que el rol no está ya asignado
+        if target_user and target_user.is_super_admin:
+            self._require_super_admin(admin_user_id, "asignar roles a otros administradores")
+
         existing_assignment = RolUserUser.query.filter_by(
             User_id=user_id, 
             Rol_User_id=role_id
         ).first()
-        
+
         if existing_assignment:
             raise ValidationError("El usuario ya tiene asignado este rol")
-        
-        # Crear la asignación
+
         role_assignment = RolUserUser(
             User_id=user_id,
             Rol_User_id=role_id
         )
-        
+
         try:
             db.session.add(role_assignment)
             if commit:
                 db.session.commit()
+            
+            # Invalidar cache y recargar permisos del usuario
+            target_user.invalidate_permissions_cache()
+            self.hydrate_user_permissions(target_user)
+            
             return {"message": f"Rol '{role.name}' asignado correctamente al usuario"}
         except IntegrityError as e:
             db.session.rollback()
@@ -417,42 +469,53 @@ class UserService:
     def revoke_role_from_user(self, user_id, role_id, admin_user_id, commit=True):
         """
         Revoca un rol de un usuario.
-
+        
+        Args:
+            user_id: ID del usuario del que se revocará el rol
+            role_id: ID del rol a revocar
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito con el nombre del rol revocado
+            
         Raises:
-            NotFoundError/ValidationError/DatabaseError.
+            NotFoundError: Si el usuario, rol o administrador no existen
+            ValidationError: Si el usuario no tiene el rol asignado o es SuperAdmin y el admin no lo es
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
-        # Verificar que el usuario administrador existe
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-        
-        # Verificar que el usuario objetivo existe
-        target_user = User.query.get(user_id)
+
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
-        
-        # Verificar que el rol existe
+
         role = RolUser.query.get(role_id)
         if not role:
             raise NotFoundError(f"Rol con id {role_id} no encontrado")
         
-        # Verificar que el administrador tiene permisos para revocar roles de administradores
-        if self._is_admin_user(target_user) and not self._is_admin_user(admin_user):
-            raise ValidationError("Solo los administradores pueden revocar roles de otros administradores")
-        
-        # Buscar la asignación existente
+        if target_user and target_user.is_super_admin:
+            self._require_super_admin(admin_user_id, "revocar roles de otros administradores")
+
         role_assignment = RolUserUser.query.filter_by(
             User_id=user_id, 
             Rol_User_id=role_id
         ).first()
-        
+
         if not role_assignment:
             raise ValidationError("El usuario no tiene asignado este rol")
-        
+
         try:
             db.session.delete(role_assignment)
             if commit:
                 db.session.commit()
+            
+            # Invalidar cache y recargar permisos del usuario
+            target_user.invalidate_permissions_cache()
+            self.hydrate_user_permissions(target_user)
+            
             return {"message": f"Rol '{role.name}' revocado correctamente del usuario"}
         except IntegrityError as e:
             db.session.rollback()
@@ -461,11 +524,17 @@ class UserService:
     def get_user_roles(self, user_id):
         """
         Devuelve roles asignados a un usuario.
-
+        
+        Args:
+            user_id: ID del usuario
+            
         Returns:
-            list[dict]: [{'id', 'name', 'assigned_at'}]
+            list[dict]: Lista de diccionarios con 'id', 'name' y 'assigned_at' de cada rol
+            
+        Raises:
+            NotFoundError: Si el usuario no existe
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
@@ -477,14 +546,24 @@ class UserService:
                 'name': role.name,
                 'assigned_at': getattr(role_rel, 'created_at', None)
             })
-        
+
         return roles
 
     def get_user_permissions(self, user_id):
         """
         Devuelve la lista de nombres de permisos asignados al usuario (vía sus roles).
+        Si el usuario es SuperAdmin, devuelve todos los permisos del sistema.
+        
+        Args:
+            user_id: ID del usuario
+            
+        Returns:
+            list[str]: Lista de nombres de permisos únicos
+            
+        Raises:
+            NotFoundError: Si el usuario no existe
         """
-        user = User.query.get(user_id)
+        user = PrivateUser.query.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         if user.is_super_admin:
@@ -500,30 +579,13 @@ class UserService:
 
     def get_available_roles(self):
         """
-        Lista roles disponibles (respeta módulo de roles y permisos).
+        Lista todos los roles disponibles (no eliminados).
+        
+        Returns:
+            list[dict]: Lista de roles como diccionarios
         """
         roles = RolUser.query.filter_by(deleted=False).all()
         return [role.to_dict() for role in roles]
-
-    def _is_admin_user(self, user):
-        """
-        True si el usuario es superadmin o tiene rol admin.
-        """
-        if not user:
-            return False
-        if user.is_super_admin:
-            return True
-        for role_rel in user.user_roles:
-            role = role_rel.rol_user
-            if role.name.lower() == 'admin':
-                return True
-        return False
-    
-    def _is_super_admin(self, user):
-        """
-        True si el usuario tiene el atributo superadmin.
-        """
-        return bool(user and user.is_super_admin)
 
     def update_user_roles(self, user_id, role_ids, admin_user_id, commit=True):
         """
@@ -532,32 +594,27 @@ class UserService:
         Raises:
             NotFoundError/ValidationError/DatabaseError.
         """
-        # Verificar que el usuario administrador existe
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-        
-        # Verificar que el usuario objetivo existe
-        target_user = User.query.get(user_id)
+
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
-        # Si el usuario objetivo es Admin o SuperAdmin, solo puede auto-modificar sus roles
-        if self._is_admin_user(target_user) and user_id != admin_user_id:
-            raise ValidationError("No se pueden modificar los roles de un usuario administrador")
+        if target_user and target_user.is_super_admin:
+            if user_id != admin_user_id:
+                raise ValidationError("No se pueden modificar los roles de un usuario administrador")
+                self._require_super_admin(admin_user_id, "modificar los roles de un usuario administrador")
 
         try:
-            # Eliminar todos los roles actuales del usuario
             RolUserUser.query.filter_by(User_id=user_id).delete()
-            
-            # Agregar los nuevos roles
+
             for role_id in role_ids:
-                # Verificar que el rol existe
                 role = RolUser.query.get(role_id)
                 if not role:
                     raise ValidationError(f"Rol con id {role_id} no encontrado")
-                
-                # Crear la nueva asignación
+
                 role_assignment = RolUserUser(
                     User_id=user_id,
                     Rol_User_id=role_id
@@ -566,6 +623,11 @@ class UserService:
             
             if commit:
                 db.session.commit()
+            
+            # Invalidar cache y recargar permisos del usuario
+            target_user.invalidate_permissions_cache()
+            self.hydrate_user_permissions(target_user)
+            
             return {"message": "Roles actualizados correctamente"}
         except IntegrityError as e:
             db.session.rollback()
@@ -573,29 +635,37 @@ class UserService:
 
     def block_user(self, user_id, admin_user_id, commit=True):
         """
-        Bloquea un usuario no administrador.
+        Bloquea un usuario privado no administrador.
+        
+        Args:
+            user_id: ID del usuario a bloquear
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito
+            
+        Raises:
+            NotFoundError: Si el usuario o administrador no existen
+            ValidationError: Si el usuario ya está bloqueado o es SuperAdmin
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
-        # Verificar que el usuario administrador existe
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-        
-        # Verificar que el usuario objetivo existe
-        target_user = User.query.get(user_id)
+
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
-        # Verificar que el usuario objetivo no es administrador
-        if self._is_admin_user(target_user):
+        if target_user and target_user.is_super_admin:
             raise ValidationError("No se pueden bloquear usuarios administradores")
-        
-        # Verificar si el usuario ya está bloqueado
+
         if target_user.blocked:
             raise ValidationError("El usuario ya está bloqueado")
-        
-        # Bloquear usuario
+
         target_user.blocked = True
-        
+
         try:
             if commit:
                 db.session.commit()
@@ -606,29 +676,37 @@ class UserService:
 
     def unblock_user(self, user_id, admin_user_id, commit=True):
         """
-        Desbloquea un usuario bloqueado que no sea administrador.
+        Desbloquea un usuario privado bloqueado que no sea administrador.
+        
+        Args:
+            user_id: ID del usuario a desbloquear
+            admin_user_id: ID del administrador que realiza la acción
+            commit: Si True, confirma la transacción
+            
+        Returns:
+            dict: Mensaje de éxito
+            
+        Raises:
+            NotFoundError: Si el usuario o administrador no existen
+            ValidationError: Si el usuario ya está desbloqueado o es SuperAdmin
+            DatabaseError: Si hay un error al persistir en la base de datos
         """
-        # Verificar que el usuario administrador existe
-        admin_user = User.query.get(admin_user_id)
+        admin_user = PrivateUser.query.get(admin_user_id)
         if not admin_user:
             raise NotFoundError("Usuario administrador no encontrado")
-        
-        # Verificar que el usuario objetivo existe
-        target_user = User.query.get(user_id)
+
+        target_user = PrivateUser.query.get(user_id)
         if not target_user:
             raise NotFoundError(f"Usuario con id {user_id} no encontrado")
         
-        # Verificar que el usuario objetivo no es administrador
-        if self._is_admin_user(target_user):
+        if target_user and target_user.is_super_admin:
             raise ValidationError("No se pueden desbloquear usuarios administradores")
-        
-        # Verificar si el usuario ya está desbloqueado
+
         if not target_user.blocked:
             raise ValidationError("El usuario ya está desbloqueado")
-        
-        # Desbloquear usuario
+
         target_user.blocked = False
-        
+
         try:
             if commit:
                 db.session.commit()
@@ -637,5 +715,62 @@ class UserService:
             db.session.rollback()
             raise DatabaseError(f"Error al desbloquear el usuario: {e}")
 
-# Instancia global para usar en la app
+    def user_exists_by_email(self, email: str) -> bool:
+        """
+        Verifica si existe un usuario privado con el email dado (no eliminado).
+        
+        Args:
+            email: Email a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        user = PrivateUser.query.filter_by(mail=email, deleted=False).first()
+        return user is not None
+
+    def role_exists(self, role_id: int) -> bool:
+        """
+        Verifica si existe un rol con el ID dado (no eliminado).
+        
+        Args:
+            role_id: ID del rol a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        role = RolUser.query.filter_by(id=role_id, deleted=False).first()
+        return role is not None
+
+    def user_exists(self, user_id: int) -> bool:
+        """
+        Verifica si existe un usuario privado con el ID dado (no eliminado).
+        
+        Args:
+            user_id: ID del usuario a verificar
+            
+        Returns:
+            bool: True si existe, False en caso contrario
+        """
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
+        return user is not None
+
+    def get_user_object(self, user_id: int) -> PrivateUser:
+        """
+        Obtiene el objeto User directamente (no eliminado).
+        
+        Args:
+            user_id: ID del usuario
+            
+        Returns:
+            PrivateUser: Objeto usuario encontrado
+            
+        Raises:
+            NotFoundError: Si el usuario no existe o está eliminado
+        """
+        user = PrivateUser.query.filter_by(id=user_id, deleted=False).first()
+        if not user:
+            raise NotFoundError(f"Usuario con id {user_id} no encontrado")
+        return user
+
+
 user_service = UserService()

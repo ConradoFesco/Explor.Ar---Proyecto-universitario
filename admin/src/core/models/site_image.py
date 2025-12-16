@@ -2,6 +2,7 @@ from src.web.extensions import db
 from datetime import datetime
 from typing import Dict, Any
 
+
 class SiteImage(db.Model):
     __tablename__ = 'Site_Image'
     
@@ -15,7 +16,6 @@ class SiteImage(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relación con HistoricSite
     historic_site = db.relationship('HistoricSite', backref='images', lazy=True)
     
     def __repr__(self) -> str:
@@ -33,5 +33,3 @@ class SiteImage(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-
-

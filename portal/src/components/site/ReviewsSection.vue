@@ -21,12 +21,7 @@ const props = defineProps<{
 
 const hasReviews = computed(() => props.reviews.length > 0)
 const showPagination = computed(() => props.totalPages > 1)
-const buttonText = computed(() => {
-  if (props.hasMyReview) {
-    return 'Modificar reseña'
-  }
-  return 'Escribir reseña'
-})
+const showWriteButton = computed(() => !props.hasMyReview && props.isAuthenticated)
 
 function handleWriteReview() {
   if (props.onWriteReview) {
@@ -40,16 +35,17 @@ function handleWriteReview() {
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
       <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Reseñas</h2>
       <Button
+        v-if="showWriteButton"
         :variant="isAuthenticated ? 'default' : 'outline'"
         size="sm"
         @click="handleWriteReview"
         class="w-full sm:w-auto text-xs sm:text-sm"
       >
-        {{ buttonText }}
+        Escribir reseña
       </Button>
     </div>
 
-    <!-- Loading State -->
+    
     <div v-if="isLoading" class="space-y-3">
       <div v-for="i in 3" :key="i" class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2 bg-white dark:bg-gray-800">
         <Skeleton class="h-4 w-1/4" />

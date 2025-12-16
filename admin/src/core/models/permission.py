@@ -1,6 +1,7 @@
 from src.web.extensions import db
 from typing import Dict, Any
 
+
 class Permission(db.Model):
     __tablename__ = 'Permission'
     
@@ -8,7 +9,6 @@ class Permission(db.Model):
     name = db.Column(db.String, unique=True)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     permission_rol_users = db.relationship('PermissionRolUser', backref='permission', lazy=True)
     
     def __repr__(self) -> str:

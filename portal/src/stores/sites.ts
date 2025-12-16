@@ -1,120 +1,148 @@
 import { defineStore } from 'pinia'
 import type { HistoricSite, PaginatedResponse, SiteSearchParams } from '@/lib/api'
-import { fetchPublicSites, fetchMyFavorites } from '@/lib/api'
+import { fetchPublicSites } from '@/lib/api'
 
 export type SortOption = {
   field: 'created_at' | 'name' | 'rating'
   dir: 'asc' | 'desc'
 }
 
+export type ValidationErrors = {
+  lat?: string
+  long?: string
+  radius?: string
+  page?: string
+  perPage?: string
+  sort?: string
+}
+
 export type SitesState = {
   items: HistoricSite[]
-  page: number
-  perPage: number
+  page: number | string | undefined
+  perPage: number | string | undefined
   total: number
   totalPages: number
   isLoading: boolean
   isNextLoading: boolean
   error: string | null
+  validationErrors: ValidationErrors
   text: string
   city: string
   province: string
   tags: string[]
   favoritesOnly: boolean
-  lat: number | null
-  long: number | null
-  radius: number | null
-  sort: SortOption
+  lat: number | string | null | undefined
+  long: number | string | null | undefined
+  radius: number | string | null | undefined
+  sort: SortOption | string | undefined
 }
 
-function parseNumber(value: unknown): number | null {
-  const n = typeof value === 'string' ? Number(value) : (value as number)
-  return Number.isFinite(n) ? (n as number) : null
-}
-
-function parseSort(sortRaw: string): SortOption {
-  const [field, dir] = sortRaw.split(':')
-  if ((field === 'created_at' || field === 'name' || field === 'rating') && (dir === 'asc' || dir === 'desc')) {
-    return { field, dir } as SortOption
+function validateAndCleanNumber(
+  value: unknown,
+  fieldName: string,
+  min?: number,
+  max?: number
+): { value: number | undefined; error?: string } {
+  if (value === undefined || value === null || value === '') {
+    return { value: undefined }
   }
-  return { field: 'created_at', dir: 'desc' }
+
+  const num = typeof value === 'string' ? Number(value) : Number(value)
+  
+  if (!Number.isFinite(num)) {
+    return { value: undefined, error: `${fieldName} debe ser un número válido` }
+  }
+
+  if (min !== undefined && num < min) {
+    return { value: undefined, error: `${fieldName} debe ser mayor o igual a ${min}` }
+  }
+
+  if (max !== undefined && num > max) {
+    return { value: undefined, error: `${fieldName} debe ser menor o igual a ${max}` }
+  }
+
+  return { value: num }
 }
 
-function sortByName(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
-  return [...items].sort((a, b) => {
-    const an = (a.name || '').toLowerCase()
-    const bn = (b.name || '').toLowerCase()
-    return dir === 'asc' ? an.localeCompare(bn) : bn.localeCompare(an)
-  })
-}
+function validateAndCleanSort(
+  sortValue: string | SortOption | undefined
+): { value: SortOption | string | undefined; error?: string } {
+  if (!sortValue) {
+    return { value: undefined }
+  }
 
-function sortByRating(items: HistoricSite[], dir: 'asc' | 'desc'): HistoricSite[] {
-  // El backend ya calcula y devuelve el rating, solo necesitamos ordenar
-  return [...items].sort((a, b) => {
-    const aRating = a.rating ?? 0
-    const bRating = b.rating ?? 0
-    
-    if (dir === 'asc') {
-      return aRating - bRating
-    } else {
-      return bRating - aRating
+  if (typeof sortValue === 'string') {
+    const parts = sortValue.split(':')
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      const field = parts[0].trim()
+      const dir = parts[1].trim().toLowerCase()
+      
+      const validFields = ['created_at', 'name', 'rating']
+      const validDirs = ['asc', 'desc']
+      
+      if (!validFields.includes(field)) {
+        return { value: sortValue, error: `Campo de ordenamiento inválido. Valores permitidos: ${validFields.join(', ')}` }
+      }
+      
+      if (!validDirs.includes(dir)) {
+        return { value: sortValue, error: `Dirección de ordenamiento inválida. Valores permitidos: ${validDirs.join(', ')}` }
+      }
+      
+      return { value: sortValue }
+    } else if (parts.length === 1 && parts[0]) {
+      return { value: sortValue, error: 'Falta la dirección de ordenamiento (asc o desc)' }
     }
-  })
+  } else if (sortValue.field && sortValue.dir) {
+    const validFields = ['created_at', 'name', 'rating']
+    const validDirs = ['asc', 'desc']
+    
+    if (!validFields.includes(sortValue.field)) {
+      return { value: sortValue, error: `Campo de ordenamiento inválido. Valores permitidos: ${validFields.join(', ')}` }
+    }
+    
+    if (!validDirs.includes(sortValue.dir)) {
+      return { value: sortValue, error: `Dirección de ordenamiento inválida. Valores permitidos: ${validDirs.join(', ')}` }
+    }
+    
+    return { value: sortValue }
+  }
+
+  return { value: sortValue }
 }
 
-function filterSites(
-  items: HistoricSite[],
-  text: string,
-  city: string,
-  province: string,
-  tags: string[]
-): HistoricSite[] {
-  const textLower = text.toLowerCase()
-  return items.filter((s) => {
-    // Filtrar por texto (nombre o descripción)
-    const matchesText = !text ||
-      s.name?.toLowerCase().includes(textLower) ||
-      (s.brief_description || '').toLowerCase().includes(textLower)
-    
-    // Filtrar por ciudad
-    const matchesCity = !city || (s.city || '').toLowerCase() === city.toLowerCase()
-    
-    // Filtrar por provincia
-    const matchesProvince = !province || (s.province || '').toLowerCase() === province.toLowerCase()
-    
-    // Filtrar por tags
-    const matchesTags = !tags.length || tags.every(t => 
-      s.tags?.map(x => x.toLowerCase()).includes(t.toLowerCase())
-    )
-    
-    return matchesText && matchesCity && matchesProvince && matchesTags
-  })
+function cleanString(value: unknown): string {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
 }
 
 
 export const useSitesStore = defineStore('sites', {
   state: (): SitesState => ({
     items: [],
-    page: 1,
-    perPage: 20,
+    page: undefined,
+    perPage: undefined,
     total: 0,
     totalPages: 0,
     isLoading: false,
     isNextLoading: false,
     error: null,
+    validationErrors: {},
     text: '',
     city: '',
     province: '',
     tags: [],
     favoritesOnly: false,
-    lat: null,
-    long: null,
-    radius: null,
-    sort: { field: 'created_at', dir: 'desc' },
+    lat: undefined,
+    long: undefined,
+    radius: undefined,
+    sort: undefined,
   }),
   getters: {
     hasMore(state): boolean {
-      return state.page < state.totalPages
+      if (state.page === undefined || state.page === null) return false
+      const pageNum = typeof state.page === 'number' ? state.page : Number(state.page)
+      if (!Number.isFinite(pageNum)) return false
+      return (pageNum as number) < state.totalPages
     },
     queryParams(state): Record<string, string> {
       const qp: Record<string, string> = {}
@@ -128,40 +156,159 @@ export const useSitesStore = defineStore('sites', {
         qp.long = String(state.long)
       }
       if (state.radius != null) qp.radius = String(state.radius)
+      if (typeof state.sort === 'string') {
+        qp.sort = state.sort
+      } else if (state.sort) {
       qp.sort = `${state.sort.field}:${state.sort.dir}`
+      }
+      if (state.page !== undefined && state.page !== null) {
       qp.page = String(state.page)
+      }
+      if (state.perPage !== undefined && state.perPage !== null) {
       qp.perPage = String(state.perPage)
+      }
       return qp
     },
   },
   actions: {
+    clearValidationErrors() {
+      this.validationErrors = {}
+    },
+    setValidationError(field: keyof ValidationErrors, error: string) {
+      this.validationErrors[field] = error
+    },
+    validateLat(value: unknown): { valid: boolean; error?: string; cleaned?: number } {
+      const result = validateAndCleanNumber(value, 'Latitud', -90, 90)
+      if (result.error) {
+        this.setValidationError('lat', result.error)
+        return { valid: false, error: result.error }
+      }
+      if (result.value !== undefined) {
+        this.lat = result.value
+        delete this.validationErrors.lat
+        return { valid: true, cleaned: result.value }
+      }
+      this.lat = undefined
+      delete this.validationErrors.lat
+      return { valid: true }
+    },
+    validateLong(value: unknown): { valid: boolean; error?: string; cleaned?: number } {
+      const result = validateAndCleanNumber(value, 'Longitud', -180, 180)
+      if (result.error) {
+        this.setValidationError('long', result.error)
+        return { valid: false, error: result.error }
+      }
+      if (result.value !== undefined) {
+        this.long = result.value
+        delete this.validationErrors.long
+        return { valid: true, cleaned: result.value }
+      }
+      this.long = undefined
+      delete this.validationErrors.long
+      return { valid: true }
+    },
+    validateRadius(value: unknown): { valid: boolean; error?: string; cleaned?: number } {
+      const result = validateAndCleanNumber(value, 'Radio', 100, 50000)
+      if (result.error) {
+        this.setValidationError('radius', result.error)
+        return { valid: false, error: result.error }
+      }
+      if (result.value !== undefined) {
+        this.radius = result.value
+        delete this.validationErrors.radius
+        return { valid: true, cleaned: result.value }
+      }
+      this.radius = undefined
+      delete this.validationErrors.radius
+      return { valid: true }
+    },
     fromRouteQuery(query: Record<string, string | string[] | null | undefined>) {
-      this.text = (query.q as string) || ''
-      this.city = (query.city as string) || ''
-      this.province = (query.province as string) || ''
-      const rawTags = (query.tags as string) || ''
+      this.clearValidationErrors()
+      this.text = cleanString(query.q)
+      this.city = cleanString(query.city)
+      this.province = cleanString(query.province)
+      const rawTags = cleanString(query.tags)
       this.tags = rawTags ? rawTags.split(',').map(t => t.trim()).filter(Boolean) : []
       this.favoritesOnly = (query.fav as string) === '1'
-      this.lat = parseNumber(query.lat)
-      this.long = parseNumber(query.long)
-      this.radius = parseNumber(query.radius)
-      this.sort = parseSort((query.sort as string) || 'created_at:desc')
-      this.page = parseNumber(query.page) ?? 1
-      this.perPage = parseNumber(query.perPage) ?? 20
+      
+      const latResult = validateAndCleanNumber(query.lat, 'Latitud', -90, 90)
+      this.lat = latResult.value
+      if (latResult.error && query.lat !== undefined && query.lat !== null && query.lat !== '') {
+        this.setValidationError('lat', latResult.error)
+      }
+      
+      const longResult = validateAndCleanNumber(query.long, 'Longitud', -180, 180)
+      this.long = longResult.value
+      if (longResult.error && query.long !== undefined && query.long !== null && query.long !== '') {
+        this.setValidationError('long', longResult.error)
+      }
+      
+      const radiusResult = validateAndCleanNumber(query.radius, 'Radio', 100, 50000)
+      this.radius = radiusResult.value
+      if (radiusResult.error && query.radius !== undefined && query.radius !== null && query.radius !== '') {
+        this.setValidationError('radius', radiusResult.error)
+      }
+      
+      const pageResult = validateAndCleanNumber(query.page, 'Página', 1)
+      this.page = pageResult.value
+      if (pageResult.error && query.page !== undefined && query.page !== null && query.page !== '') {
+        this.setValidationError('page', pageResult.error)
+      }
+      
+      const perPageResult = validateAndCleanNumber(query.perPage, 'Elementos por página', 1, 100)
+      this.perPage = perPageResult.value
+      if (perPageResult.error && query.perPage !== undefined && query.perPage !== null && query.perPage !== '') {
+        this.setValidationError('perPage', perPageResult.error)
+      }
+      
+      const sortResult = validateAndCleanSort(query.sort as string | undefined)
+      this.sort = sortResult.value
+      if (sortResult.error && query.sort !== undefined && query.sort !== null && query.sort !== '') {
+        this.setValidationError('sort', sortResult.error)
+      }
     },
     toSearchParams(): SiteSearchParams {
+      let orderBy: 'created_at' | 'name' | 'rating' | undefined = undefined
+      let orderDir: 'asc' | 'desc' | undefined = undefined
+      
+      if (typeof this.sort === 'string') {
+        const parts = this.sort.split(':')
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          const field = parts[0].trim()
+          const dir = parts[1].trim().toLowerCase()
+          if (['created_at', 'name', 'rating'].includes(field) && ['asc', 'desc'].includes(dir)) {
+            orderBy = field as 'created_at' | 'name' | 'rating'
+            orderDir = dir as 'asc' | 'desc'
+          }
+        } else if (parts.length === 1 && parts[0]) {
+          const field = parts[0].trim()
+          if (['created_at', 'name', 'rating'].includes(field)) {
+            orderBy = field as 'created_at' | 'name' | 'rating'
+          }
+        }
+      } else if (this.sort) {
+        orderBy = this.sort.field
+        orderDir = this.sort.dir
+      }
+      
+      const convertToNumber = (value: number | string | undefined): number | undefined => {
+        if (value === undefined || value === null) return undefined
+        const num = typeof value === 'number' ? value : Number(value)
+        return isNaN(num) ? undefined : num
+      }
+      
       return {
         text: this.text || undefined,
         city: this.city || null,
         province: this.province || null,
         tags: this.tags.length ? this.tags : null,
-        orderBy: this.sort.field,
-        orderDir: this.sort.dir,
-        lat: this.lat,
-        long: this.long,
-        radius: this.radius,
-        page: this.page,
-        perPage: this.perPage,
+        orderBy,
+        orderDir,
+        lat: convertToNumber(this.lat) ?? null,
+        long: convertToNumber(this.long) ?? null,
+        radius: convertToNumber(this.radius) ?? null,
+        page: convertToNumber(this.page),
+        perPage: convertToNumber(this.perPage),
         favoritesOnly: this.favoritesOnly,
       }
     },
@@ -171,22 +318,34 @@ export const useSitesStore = defineStore('sites', {
       this.province = ''
       this.tags = []
       this.favoritesOnly = false
-      this.lat = null
-      this.long = null
-      this.radius = null
-      this.sort = { field: 'created_at', dir: 'desc' }
-      this.page = 1
+      this.lat = undefined
+      this.long = undefined
+      this.radius = undefined
+      this.sort = undefined
+      this.page = undefined
+      this.perPage = undefined
+      this.clearValidationErrors()
     },
     async loadFirstPage() {
-      this.page = 1
+      this.page = undefined
       await this.loadPage(true)
     },
     async loadNextPage() {
       if (!this.hasMore || this.isLoading || this.isNextLoading) return
-      this.page += 1
+      const currentPage = typeof this.page === 'number' ? this.page : (typeof this.page === 'string' ? Number(this.page) : 1)
+      this.page = currentPage + 1
       await this.loadPage(false)
     },
     async loadPage(replace: boolean) {
+      if (Object.keys(this.validationErrors).length > 0) {
+        if (replace) {
+          this.isLoading = false
+        } else {
+          this.isNextLoading = false
+        }
+        return
+      }
+      
       if (replace) {
         this.isLoading = true
         this.error = null
@@ -195,90 +354,10 @@ export const useSitesStore = defineStore('sites', {
       }
       try {
         const params = this.toSearchParams()
-        let response: PaginatedResponse<HistoricSite>
-        
-        // Si hay filtros de mapa (lat/long/radius), siempre usar fetchPublicSites
-        // porque fetchMyFavorites no soporta filtros de ubicación
-        const hasMapFilters = this.lat != null && this.long != null && this.radius != null
-        
-        if (this.favoritesOnly && !hasMapFilters) {
-          // Solo usar fetchMyFavorites si NO hay filtros de mapa
-          // (para mantener compatibilidad con el comportamiento anterior)
-          try {
-            // Obtener todos los favoritos del usuario
-            let allFavoritesItems: HistoricSite[] = []
-            const perPage = 100
-            let totalPages = 1
-            
-            const firstPage = await fetchMyFavorites(1, perPage)
-            allFavoritesItems = [...firstPage.items]
-            totalPages = firstPage.total_pages
-            
-            if (totalPages > 1) {
-              const remainingPages = []
-              for (let page = 2; page <= totalPages; page++) {
-                remainingPages.push(fetchMyFavorites(page, perPage))
-              }
-              const remainingResults = await Promise.all(remainingPages)
-              for (const result of remainingResults) {
-                allFavoritesItems = [...allFavoritesItems, ...result.items]
-              }
-            }
-            
-            // Aplicar filtros adicionales (texto, ciudad, provincia, tags)
-            let filtered = filterSites(
-              allFavoritesItems,
-              this.text,
-              this.city,
-              this.province,
-              this.tags
-            )
-            
-            // Aplicar ordenamiento si es necesario
-            // Para favoritos, obtenemos todos y luego filtramos/ordenamos en el frontend
-            if (this.sort.field === 'name') {
-              filtered = sortByName(filtered, this.sort.dir)
-            } else if (this.sort.field === 'rating') {
-              // Ordenar por rating (el backend ya lo calcula, solo ordenamos aquí)
-              filtered = sortByRating(filtered, this.sort.dir)
-            }
-            
-            // Aplicar paginación
-            const resultPerPage = params.perPage ?? 20
-            const resultCurrentPage = params.page ?? 1
-            const startIndex = (resultCurrentPage - 1) * resultPerPage
-            const endIndex = startIndex + resultPerPage
-            const paginatedItems = filtered.slice(startIndex, endIndex)
-            
-            response = {
-              items: paginatedItems,
-              total: filtered.length,
-              total_pages: Math.max(1, Math.ceil(filtered.length / resultPerPage)),
-              page: resultCurrentPage,
-              per_page: resultPerPage
-            }
-          } catch (authError: any) {
-            if (authError?.message?.includes('401') || authError?.message?.includes('autenticado')) {
-              this.favoritesOnly = false
-              response = await fetchPublicSites({ ...params, favoritesOnly: false })
-            } else {
-              throw authError
-            }
-          }
-        } else {
-          // Usar fetchPublicSites cuando hay filtros de mapa o cuando no hay favoritos
-          // El backend ahora soporta favoritesOnly combinado con otros filtros
-          response = await fetchPublicSites(params)
-          
-          // El ordenamiento por rating ahora se hace en el backend
-          // Solo ordenamos por nombre en el frontend si es necesario
-          if (this.sort.field === 'name') {
-            response.items = sortByName(response.items, this.sort.dir)
-          }
-        }
-        
-        let pageItems = response.items
-        
+        let response: PaginatedResponse<HistoricSite> = await fetchPublicSites(params)
+
+        const pageItems = response.items
+
         if (replace) {
           this.items = pageItems
         } else {
@@ -286,8 +365,53 @@ export const useSitesStore = defineStore('sites', {
         }
         this.total = response.total
         this.totalPages = response.total_pages
-      } catch (e: any) {
-        this.error = e?.message || 'Error al cargar sitios'
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Error al cargar sitios'
+        this.error = errorMessage
+        
+        try {
+          if (errorMessage.includes('validation') || errorMessage.includes('inválido') || errorMessage.includes('Invalid')) {
+            const errorData = (error as { response?: unknown; data?: unknown })?.response || (error as { data?: unknown })?.data
+            if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+              const errorObj = errorData.error as { details?: Record<string, unknown> }
+              if (errorObj?.details) {
+                const details = errorObj.details
+                
+                const extractError = (value: unknown): string | undefined => {
+                  if (Array.isArray(value) && value.length > 0) {
+                    return String(value[0])
+                  }
+                  if (typeof value === 'string') {
+                    return value
+                  }
+                  return undefined
+                }
+                
+                const orderByError = extractError(details.order_by)
+                if (orderByError) {
+                  this.setValidationError('sort', orderByError)
+                }
+                
+                const radiusError = extractError(details.radius)
+                if (radiusError) {
+                  this.setValidationError('radius', radiusError)
+                }
+                
+                const latError = extractError(details.lat)
+                if (latError) {
+                  this.setValidationError('lat', latError)
+                }
+                
+                const longError = extractError(details.long || details.longitude)
+                if (longError) {
+                  this.setValidationError('long', longError)
+                }
+              }
+            }
+          }
+        } catch (parseError) {
+          console.warn('Error al parsear detalles de validación:', parseError)
+        }
       } finally {
         this.isLoading = false
         this.isNextLoading = false

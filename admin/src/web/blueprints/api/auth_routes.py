@@ -1,4 +1,3 @@
-# src/web/routes/login_routes.py
 from datetime import datetime, timedelta, timezone
 import jwt
 import secrets
@@ -11,7 +10,6 @@ from src.core.services.auth_service import auth_service
 from src.web.auth.decorators import get_current_user, token_or_session_required
 
 login_bp = Blueprint("login_bp", __name__)
-
 
 def _build_jwt_for_user(user):
     """
@@ -47,11 +45,9 @@ def _authenticate_user(user):
     Returns:
         tuple: (jwt_token, expires_in)
     """
-    # Mantener compatibilidad con sesión existente (panel web/admin)
     session['user_id'] = user.id
     session.permanent = True
     
-    # Generar JWT para la autenticación
     jwt_token, expires_in = _build_jwt_for_user(user)
     return jwt_token, expires_in
 
@@ -75,9 +71,6 @@ def _set_jwt_cookie(response, jwt_token, expires_in):
         jwt_token: Token JWT a guardar
         expires_in: Segundos hasta la expiración
     """
-    # Calcular la fecha de expiración usando timezone.utc (no deprecated)
-    expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-    
     expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
     is_production = current_app.config.get('ENV') == 'production' or not current_app.debug
     
@@ -116,9 +109,9 @@ def _clear_jwt_cookie(response):
     """
     response.set_cookie(
         'access_token',
-        '',                       # Valor vacío
-        max_age=0,                # Expira inmediatamente
-        expires=0,                # Fecha pasada
+        '',                   
+        max_age=0,              
+        expires=0,               
         httponly=True,
         secure=current_app.config.get('SESSION_COOKIE_SECURE', False),
         samesite='Lax',
@@ -190,10 +183,8 @@ def google_login():
     El redirect_uri apunta al frontend, no al backend.
     """
     frontend_url = _get_frontend_url()
-    # El callback será manejado por el frontend en /auth/callback
-    # IMPORTANTE: Normalizar la URL (sin trailing slash) para que coincida exactamente
-    redirect_uri = f"{frontend_url.rstrip('/')}/auth/callback"
     
+    redirect_uri = f"{frontend_url.rstrip('/')}/auth/callback"
     session['oauth_redirect_uri'] = redirect_uri
     state = secrets.token_urlsafe(32)
     session['oauth_state'] = state
@@ -323,9 +314,9 @@ def google_exchange():
             "expires_in": expires_in
         }))
         _set_jwt_cookie(response, jwt_token, expires_in)
-        
+
         return response
-        
+
     except exc.AuthenticationError as e:
         return _error_response(
             code="google_auth_failed",
@@ -349,7 +340,6 @@ def google_callback():
     Callback de Google OAuth (mantenido para compatibilidad, pero ya no se usa en el nuevo flujo).
     Este endpoint puede mantenerse para otros usos o eliminarse si no es necesario.
     """
-    # Este endpoint ya no se usa en el nuevo flujo, pero lo mantenemos por compatibilidad
     return _error_response(
         code="deprecated_endpoint",
         message="Este endpoint está deprecado. Use /google/exchange en su lugar.",

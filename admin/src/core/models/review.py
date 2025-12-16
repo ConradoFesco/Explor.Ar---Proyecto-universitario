@@ -13,13 +13,11 @@ class HistoricSiteReview(db.Model):
     content = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
     rejection_reason = db.Column(db.String(200), nullable=True)
-    
-    # Relaciones
-    # user: relación con User
-    user = db.relationship('User', foreign_keys=[user_id], lazy='joined')
-    # site: ya está definido como backref desde HistoricSite.reviews, no necesitamos definirlo aquí  
-    
+
+    user = db.relationship('User', foreign_keys=[user_id], lazy='joined', overlaps='reviews')
+
     def __repr__(self) -> str:
         return f'<HistoricSiteReview site={self.site_id} user={self.user_id} rating={self.rating}>'
 
@@ -32,5 +30,5 @@ class HistoricSiteReview(db.Model):
             'content': self.content,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
-

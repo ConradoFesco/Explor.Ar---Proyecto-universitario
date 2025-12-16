@@ -1,6 +1,7 @@
 from src.web.extensions import db
 from typing import Dict, Any
 
+
 class Province(db.Model):
     __tablename__ = 'Province'
     
@@ -8,7 +9,6 @@ class Province(db.Model):
     name = db.Column(db.String)
     deleted = db.Column(db.Boolean, default=False)
     
-    # Relaciones
     cities = db.relationship('City', backref='province', lazy=True)
     
     def __repr__(self) -> str:
